@@ -22,11 +22,11 @@ export interface ParametrizedRecording {
   vars: FlowVar[]
 }
 
-/** 生成不与现有变量重名的变量名：input1 / input2 … */
-function nextVarName(used: Set<string>): string {
-  let n = used.size + 1
+/** 生成不与已有变量重名的变量名：input1 / scrollDelta1 … */
+function nextVarName(used: Set<string>, base: string): string {
+  let n = 1
   for (;;) {
-    const name = `input${n}`
+    const name = `${base}${n}`
     if (!used.has(name)) {
       used.add(name)
       return name
@@ -37,7 +37,9 @@ function nextVarName(used: Set<string>): string {
 
 /**
  * 把录制指令参数化。existingVars 用于避开流程已有变量名。
- * 返回新步骤（params 已替换）与新增变量（默认值=录制到的文本）。
+ * - typeText.text → string 变量；
+ * - scroll.delta / x / y（数值）→ number 变量（M3 切片 11）。
+ * 返回新步骤（params 已替换）与新增变量（默认值=录制到的值）。
  */
 export function parameterizeRecording(
   instructions: RecordedInstruction[],
@@ -53,9 +55,25 @@ export function parameterizeRecording(
       params.text.length > 0 &&
       !params.text.includes('${')
     ) {
-      const name = nextVarName(used)
+      const name = nextVarName(used, 'input')
       vars.push({ name, type: 'string', value: params.text })
       params.text = `\${${name}}`
+    }
+    // M3 切片 11：滚动量与坐标兜底位置抽为 number 变量
+    if (ins.cmdId === 'scroll') {
+      const numFields: Array<[key: string, base: string]> = [
+        ['delta', 'scrollDelta'],
+        ['x', 'scrollX'],
+        ['y', 'scrollY']
+      ]
+      for (const [key, base] of numFields) {
+        const v = params[key]
+        if (typeof v === 'number' && Number.isFinite(v)) {
+          const name = nextVarName(used, base)
+          vars.push({ name, type: 'number', value: v })
+          params[key] = `\${${name}}`
+        }
+      }
     }
     return { cmdId: ins.cmdId, params }
   })

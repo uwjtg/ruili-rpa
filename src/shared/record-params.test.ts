@@ -45,3 +45,28 @@ describe('parameterizeRecording（M3 切片 9）', () => {
     expect(steps[0].params.text).toBe('')
   })
 })
+
+describe('parameterizeRecording scroll 数值参数化（M3 切片 11）', () => {
+  it('把 scroll 的 delta/x/y 抽成 number 变量并替换为插值引用', () => {
+    const { steps, vars } = parameterizeRecording([
+      ins('scroll', 'scroll', { delta: 120, target: null, x: 200, y: 300 })
+    ])
+    expect(vars).toEqual([
+      { name: 'scrollDelta1', type: 'number', value: 120 },
+      { name: 'scrollX1', type: 'number', value: 200 },
+      { name: 'scrollY1', type: 'number', value: 300 }
+    ])
+    expect(steps[0].params.delta).toBe('${scrollDelta1}')
+    expect(steps[0].params.x).toBe('${scrollX1}')
+    expect(steps[0].params.y).toBe('${scrollY1}')
+  })
+
+  it('scroll 缺 x/y 时只参数化存在的数值；非数字不抽', () => {
+    const { steps, vars } = parameterizeRecording([
+      ins('scroll', 'scroll', { delta: -240, x: 'now-str' })
+    ])
+    expect(vars.map((v) => v.name)).toEqual(['scrollDelta1'])
+    expect(steps[0].params.delta).toBe('${scrollDelta1}')
+    expect(steps[0].params.x).toBe('now-str')
+  })
+})

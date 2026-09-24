@@ -274,6 +274,23 @@ describe('desktop 指令（stub 回放客户端）', () => {
     expect(scroll).toHaveBeenCalledWith({ target: null, delta: 120, x: undefined, y: undefined })
   })
 
+  it('scroll 的 delta/x/y 支持 ${var} 插值（M3 切片 11）', async () => {
+    const { desktop, scroll } = fakeDesktop()
+    const reg = new CommandRegistry()
+    registerDesktopCommands(reg, { desktop })
+    const { ctx, vars } = makeCtx()
+    vars.set('scrollDelta1', 240)
+    vars.set('scrollX1', 500)
+
+    await reg.get('scroll')!.runner(
+      ctx,
+      { target: '', delta: '${scrollDelta1}', x: '${scrollX1}', y: '${scrollY1}' },
+      { id: 's1', cmdId: 'scroll', params: {} }
+    )
+    // scrollY1 未定义 → 插值为空 → undefined
+    expect(scroll).toHaveBeenCalledWith({ target: null, delta: 240, x: 500, y: undefined })
+  })
+
   it('scroll delta 非法抛错、回放失败抛错', async () => {
     const { desktop, scroll } = fakeDesktop()
     scroll.mockResolvedValueOnce({ ok: false, error: 'scroll_failed' })

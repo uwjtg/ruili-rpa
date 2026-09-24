@@ -194,13 +194,17 @@ export function registerDesktopCommands(
       const raw =
         typeof p.target === 'string' ? ctx.interpolate(p.target) : p.target
       const target = parseTargetParam(raw)
-      const delta = Math.trunc(Number(p.delta ?? 120))
+      // M3 切片 11：delta / x / y 可能是 ${var} 引用（录制参数化），先插值
+      const deltaRaw = typeof p.delta === 'string' ? ctx.interpolate(p.delta) : p.delta
+      const delta = Math.trunc(Number(deltaRaw ?? 120))
       if (!Number.isFinite(delta)) {
         throw new Error('scroll 的 delta 参数无效')
       }
       // 录制坐标兜底：target 为空时回退到录制位置的屏幕坐标
-      const x = p.x != null && p.x !== '' ? Math.trunc(Number(p.x)) : undefined
-      const y = p.y != null && p.y !== '' ? Math.trunc(Number(p.y)) : undefined
+      const xRaw = typeof p.x === 'string' ? ctx.interpolate(p.x) : p.x
+      const yRaw = typeof p.y === 'string' ? ctx.interpolate(p.y) : p.y
+      const x = xRaw != null && xRaw !== '' ? Math.trunc(Number(xRaw)) : undefined
+      const y = yRaw != null && yRaw !== '' ? Math.trunc(Number(yRaw)) : undefined
       ctx.log('info', `滚动鼠标（${delta > 0 ? '向上' : '向下'} ${Math.abs(delta)}）`)
       const r = await desktop.scroll({ target, delta, x, y })
       if (!r.ok) {
