@@ -13,6 +13,7 @@ import AiPanel from './editor/AiPanel'
 import ElementPanel from './editor/ElementPanel'
 import type { PickedElement } from '../../../shared/desktop-pick'
 import type { RecordedInstruction } from '../../../shared/desktop-record'
+import { parameterizeRecording } from '../../../shared/record-params'
 import {
   buildInitialFlow,
   countSteps,
@@ -499,16 +500,21 @@ export default function EditorView(): JSX.Element {
     }
   }
 
-  /** 把录制指令追加为流程步骤（对象参数序列化为 JSON；全部追加到末尾，单次 commit） */
+  /** 把录制指令追加为流程步骤（M3 切片 9：typeText 文本抽成流程变量；对象参数序列化为 JSON；全部追加到末尾，单次 commit） */
   function appendRecordedSteps(instructions: RecordedInstruction[]): void {
     if (instructions.length === 0) {
       push('sys', '未录制到任何操作（没有可聚合的点击 / 输入 / 滚动）')
       return
     }
+    // 把硬编码文本抽成流程变量（默认值=录到的文本），步骤改为 ${var} 引用
+    const { steps: parametrized, vars: newVars } = parameterizeRecording(
+      instructions,
+      activeTab.flow.vars
+    )
     // 逐条生成唯一 id：nextStepId 基于"已含前序新步骤"的数组递增，避免同基重复
     let idSource = activeTab.flow.steps
     const steps: StepNode[] = []
-    for (const ins of instructions) {
+    for (const ins of parametrized) {
       const params: Record<string, unknown> = { ...ins.params }
       for (const [k, v] of Object.entries(params)) {
         if (v && typeof v === 'object') params[k] = JSON.stringify(v)
@@ -520,8 +526,19 @@ export default function EditorView(): JSX.Element {
     // insertAfter(null) 追加到末尾；后续步骤按录制顺序续排
     const merged = insertAfter(activeTab.flow.steps, null, steps[0])
     for (let i = 1; i < steps.length; i++) merged.push(steps[i])
-    commit({ ...activeTab.flow, steps: merged })
+    const flow: FlowDoc = {
+      ...activeTab.flow,
+      steps: merged,
+      vars: [...activeTab.flow.vars, ...newVars]
+    }
+    commit(flow)
     patchTab(activeTab.tabId, { selectedId: steps[0].id })
+    if (newVars.length > 0) {
+      push(
+        'sys',
+        `已把 ${newVars.length} 段输入文本抽为流程变量（${newVars.map((v) => v.name).join('、')}），可在右侧「变量」面板修改`
+      )
+    }
   }
 
   /** AI 生成成功：把 FlowDoc 打开为新标签 */
