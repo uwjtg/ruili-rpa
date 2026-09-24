@@ -273,7 +273,7 @@ ipcMain.handle('elements:verify', async (_e, id: string) => {
 
 /* ---------- 桌面智能录制（M3 切片 3）：观察式录制 → 指令序列 ---------- */
 const recordController = new RecordController(() => mainWindow)
-ipcMain.handle('record:start', (_e, targetPid?: number) => recordController.start(targetPid))
+ipcMain.handle('record:start', (_e, targetPid?: number, thresholds?: { clickDebounceMs?: number; clickDebouncePx?: number; typingGapMs?: number; scrollGapMs?: number }) => recordController.start(targetPid, thresholds))
 ipcMain.handle('record:stop', () => recordController.stop())
 // M3 切片 6：圈定录制窗口——复用拾取框点选目标窗口，返回其顶层进程 PID（后续 record:start 传入）
 ipcMain.handle('record:pickTargetWindow', async () => {

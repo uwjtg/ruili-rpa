@@ -22,11 +22,13 @@ import { saveElement } from './store/db'
 export class RecordController {
   constructor(private readonly getWindow: () => BrowserWindow | null) {}
 
-  /** 开启录制：sidecar 观察模式钩子就绪后立即返回（不阻塞用户操作） */
-  async start(targetPid?: number): Promise<RecordStartReply> {
+  /** 开启录制：sidecar 观察模式钩子就绪后立即返回（不阻塞用户操作）；thresholds 聚合阈值（M3 切片 8） */
+  async start(targetPid?: number, thresholds?: {
+    clickDebounceMs?: number; clickDebouncePx?: number; typingGapMs?: number; scrollGapMs?: number
+  }): Promise<RecordStartReply> {
     try {
       const client = await ensureSidecar()
-      return await client.recordStart(process.pid, targetPid)
+      return await client.recordStart(process.pid, targetPid, thresholds)
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) }
     }

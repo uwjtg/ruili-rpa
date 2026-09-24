@@ -18,7 +18,7 @@
   POST /desktop/type_text      body {"text": str} -> {"ok": true} | 400
   POST /desktop/scroll         body {"target"?: {...}, "x"?: int, "y"?: int, "delta": int} -> {"ok": true} | 400
   POST /desktop/press_key      body {"keys": str} -> {"ok": true} | 400 | 500
-  POST /record/start           body {"app_pid"?: int, "target_pid"?: int} -> {"ok": true, "started": true} | 400 already_recording
+  POST /record/start           body {"app_pid"?: int, "target_pid"?: int, "thresholds"?: object} -> {"ok": true, "started": true} | 400 already_recording
   POST /record/stop            body {} -> {"ok": true, "instructions": [...]} | 400 not_recording
 
 启动时向 stdout 打印一行 `SIDECAR_READY port=<port>`，供 Node 侧同步握手。
@@ -286,8 +286,12 @@ class Handler(BaseHTTPRequestHandler):
             except (TypeError, ValueError):
                 self._send_json(400, {"ok": False, "error": "target_pid_invalid"})
                 return
+            thresholds = body.get("thresholds")
+            if thresholds is not None and not isinstance(thresholds, dict):
+                self._send_json(400, {"ok": False, "error": "thresholds_invalid"})
+                return
             try:
-                started = _RECORDER.start(app_pid, target_pid)
+                started = _RECORDER.start(app_pid, target_pid, thresholds)
             except Exception as e:  # noqa: BLE001
                 self._send_json(500, {"ok": False, "error": f"record_start_failed: {e}"})
                 return

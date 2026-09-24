@@ -120,10 +120,11 @@ const api = {
     pickTargetWindow: (): Promise<
       { ok: true; pid: number; title: string } | { ok: false; error: string }
     > => ipcRenderer.invoke('record:pickTargetWindow'),
-    /** 开启录制：sidecar 钩子就绪后立即返回；targetPid 圈定目标窗口进程（可选） */
+    /** 开启录制：sidecar 钩子就绪后立即返回；targetPid 圈定目标窗口进程（可选）；thresholds 聚合阈值（可选，M3 切片 8） */
     start: (
-      targetPid?: number
-    ): Promise<RecordStartReply> => ipcRenderer.invoke('record:start', targetPid),
+      targetPid?: number,
+      thresholds?: { clickDebounceMs?: number; clickDebouncePx?: number; typingGapMs?: number; scrollGapMs?: number }
+    ): Promise<RecordStartReply> => ipcRenderer.invoke('record:start', targetPid, thresholds),
     /** 结束录制：返回聚合指令序列（元素已写入元素库） */
     stop: (): Promise<RecordStopReply> => ipcRenderer.invoke('record:stop'),
     /** 订阅录制结束事件（与 stop() 返回一致），返回取消订阅函数 */

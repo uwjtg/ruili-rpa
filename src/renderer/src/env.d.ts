@@ -85,7 +85,7 @@ declare global {
         pickTargetWindow: () => Promise<
           { ok: true; pid: number; title: string } | { ok: false; error: string }
         >
-        start: (targetPid?: number) => Promise<RecordStartReply>
+        start: (targetPid?: number, thresholds?: { clickDebounceMs?: number; clickDebouncePx?: number; typingGapMs?: number; scrollGapMs?: number }) => Promise<RecordStartReply>
         stop: () => Promise<RecordStopReply>
         onResult: (cb: (r: RecordStopReply) => void) => () => void
       }

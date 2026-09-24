@@ -286,13 +286,31 @@ export class SidecarClient {
     }
   }
 
-  /** 开启桌面智能录制（观察不吞输入；appPid 排除自身；targetPid 圈定目标窗口进程，M3 切片 6） */
-  async recordStart(appPid?: number, targetPid?: number): Promise<RecordStartReply> {
+  /** 聚合阈值覆盖（M3 切片 8）；缺省沿用 sidecar 默认 */
+  recordThresholds?: {
+    clickDebounceMs?: number
+    clickDebouncePx?: number
+    typingGapMs?: number
+    scrollGapMs?: number
+  }
+  /** 开启桌面智能录制（观察不吞输入；appPid 排除自身；targetPid 圈定目标窗口进程，M3 切片 6；thresholds 聚合阈值，M3 切片 8） */
+  async recordStart(appPid?: number, targetPid?: number, thresholds?: {
+    clickDebounceMs?: number; clickDebouncePx?: number; typingGapMs?: number; scrollGapMs?: number
+  }): Promise<RecordStartReply> {
     try {
+      const body: Record<string, unknown> = { app_pid: appPid ?? 0, target_pid: targetPid ?? 0 }
+      if (thresholds) {
+        body.thresholds = {
+          click_debounce_ms: thresholds.clickDebounceMs,
+          click_debounce_px: thresholds.clickDebouncePx,
+          typing_gap_ms: thresholds.typingGapMs,
+          scroll_gap_ms: thresholds.scrollGapMs
+        }
+      }
       const res = await fetch(`${this.baseUrl}/record/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ app_pid: appPid ?? 0, target_pid: targetPid ?? 0 })
+        body: JSON.stringify(body)
       })
       return (await res.json()) as RecordStartReply
     } catch (e) {

@@ -387,11 +387,11 @@ class _FakeRecorder:
         self.instructions = instructions or []
         self.start_args = None
 
-    def start(self, app_pid=0, target_pid=0):
+    def start(self, app_pid=0, target_pid=0, thresholds=None):
         if self.started:
             return False
         self.started = True
-        self.start_args = (app_pid, target_pid)
+        self.start_args = (app_pid, target_pid, thresholds)
         return True
 
     def stop(self):
@@ -693,3 +693,53 @@ def test_element_to_dict_records_window_bounding_box():
     assert sig["boundingBox"] == {"x": 150, "y": 250, "width": 50, "height": 30}
     # M3 切片 7：记录时顶层窗口矩形
     assert sig["windowBoundingBox"] == {"x": 100, "y": 200, "width": 400, "height": 200}
+
+
+# ---------- M3 切片 8：聚合阈值可配置 ----------
+
+def test_apply_thresholds_overrides_defaults_and_ignores_invalid():
+    rec = _make_recorder()
+    assert rec._thr["typing_gap_ms"] == 800
+    rec._apply_thresholds({
+        "typing_gap_ms": 1500,
+        "click_debounce_ms": 200,
+        "bogus_key": 99,
+        "negative": -5,
+        "not_a_number": "abc",
+    })
+    assert rec._thr["typing_gap_ms"] == 1500
+    assert rec._thr["click_debounce_ms"] == 200
+    # 非法键/负数/非数字被忽略，仍为默认
+    assert rec._thr["scroll_gap_ms"] == 400
+    assert rec._apply_thresholds(None) is None  # None 不报错
+
+
+def test_typing_gap_override_changes_segmentation():
+    """把 typing_gap_ms 调小到 50ms → 0.1s 间隔也会分段。"""
+    rec = _make_recorder()
+    rec._t0 = 0.0
+    rec._apply_thresholds({"typing_gap_ms": 50})
+    ins = rec._aggregate(
+        [
+            ("key", 0.1, 0x68, 0, 0),  # h
+            ("key", 0.2, 0x65, 0, 0),  # e
+            ("key", 0.3, 0x6C, 0, 0),  # l
+        ]
+    )
+    types = [i["params"]["text"] for i in ins if i["kind"] == "type"]
+    # 默认 800ms 会聚成 "hel"；调到 50ms 后每字符一段
+    assert types == ["h", "e", "l"]
+
+
+def test_click_debounce_override_merges_close_clicks():
+    """默认 350ms 防抖：两次间隔 0.1s 的同位置点击合并为一次。"""
+    rec = _make_recorder()
+    rec._t0 = 0.0
+    ins = rec._aggregate(
+        [
+            ("click", 0.1, 100, 100),
+            ("click", 0.2, 100, 100),  # 间隔 0.1s < 350ms → 合并
+        ]
+    )
+    clicks = [i for i in ins if i["kind"] == "click"]
+    assert len(clicks) == 1

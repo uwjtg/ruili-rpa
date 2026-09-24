@@ -1616,21 +1616,47 @@ class DesktopRecorder:
         self._app_pid = 0
         self._target_pid = 0  # M3 切片 6：圈定录制目标窗口进程（只保留该 PID 的事件）
         self._t0 = 0.0
+        # M3 切片 8：聚合阈值可配置（默认模块常量；start 时可被 thresholds 覆盖）
+        self._thr = {
+            "click_debounce_ms": CLICK_DEBOUNCE_MS,
+            "click_debounce_px": CLICK_DEBOUNCE_PX,
+            "typing_gap_ms": TYPING_GAP_MS,
+            "scroll_gap_ms": SCROLL_GAP_MS,
+        }
 
     # ---------- 状态 / 生命周期 ----------
+    def _apply_thresholds(self, thresholds: Any) -> None:
+        """把调用方传入的聚合阈值覆盖进 self._thr；非法/缺键静默沿用默认值。"""
+        if not isinstance(thresholds, dict):
+            return
+        for key in self._thr:
+            raw = thresholds.get(key)
+            if raw is None:
+                continue
+            try:
+                val = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if val < 0:
+                continue
+            self._thr[key] = val
+
     def is_recording(self) -> bool:
         return self._recording and self._hook is not None and self._hook.is_alive()
 
-    def start(self, app_pid: int = 0, target_pid: int = 0) -> bool:
+    def start(self, app_pid: int = 0, target_pid: int = 0, thresholds: Optional[dict] = None) -> bool:
         """开启录制（观察模式，不吞输入）。已在录制中返回 False。
 
         app_pid: 自身进程 PID（其事件一律过滤，避免录到编辑器按钮）；
         target_pid: 圈定的目标窗口进程 PID（M3 切片 6）；非 0 时只保留该 PID 的事件，
-          其余窗口/进程的操作一律过滤，消除误录噪声。
+          其余窗口/进程的操作一律过滤，消除误录噪声；
+        thresholds: 聚合阈值覆盖（M3 切片 8），可含 click_debounce_ms/px、typing_gap_ms、
+          scroll_gap_ms；缺失键沿用默认常量。
         """
         with self._lock:
             if self._recording:
                 return False
+            self._apply_thresholds(thresholds)
             self._t0 = time.monotonic()
             self._app_pid = app_pid
             self._target_pid = target_pid
@@ -1720,9 +1746,9 @@ class DesktopRecorder:
                     continue  # 点到自己应用（编辑器按钮）→ 过滤杂音
                 if (
                     last_click
-                    and ts - last_click[0] <= CLICK_DEBOUNCE_MS / 1000.0
-                    and abs(x - last_click[1]) < CLICK_DEBOUNCE_PX
-                    and abs(y - last_click[2]) < CLICK_DEBOUNCE_PX
+                    and ts - last_click[0] <= self._thr["click_debounce_ms"] / 1000.0
+                    and abs(x - last_click[1]) < self._thr["click_debounce_px"]
+                    and abs(y - last_click[2]) < self._thr["click_debounce_px"]
                 ):
                     continue  # 双击/连点防抖：合并为一次点击
                 last_click = (ts, x, y)
@@ -1768,7 +1794,7 @@ class DesktopRecorder:
                 ch = self.char_for_key(vk_i, int(scan), int(flags))
                 if ch and ord(ch) >= 32 and not held_mods:
                     # 普通可打印字符（无修饰键）→ 聚合为文本段
-                    if text_ts and ts - text_ts > TYPING_GAP_MS / 1000.0:
+                    if text_ts and ts - text_ts > self._thr["typing_gap_ms"] / 1000.0:
                         flush_text()
                     text_buf.append(ch)
                     text_ts = ts
@@ -1805,9 +1831,9 @@ class DesktopRecorder:
                 flush_text()
                 if (
                     scroll
-                    and ts - scroll[0] <= SCROLL_GAP_MS / 1000.0
-                    and abs(x - scroll[1]) < CLICK_DEBOUNCE_PX
-                    and abs(y - scroll[2]) < CLICK_DEBOUNCE_PX
+                    and ts - scroll[0] <= self._thr["scroll_gap_ms"] / 1000.0
+                    and abs(x - scroll[1]) < self._thr["click_debounce_px"]
+                    and abs(y - scroll[2]) < self._thr["click_debounce_px"]
                 ):
                     scroll = (ts, x, y, scroll[3] + delta, scroll[4])
                 else:
