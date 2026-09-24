@@ -15,6 +15,7 @@ import ThresholdPanel from './editor/ThresholdPanel'
 import type { PickedElement } from '../../../shared/desktop-pick'
 import type { RecordedInstruction } from '../../../shared/desktop-record'
 import { parameterizeRecording } from '../../../shared/record-params'
+import { mergeRecordThresholds } from '../../../shared/record-settings'
 import {
   applyRunOverrides,
   missingRequiredOverrides
@@ -561,10 +562,28 @@ export default function EditorView(): JSX.Element {
     }
     setRecording(true)
     push('sys', '录制模式已开启：请在目标窗口中执行操作（点击 / 输入 / 滚动 / 按键将被录制）；完成后点「停止录制」')
-    const reply = await ruili.record.start(recTarget?.pid)
+    // M3 切片 17：本流程阈值覆盖随录制传给主进程（全局 DB 设置 ← 流程覆盖）
+    const flowOverrides = activeTab.flow.recordThresholds
+    const reply = await ruili.record.start(recTarget?.pid, flowOverrides)
     if (!reply.ok || !reply.started) {
       setRecording(false)
       push('error', `开启录制失败：${'error' in reply ? reply.error : '未知错误'}`)
+      return
+    }
+    // M3 切片 17：录制开启后显示实际生效的聚合阈值
+    try {
+      const globals = await ruili.settings.getRecordThresholds()
+      const eff = mergeRecordThresholds(globals, flowOverrides)
+      const ovr =
+        flowOverrides && Object.keys(flowOverrides).length > 0
+          ? `（本流程覆盖：${Object.entries(flowOverrides).map(([k, v]) => `${k}=${v}`).join('、')}）`
+          : ''
+      push(
+        'sys',
+        `生效阈值：点击防抖 ${eff.clickDebounceMs}ms / 距离 ${eff.clickDebouncePx}px / 输入分段 ${eff.typingGapMs}ms / 滚动聚合 ${eff.scrollGapMs}ms${ovr}`
+      )
+    } catch {
+      /* 读取生效阈值失败不阻断录制 */
     }
   }
 
@@ -948,7 +967,7 @@ export default function EditorView(): JSX.Element {
             ) : rightTab === 'elements' ? (
               <ElementPanel onInsert={insertElementStep} />
             ) : rightTab === 'settings' ? (
-              <ThresholdPanel onNotify={(msg) => push('sys', msg)} />
+              <ThresholdPanel onNotify={(msg) => push('sys', msg)} flow={flow} onChangeFlow={(f) => commit(f)} />
             ) : (
               <AiPanel onAccept={acceptAiFlow} />
             )}

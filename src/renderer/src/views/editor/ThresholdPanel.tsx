@@ -13,6 +13,7 @@ import {
   sanitizeRecordThresholds
 } from '../../../../shared/record-settings'
 import type { RecordThresholds } from '../../../../shared/record-settings'
+import type { FlowDoc } from '../../../../shared/ast'
 
 interface FieldMeta {
   label: string
@@ -36,15 +37,23 @@ function toDraft(t: RecordThresholds): Draft {
 }
 
 export default function ThresholdPanel({
-  onNotify
+  onNotify,
+  flow,
+  onChangeFlow
 }: {
   onNotify?: (msg: string) => void
+  /** 当前流程（M3 切片 17：流程级覆盖写入 flow.recordThresholds） */
+  flow: FlowDoc
+  onChangeFlow: (flow: FlowDoc) => void
 }): JSX.Element {
   const ruili = window.ruili
   const [draft, setDraft] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle')
   const [error, setError] = useState('')
+  // M3 切片 17：本流程覆盖草稿（空串=该键跟随全局，不写进流程）
+  const [flowDraft, setFlowDraft] = useState<Draft | null>(null)
+  const [flowMsg, setFlowMsg] = useState('')
 
   // 挂载时从 DB 读取当前持久化阈值（缺省回退默认值）
   useEffect(() => {
@@ -53,6 +62,15 @@ export default function ThresholdPanel({
       setDraft(toDraft(t))
     })
   }, [ruili])
+
+  // M3 切片 17：流程级覆盖草稿随 flow.recordThresholds 同步（未覆盖的键留空）
+  useEffect(() => {
+    const cur = flow.recordThresholds ?? {}
+    const next = {} as Draft
+    for (const k of RECORD_THRESHOLD_KEYS) next[k] = cur[k] !== undefined ? String(cur[k]) : ''
+    setFlowDraft(next)
+    setFlowMsg('')
+  }, [flow])
 
   async function persist(values: RecordThresholds): Promise<void> {
     setSaving(true)
@@ -99,6 +117,44 @@ export default function ThresholdPanel({
   async function onReset(): Promise<void> {
     setDraft(toDraft(RECORD_THRESHOLD_DEFAULTS))
     await persist(RECORD_THRESHOLD_DEFAULTS)
+  }
+
+  /** M3 切片 17：把本流程覆盖应用到流程（空输入=跟随全局；全部清空=删除该字段） */
+  function onApplyFlowOverride(): void {
+    if (!flowDraft) return
+    const raw: Record<string, unknown> = {}
+    for (const k of RECORD_THRESHOLD_KEYS) {
+      const v = flowDraft[k].trim()
+      if (v === '') continue
+      const num = Number(v)
+      if (!Number.isFinite(num) || num < 0 || !Number.isInteger(num)) {
+        setFlowMsg(`⚠ ${FIELD_META[k].label}必须是 ≥0 的整数（留空则跟随全局）`)
+        return
+      }
+      raw[k] = num
+    }
+    const clean = sanitizeRecordThresholds(raw)
+    const next: FlowDoc = { ...flow }
+    if (Object.keys(clean).length === 0) {
+      delete next.recordThresholds
+      setFlowMsg('✓ 已清除本流程覆盖，录制将跟随全局设置')
+    } else {
+      next.recordThresholds = clean
+      const keys = RECORD_THRESHOLD_KEYS.filter((k) => clean[k] !== undefined).map(
+        (k) => `${FIELD_META[k].label}=${clean[k]}`
+      )
+      setFlowMsg(`✓ 已写入本流程覆盖：${keys.join('、')}（下次录制生效）`)
+    }
+    onChangeFlow(next)
+  }
+
+  /** M3 切片 17：一键清空本流程全部覆盖 */
+  function onClearFlowOverride(): void {
+    const blank = {} as Draft
+    for (const k of RECORD_THRESHOLD_KEYS) blank[k] = ''
+    setFlowDraft(blank)
+    if (flow.recordThresholds) onChangeFlow({ ...flow, recordThresholds: undefined })
+    setFlowMsg('已清空本流程覆盖（未写盘前请保持不改）')
   }
 
   if (!draft) {
@@ -187,6 +243,91 @@ export default function ThresholdPanel({
         >
           恢复默认
         </button>
+      </div>
+
+      {/* M3 切片 17：本流程覆盖（可选）——空输入=跟随上方全局设置 */}
+      <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #E5E6EB' }}>
+        <div style={{ fontSize: 12, color: '#51565D', marginBottom: 4 }}>
+          本流程覆盖（可选）
+        </div>
+        <div style={{ fontSize: 11, color: '#8A8F99', marginBottom: 12 }}>
+          只对当前流程生效；留空的项跟随上方全局设置。点「录制」时优先使用这里的覆盖。
+        </div>
+
+        {flowDraft &&
+          RECORD_THRESHOLD_KEYS.map((k) => {
+            const meta = FIELD_META[k]
+            const globalVal = draft[k]
+            return (
+              <div key={k} style={{ marginBottom: 10 }}>
+                <label
+                  htmlFor={`flow-thr-${k}`}
+                  style={{ display: 'block', fontSize: 12, color: '#1F2329', marginBottom: 2 }}
+                >
+                  {meta.label}
+                  <span style={{ color: '#B0B6BF' }}>（{meta.unit}）</span>
+                </label>
+                <input
+                  id={`flow-thr-${k}`}
+                  value={flowDraft[k]}
+                  placeholder={`跟随全局（${globalVal}）`}
+                  onChange={(e) => {
+                    setFlowDraft({ ...flowDraft, [k]: e.target.value })
+                    setFlowMsg('')
+                  }}
+                  inputMode="numeric"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '6px 8px',
+                    border: '1px solid #D8DADD',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            )
+          })}
+
+        {flowMsg ? (
+          <div style={{ fontSize: 12, marginBottom: 8, color: flowMsg.startsWith('⚠') ? '#E64340' : '#1DBF73' }}>
+            {flowMsg}
+          </div>
+        ) : null}
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+          <button
+            onClick={onApplyFlowOverride}
+            style={{
+              height: 28,
+              padding: '0 14px',
+              border: 'none',
+              borderRadius: 6,
+              background: '#2F80ED',
+              color: '#fff',
+              fontSize: 12,
+              cursor: 'pointer'
+            }}
+          >
+            应用到本流程
+          </button>
+          <button
+            onClick={onClearFlowOverride}
+            style={{
+              height: 28,
+              padding: '0 14px',
+              border: '1px solid #D8DADD',
+              borderRadius: 6,
+              background: '#fff',
+              color: '#1F2329',
+              fontSize: 12,
+              cursor: 'pointer'
+            }}
+          >
+            清空覆盖
+          </button>
+        </div>
       </div>
     </div>
   )

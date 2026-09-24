@@ -118,6 +118,29 @@ describe('SQLite 流程持久化', () => {
     const list = listFlows()
     expect(list.ok && list.items[0].stepCount).toBe(4)
   })
+
+  it('M3 切片 17：flow.recordThresholds 流程级覆盖随流程往返持久化', () => {
+    const flow: FlowDoc = {
+      version: 1,
+      name: '阈值覆盖流程',
+      vars: [],
+      steps: [{ id: 's1', cmdId: 'logMessage', params: {} }],
+      recordThresholds: { clickDebounceMs: 200, scrollGapMs: 900 }
+    }
+    const saved = saveFlow(flow)
+    expect(saved.ok).toBe(true)
+    if (!saved.ok) return
+    const loaded = loadFlow(saved.id)
+    expect(loaded.ok).toBe(true)
+    if (!loaded.ok) return
+    expect(loaded.flow.recordThresholds).toEqual({ clickDebounceMs: 200, scrollGapMs: 900 })
+    const legacy = makeFlow('旧流程', 1)
+    const r2 = saveFlow(legacy)
+    expect(r2.ok).toBe(true)
+    if (!r2.ok) return
+    const loadedLegacy = loadFlow(r2.id)
+    expect(loadedLegacy.ok && loadedLegacy.flow.recordThresholds === undefined).toBe(true)
+  })
 })
 
 function makeElement(overrides: Partial<PickedElement> = {}): PickedElement {

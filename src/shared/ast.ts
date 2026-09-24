@@ -4,6 +4,7 @@
  * 树形结构替代原型的 indent 展平表达；UI 与引擎共用。
  * 块指令（循环/分支）通过 children / else 表达嵌套，渲染时递归生成缩进与结束标记。
  */
+import type { RecordThresholds } from './record-settings'
 
 export type VarType = 'string' | 'number' | 'boolean' | 'list' | 'dict'
 
@@ -42,6 +43,12 @@ export interface FlowDoc {
   name: string
   vars: FlowVar[]
   steps: StepNode[]
+  /**
+   * 本流程专属的录制聚合阈值覆盖（M3 切片 17）。
+   * 只收有值的键；缺省键沿用全局 DB 设置。开启录制时随 flow.recordThresholds
+   * 传给主进程，与全局设置 merge（流程覆盖优先）。旧流程无此字段照常工作。
+   */
+  recordThresholds?: Partial<RecordThresholds>
 }
 
 /** 一次运行的结果摘要 */
