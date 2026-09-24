@@ -73,7 +73,13 @@ declare global {
         delete: (id: string) => Promise<ElementsDeleteReply>
         verify: (
           id: string
-        ) => Promise<{ ok: boolean; found?: boolean; strategy?: string; error?: string }>
+        ) => Promise<{
+          ok: boolean
+          found?: boolean
+          strategy?: string
+          trace?: string[]
+          error?: string
+        }>
       }
       record: {
         start: () => Promise<RecordStartReply>

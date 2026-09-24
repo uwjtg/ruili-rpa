@@ -93,5 +93,7 @@ export interface LocateElementReply {
   found?: boolean
   /** 命中策略（strict/property/ancestor/index/coords）；未命中为 'none' */
   strategy?: ClickStrategy | 'none'
+  /** 逐级定位报告（M3 切片 4；校验失败原因展示） */
+  trace?: string[]
   error?: string
 }

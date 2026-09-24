@@ -11,10 +11,11 @@
  *   click  → pickElement（params.target = PickedElement 签名，回放走选择器回退链）
  *   input  → typeText（params.text = 聚合出的文本段）
  *   scroll → scroll（params.delta = 滚轮量，params.target 可空，x/y 为坐标兜底）
+ *   key    → pressKey（params.keys = "Enter" / "Control+A" 等，M3 切片 4）
  */
 
-/** 录制指令的三类来源事件 */
-export type RecordKind = 'click' | 'type' | 'scroll'
+/** 录制指令的来源事件类别（M3 切片 4 起新增 key=非文本键/快捷键） */
+export type RecordKind = 'click' | 'type' | 'scroll' | 'key'
 
 /** sidecar 聚合出的一条录制指令（renderer 直接转为流程步骤） */
 export interface RecordedInstruction {

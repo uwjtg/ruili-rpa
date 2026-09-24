@@ -15,6 +15,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import server  # noqa: E402
 from desktop_pick import DesktopRecorder  # noqa: E402
+from desktop_pick import _parse_key_combo  # noqa: E402
 
 
 def _start_server():
@@ -186,18 +187,74 @@ def test_typing_burst_aggregates_and_gap_splits():
     assert all(i["cmdId"] == "typeText" for i in types)
 
 
-def test_non_text_key_flushes_and_ignored():
+def test_non_text_key_emits_pressKey_instruction():
+    """M3 切片 4：非文本键（Enter）截断文本段并落盘为一条 pressKey 指令。"""
     rec = _make_recorder()
     rec._t0 = 0.0
     ins = rec._aggregate(
         [
             ("key", 0.1, 0x68, 0, 0),  # h
-            ("key", 0.2, 0x0D, 0, 0),  # Enter（非文本键 → 截断且不产生指令）
+            ("key", 0.2, 0x0D, 0, 0),  # Enter → pressKey
             ("key", 0.3, 0x69, 0, 0),  # i
         ]
     )
     types = [i for i in ins if i["kind"] == "type"]
     assert [i["params"]["text"] for i in types] == ["h", "i"]
+    keys = [i for i in ins if i["kind"] == "key"]
+    assert len(keys) == 1
+    assert keys[0]["cmdId"] == "pressKey"
+    assert keys[0]["params"]["keys"] == "Enter"
+    assert keys[0]["label"] == "按键 Enter"
+    # 顺序：h → Enter → i
+    assert [i["kind"] for i in ins] == ["type", "key", "type"]
+
+
+def test_ctrl_letter_combines_into_hotkey():
+    """M3 切片 4：Ctrl 按住 + A → 合并为一条 pressKey "Control+a"。"""
+    rec = _make_recorder()
+    rec._t0 = 0.0
+    ins = rec._aggregate(
+        [
+            ("key", 0.1, 0x11, 0, 0),  # Control 按下（不单独成指令）
+            ("key", 0.15, 0x41, 0, 0),  # A（Ctrl 下 ToUnicode 为控制符）
+        ]
+    )
+    keys = [i for i in ins if i["kind"] == "key"]
+    assert len(keys) == 1
+    assert keys[0]["cmdId"] == "pressKey"
+    assert keys[0]["params"]["keys"] == "Control+a"
+
+
+def test_shift_letter_stays_text_not_hotkey():
+    """Shift 透明（大小写由 vk_to_char 处理）：Shift+A 仍聚合为文本段 "A"。"""
+    rec = _make_recorder()
+    rec._t0 = 0.0
+    ins = rec._aggregate(
+        [
+            ("key", 0.1, 0x10, 0, 0),  # Shift（透明，不进 held_mods）
+            ("key", 0.15, 0x41, 0, 0),  # A → 'A' 文本
+        ]
+    )
+    keys = [i for i in ins if i["kind"] == "key"]
+    assert keys == []
+    types = [i for i in ins if i["kind"] == "type"]
+    assert [i["params"]["text"] for i in types] == ["A"]
+
+
+def test_modifier_alone_emits_no_instruction():
+    """单独按修饰键（未跟主键）不产生指令。"""
+    rec = _make_recorder()
+    rec._t0 = 0.0
+    ins = rec._aggregate([("key", 0.1, 0x11, 0, 0)])  # 仅 Control
+    assert ins == []
+
+
+def test_backspace_emits_pressKey():
+    rec = _make_recorder()
+    rec._t0 = 0.0
+    ins = rec._aggregate([("key", 0.1, 0x08, 0, 0)])  # Backspace
+    assert [i["cmdId"] for i in ins] == ["pressKey"]
+    assert ins[0]["params"]["keys"] == "Backspace"
 
 
 def test_keys_filtered_when_editor_focused():
@@ -264,6 +321,27 @@ def test_instruction_ids_and_ordering():
     assert ins[0]["ts"] == 100  # 距录制开始 ms
 
 
+# ---------- pressKey 组合解析（纯函数） ----------
+
+def test_parse_key_combo():
+    assert _parse_key_combo("Enter") == [0x0D]
+    assert _parse_key_combo("control+a") == [0x11, 0x41]
+    assert _parse_key_combo("Ctrl+Shift+S") == [0x11, 0x10, 0x53]
+    assert _parse_key_combo("esc") == [0x1B]
+    assert _parse_key_combo("F5") == [0x74]
+
+
+def test_parse_key_combo_rejects_unknown():
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError):
+        _parse_key_combo("")
+    # 单字母可解析
+    assert _parse_key_combo("Control+Q") == [0x11, 0x51]
+    with _pytest.raises(ValueError):
+        _parse_key_combo("Control+Bogus")
+
+
 # ---------- HTTP 端点路由（替换 _RECORDER / _PICKER） ----------
 
 class _FakeRecorder:
@@ -289,6 +367,7 @@ class _FakeDesk:
         self.typed = []
         self.scrolled = []
         self.located = []
+        self.pressed = []
 
     def type_text(self, text):
         self.typed.append(text)
@@ -296,11 +375,16 @@ class _FakeDesk:
     def scroll(self, target, delta, x=None, y=None):
         self.scrolled.append({"target": target, "delta": delta, "x": x, "y": y})
 
+    def press_key(self, keys):
+        self.pressed.append(keys)
+
     def locate_element(self, target):
         self.located.append(target)
         if target.get("name") == "开始":
-            return {"found": True, "strategy": "strict", "control": None, "box": None}
-        return {"found": False, "strategy": "none", "control": None, "box": None}
+            return {"found": True, "strategy": "strict", "control": None, "box": None,
+                    "trace": ["窗口句柄 1 解析成功", "严格属性命中"]}
+        return {"found": False, "strategy": "none", "control": None, "box": None,
+                "trace": ["窗口未找到", "全部策略落空"]}
 
 
 def test_record_start_endpoint(monkeypatch):
@@ -396,14 +480,41 @@ def test_locate_element_endpoint(monkeypatch):
     try:
         status, body = _post(port, "/desktop/locate_element", {"target": {"name": "开始"}})
         assert status == 200
-        assert body == {"ok": True, "found": True, "strategy": "strict"}
+        assert body["found"] is True
+        assert body["strategy"] == "strict"
+        # M3 切片 4：逐级定位 trace 透传
+        assert body["trace"] == ["窗口句柄 1 解析成功", "严格属性命中"]
 
         status, body = _post(port, "/desktop/locate_element", {"target": {"name": "别的"}})
         assert status == 200
-        assert body == {"ok": True, "found": False, "strategy": "none"}
+        assert body["found"] is False
+        assert body["strategy"] == "none"
+        assert body["trace"] == ["窗口未找到", "全部策略落空"]
 
         status, body = _post(port, "/desktop/locate_element", {})
         assert status == 400
         assert body["error"] == "target_required"
+    finally:
+        httpd.shutdown()
+
+
+def test_press_key_endpoint(monkeypatch):
+    fake = _FakeDesk()
+    monkeypatch.setattr(server, "_PICKER", fake)
+    httpd, port = _start_server()
+    try:
+        status, body = _post(port, "/desktop/press_key", {"keys": "Enter"})
+        assert status == 200
+        assert body == {"ok": True}
+        assert fake.pressed == ["Enter"]
+
+        status, body = _post(port, "/desktop/press_key", {"keys": "Control+A"})
+        assert status == 200
+        assert fake.pressed == ["Enter", "Control+A"]
+
+        # 空 keys → 400
+        status, body = _post(port, "/desktop/press_key", {})
+        assert status == 400
+        assert body["error"] == "keys_required"
     finally:
         httpd.shutdown()

@@ -17,8 +17,12 @@ interface ElementPanelProps {
   onInsert: (element: PickedElement) => void
 }
 
-/** 校验状态：pending=校验中；ok=定位成功（含策略）；fail=未定位到 */
-type VerifyState = { state: 'pending' | 'ok' | 'fail'; strategy?: string }
+/** 校验状态：pending=校验中；ok=定位成功（含策略）；fail=未定位到（附逐级报告） */
+type VerifyState = {
+  state: 'pending' | 'ok' | 'fail'
+  strategy?: string
+  trace?: string[]
+}
 
 function fmt(ts: number): string {
   return new Date(ts).toLocaleTimeString('zh-CN', { hour12: false })
@@ -68,7 +72,7 @@ export default function ElementPanel({
       [id]:
         r.ok && r.found
           ? { state: 'ok', strategy: r.strategy ?? 'strict' }
-          : { state: 'fail' }
+          : { state: 'fail', trace: r.trace ?? [] }
     }))
   }
 
@@ -142,6 +146,22 @@ export default function ElementPanel({
             ) : verify[it.id]?.state === 'fail' ? (
               <div style={{ fontSize: 11, color: '#E64340', marginTop: 2 }}>
                 校验失败：当前无法定位该元素
+                {verify[it.id].trace && verify[it.id].trace!.length > 0 ? (
+                  <div
+                    style={{
+                      marginTop: 3,
+                      padding: '4px 6px',
+                      background: '#FDECEC',
+                      borderRadius: 4,
+                      color: '#C0392B',
+                      lineHeight: 1.6,
+                      fontFamily: 'Consolas, "Cascadia Code", monospace',
+                      whiteSpace: 'pre-wrap'
+                    }}
+                  >
+                    {verify[it.id].trace!.join('\n')}
+                  </div>
+                ) : null}
               </div>
             ) : null}
             <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>

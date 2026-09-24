@@ -35,6 +35,20 @@ from typing import Any, Callable, Dict, Optional
 
 _ole32 = ctypes.windll.ole32
 
+# 线程级 COM 初始化标记（HTTP 处理线程首次碰 UIA 前必须 CoInitializeEx）
+_com_local = threading.local()
+
+
+def ensure_com_thread() -> None:
+    """确保当前线程已初始化 COM（幂等；ThreadingHTTPServer 工作线程复用，只初一次）。"""
+    if getattr(_com_local, "init", False):
+        return
+    try:
+        _ole32.CoInitializeEx(None, 0)  # COINIT_APARTMENTTHREADED
+        _com_local.init = True
+    except Exception:
+        pass
+
 # 遮罩"透明色"：canvas 背景用该颜色，tk 的 -transparentcolor 把它透传，只露出高亮边框
 TRANSPARENT_COLOR = "#FF00FE"
 HIGHLIGHT_COLOR = "#7C5CFC"  # 与设计 token 主紫一致
@@ -197,6 +211,93 @@ _user32.SendInput.argtypes = [
     ctypes.c_int,
 ]
 _user32.SendInput.restype = ctypes.c_uint
+
+
+# ---- pressKey / 录制非文本键（M3 切片 4） ----
+# 录制聚合：非文本键 vk → 标准名（按下产生一条 pressKey 指令）
+VK_TO_NAME = {
+    0x08: "Backspace",
+    0x09: "Tab",
+    0x0D: "Enter",
+    0x1B: "Escape",
+    0x20: "Space",
+    0x21: "PageUp",
+    0x22: "PageDown",
+    0x23: "End",
+    0x24: "Home",
+    0x25: "Left",
+    0x26: "Up",
+    0x27: "Right",
+    0x28: "Down",
+    0x2D: "Insert",
+    0x2E: "Delete",
+}
+for _i in range(12):
+    VK_TO_NAME[0x70 + _i] = f"F{_i + 1}"  # F1..F12
+
+# 录制聚合：这些修饰键与随后主键组合为快捷键（Shift 透明——大小写由 vk_to_char 处理）
+_SHORTCUT_MOD_VKS = {0x11: "Control", 0x12: "Alt", 0x5B: "Win", 0x5C: "Win"}
+
+# pressKey 指令解析：标准键名 → vk（含别名；不区分大小写）
+KEY_NAME_TO_VK = {
+    "backspace": 0x08,
+    "tab": 0x09,
+    "enter": 0x0D,
+    "return": 0x0D,
+    "esc": 0x1B,
+    "escape": 0x1B,
+    "space": 0x20,
+    "pageup": 0x21,
+    "pagedown": 0x22,
+    "end": 0x23,
+    "home": 0x24,
+    "left": 0x25,
+    "up": 0x26,
+    "right": 0x27,
+    "down": 0x28,
+    "insert": 0x2D,
+    "delete": 0x2E,
+    "shift": 0x10,
+    "ctrl": 0x11,
+    "control": 0x11,
+    "alt": 0x12,
+    "win": 0x5B,
+}
+for _i in range(12):
+    KEY_NAME_TO_VK[f"f{_i + 1}"] = 0x70 + _i
+
+
+def _recorder_vk_name(vk: int) -> Optional[str]:
+    """录制时把按键 vk 映射为标准名；字母/数字/未知返回 None。"""
+    name = VK_TO_NAME.get(vk)
+    if name:
+        return name
+    if 0x41 <= vk <= 0x5A:  # A-Z
+        return chr(vk).lower()
+    if 0x30 <= vk <= 0x39:  # 0-9
+        return chr(vk)
+    return None
+
+
+def _parse_key_combo(keys: str) -> list:
+    """
+    解析按键组合（"Enter" / "Control+A" / "Ctrl+Shift+S"）为有序 vk 列表：
+    前面的为修饰键（按下不立即释放），最后一个为主键。未知键名抛 ValueError。
+    """
+    parts = [p.strip().lower() for p in keys.split("+") if p.strip()]
+    if not parts:
+        raise ValueError("empty_keys")
+    vks = []
+    for name in parts:
+        if name in KEY_NAME_TO_VK:
+            vks.append(KEY_NAME_TO_VK[name])
+        elif len(name) == 1 and "a" <= name <= "z":
+            vks.append(0x41 + ord(name) - ord("a"))
+        elif len(name) == 1 and "0" <= name <= "9":
+            vks.append(0x30 + ord(name) - ord("0"))
+        else:
+            raise ValueError(f"unknown_key:{name}")
+    return vks
 
 
 class _HookThread(threading.Thread):
@@ -835,12 +936,15 @@ class DesktopPicker:
     def locate_element(self, target: Dict[str, Any]) -> Dict[str, Any]:
         """
         选择器回退链定位（不点击，供元素库「校验」与录制/回放 dry-run）。
-        返回 {"found", "strategy", "control", "box"}：
+        返回 {"found", "strategy", "control", "box", "trace"}：
           - found=True + strategy=strict/property/ancestor/index：control 为 UIA 控件；
           - found=True + strategy=coords：box 为命中包围盒（坐标兜底）；
-          - found=False：全部策略落空且无有效坐标。
+          - found=False：全部策略落空且无有效坐标；
+          - trace: 逐级定位报告（窗口→strict→property→ancestor→index→coords），
+            供元素库「校验失败原因」展示（M3 切片 4）。
         旧 target（无 windowTitle/index/ancestor 字段）自动跳过对应策略，行为兼容。
         """
+        ensure_com_thread()
         handle = int(target.get("windowHandle") or 0)
         name = _safe_str(target.get("name"))
         automation_id = _safe_str(target.get("automationId"))
@@ -852,33 +956,49 @@ class DesktopPicker:
             ancestor = []
 
         box = self._valid_box(target.get("boundingBox"))
+        trace: list = []
 
         # 0) 定位窗口根：优先 windowHandle；句柄缺失/失效 → windowTitle → name
         root = None
         if handle > 0:
             try:
                 root = self._control_from_handle(handle)
+                trace.append(f"窗口句柄 {handle} 解析成功")
             except ElementNotFoundError:
-                root = None
+                trace.append(f"窗口句柄 {handle} 失效（可能窗口已关闭）")
         if root is None:
             root = self._find_window(
                 self._root_control(), window_title or name, 0, [0]
             )
+            if root is not None:
+                trace.append(f"按窗口标题「{window_title or name}」定位成功")
+            elif window_title or name:
+                trace.append(f"按窗口标题「{window_title or name}」未找到窗口")
+            else:
+                trace.append("无窗口句柄/标题特征，直接尝试坐标兜底")
         if root is None:
             # 窗口都找不到（被关闭/句柄失效）：只剩坐标兜底
             if box is not None:
-                return {"found": True, "strategy": "coords", "control": None, "box": box}
-            return {"found": False, "strategy": "none", "control": None, "box": None}
+                trace.append("窗口未找到 → 坐标兜底命中")
+                return {"found": True, "strategy": "coords", "control": None, "box": box, "trace": trace}
+            trace.append("窗口未找到且无有效坐标 → 全部策略落空")
+            return {"found": False, "strategy": "none", "control": None, "box": None, "trace": trace}
+
+        has_features = bool(automation_id or name or control_type)
 
         # 1) 严格属性
         found = self._find_strict(root, name, automation_id, control_type, 0, [0])
         if found is not None:
-            return {"found": True, "strategy": "strict", "control": found, "box": None}
+            trace.append("严格属性命中")
+            return {"found": True, "strategy": "strict", "control": found, "box": None, "trace": trace}
+        trace.append("严格属性未命中" if has_features else "严格属性：无可匹配特征，跳过")
 
         # 2) 宽松属性（任一非空特征命中，容忍特征漂移）
         found = self._find_loose(root, name, automation_id, control_type, 0, [0])
         if found is not None:
-            return {"found": True, "strategy": "property", "control": found, "box": None}
+            trace.append("宽松属性命中")
+            return {"found": True, "strategy": "property", "control": found, "box": None, "trace": trace}
+        trace.append("宽松属性未命中" if has_features else "宽松属性：无可匹配特征，跳过")
 
         # 3) ancestor 链
         if ancestor:
@@ -886,7 +1006,11 @@ class DesktopPicker:
                 root, ancestor, name, automation_id, control_type, 0, [0]
             )
             if found is not None:
-                return {"found": True, "strategy": "ancestor", "control": found, "box": None}
+                trace.append("祖先链命中")
+                return {"found": True, "strategy": "ancestor", "control": found, "box": None, "trace": trace}
+            trace.append("祖先链未命中")
+        else:
+            trace.append("祖先链：无特征，跳过")
 
         # 4) index
         if index >= 0:
@@ -894,12 +1018,18 @@ class DesktopPicker:
                 root, ancestor, index, name, automation_id, control_type, 0, [0]
             )
             if found is not None:
-                return {"found": True, "strategy": "index", "control": found, "box": None}
+                trace.append(f"序号定位命中（children[{index}]）")
+                return {"found": True, "strategy": "index", "control": found, "box": None, "trace": trace}
+            trace.append(f"序号定位未命中（children[{index}]）")
+        else:
+            trace.append("序号：未知(-1)，跳过")
 
         # 5) 坐标兜底
         if box is not None:
-            return {"found": True, "strategy": "coords", "control": None, "box": box}
-        return {"found": False, "strategy": "none", "control": None, "box": None}
+            trace.append("坐标兜底命中（使用拾取时包围盒）")
+            return {"found": True, "strategy": "coords", "control": None, "box": box, "trace": trace}
+        trace.append("坐标兜底：无有效包围盒 → 全部策略落空")
+        return {"found": False, "strategy": "none", "control": None, "box": None, "trace": trace}
 
     def click_element(self, target: Dict[str, Any]) -> str:
         """
@@ -1286,6 +1416,33 @@ class DesktopPicker:
         user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
+    # ---------- 录制回放：pressKey（M3 切片 4） ----------
+    def press_key(self, keys: str) -> None:
+        """
+        按下并释放一个按键/组合键（SendInput）。
+        keys 形如 "Enter" / "Control+A" / "Ctrl+Shift+S"：修饰键先按下不释放，
+        主键按下+释放，再逆序释放修饰键。
+        """
+        vks = _parse_key_combo(keys)
+        for vk in vks[:-1]:
+            self._send_key(vk, up=False)
+        self._send_key(vks[-1], up=False)
+        self._send_key(vks[-1], up=True)
+        for vk in reversed(vks[:-1]):
+            self._send_key(vk, up=True)
+
+    @staticmethod
+    def _send_key(vk: int, up: bool) -> None:
+        flags = KEYEVENTF_KEYUP if up else 0
+        inp = INPUT()
+        inp.type = 1  # INPUT_KEYBOARD
+        inp.ki = KEYBDINPUT(vk, 0, flags, 0, None)
+        sent = _user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+        if sent == 0:
+            raise RuntimeError(
+                f"SendInput 按键失败 code={ctypes.get_last_error()} (vk={vk:#x})"
+            )
+
 
 def _coords_signature(x: int, y: int) -> Dict[str, Any]:
     """点击时 UIA 解析不到可用元素 → 坐标兜底签名（回放走回退链最后一级 coords）。"""
@@ -1420,8 +1577,9 @@ class DesktopRecorder:
         instructions: list = []
         text_buf: list = []
         text_ts = 0.0
-        scroll: Optional[tuple] = None  # (ts, x, y, delta)
+        scroll: Optional[tuple] = None  # (ts, x, y, delta, ev_sig)
         last_click: Optional[tuple] = None  # (ts, x, y)
+        held_mods: list = []  # 按住的快捷键修饰键名（Control/Alt/Win；M3 切片 4）
 
         def seq_id() -> str:
             return f"r{len(instructions) + 1}"
@@ -1504,16 +1662,42 @@ class DesktopRecorder:
                 # 6 元组携带事件时前台 PID；旧 5 元组回退到实时查询（单测注入用）
                 fg_pid = ev[5] if len(ev) > 5 else (self.foreground_pid() if self._app_pid else 0)
                 if self._app_pid and fg_pid == self._app_pid:
+                    held_mods.clear()
                     continue  # 输入焦点在自己应用 → 过滤杂音
                 flush_scroll()
-                ch = self.char_for_key(int(vk), int(scan), int(flags))
-                if ch and ord(ch) >= 32:
+                vk_i = int(vk)
+                # 快捷键修饰键按下（Control/Alt/Win）：记录为按住，不单独产生指令；
+                # 随后主键与之组合为一条 pressKey。Shift 透明——大小写由 vk_to_char 处理。
+                if vk_i in _SHORTCUT_MOD_VKS:
+                    held_mods.append(_SHORTCUT_MOD_VKS[vk_i])
+                    continue
+                ch = self.char_for_key(vk_i, int(scan), int(flags))
+                if ch and ord(ch) >= 32 and not held_mods:
+                    # 普通可打印字符（无修饰键）→ 聚合为文本段
                     if text_ts and ts - text_ts > TYPING_GAP_MS / 1000.0:
                         flush_text()
                     text_buf.append(ch)
                     text_ts = ts
                 else:
-                    flush_text()  # 非文本键（Enter/Backspace/快捷键）→ 截断输入段
+                    # 非文本键（Enter/Backspace/方向/F键）或 修饰键+字符（快捷键）
+                    # → 落盘为一条 pressKey 指令（M3 切片 4：录→存→跑可还原"按 Enter 提交"）
+                    flush_text()
+                    name = _recorder_vk_name(vk_i)
+                    if not name and ch and ord(ch) >= 32:
+                        name = ch.lower()  # 修饰键+字符的字符名兜底
+                    if name:
+                        combo = "+".join([m for m in held_mods if m] + [name])
+                        instructions.append(
+                            {
+                                "id": seq_id(),
+                                "kind": "key",
+                                "cmdId": "pressKey",
+                                "label": f"按键 {combo}",
+                                "params": {"keys": combo},
+                                "ts": int((ts - self._t0) * 1000),
+                            }
+                        )
+                    held_mods.clear()
             elif kind == "scroll":
                 _, ts, x, y, delta = ev[:5]
                 # 6 元组携带事件时解析的签名；旧 5 元组（单测）回退到聚合时解析

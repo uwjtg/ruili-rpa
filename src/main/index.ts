@@ -263,6 +263,7 @@ ipcMain.handle('elements:verify', async (_e, id: string) => {
       ok: r.ok,
       found: r.found ?? false,
       strategy: r.strategy ?? ('none' as const),
+      trace: r.trace ?? [],
       error: r.error
     }
   } catch (err) {

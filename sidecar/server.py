@@ -14,9 +14,10 @@
   POST /pick/start       body {} -> 阻塞拾取；{"ok": true, "element": {...}} | {"ok": true, "cancelled": true} | {"ok": false, "error"}
   POST /pick/stop        body {} -> {"ok": true, "stopped": bool}
   POST /desktop/click_element  body {"target": {...}} -> {"ok": true, "strategy"} | 404 {"ok": false, "error"} | 400
-  POST /desktop/locate_element body {"target": {...}} -> {"ok": true, "found": bool, "strategy"} | 400
+  POST /desktop/locate_element body {"target": {...}} -> {"ok": true, "found": bool, "strategy": str, "trace": [str]} | 400
   POST /desktop/type_text      body {"text": str} -> {"ok": true} | 400
   POST /desktop/scroll         body {"target"?: {...}, "x"?: int, "y"?: int, "delta": int} -> {"ok": true} | 400
+  POST /desktop/press_key      body {"keys": str} -> {"ok": true} | 400 | 500
   POST /record/start           body {"app_pid"?: int} -> {"ok": true, "started": true} | 400 already_recording
   POST /record/stop            body {} -> {"ok": true, "instructions": [...]} | 400 not_recording
 
@@ -197,12 +198,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(500, {"ok": False, "error": f"locate_element_failed: {e}"})
                 return
             # found/strategy：元素库「校验」与回放 dry-run（不点击）
+            # trace：逐级定位报告（M3 切片 4，供校验失败原因展示）
             self._send_json(
                 200,
                 {
                     "ok": True,
                     "found": bool(hit.get("found", False)),
                     "strategy": hit.get("strategy", "none"),
+                    "trace": list(hit.get("trace") or []),
                 },
             )
             return
@@ -239,6 +242,22 @@ class Handler(BaseHTTPRequestHandler):
                 _PICKER.scroll(target, delta, x, y)
             except Exception as e:  # noqa: BLE001
                 self._send_json(500, {"ok": False, "error": f"scroll_failed: {e}"})
+                return
+            self._send_json(200, {"ok": True})
+            return
+
+        if self.path == "/desktop/press_key":
+            keys = body.get("keys")
+            if not isinstance(keys, str) or not keys:
+                self._send_json(400, {"ok": False, "error": "keys_required"})
+                return
+            try:
+                _PICKER.press_key(keys)
+            except ValueError as e:
+                self._send_json(400, {"ok": False, "error": f"bad_keys: {e}"})
+                return
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"press_key_failed: {e}"})
                 return
             self._send_json(200, {"ok": True})
             return

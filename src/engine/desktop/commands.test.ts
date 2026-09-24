@@ -51,8 +51,11 @@ function fakeDesktop() {
       strategy: 'strict'
     })
   )
-  const desktop: DesktopLike = { clickElement, typeText, scroll, locateElement }
-  return { desktop, clickElement, typeText, scroll, locateElement }
+  const pressKey = vi.fn(
+    async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true })
+  )
+  const desktop: DesktopLike = { clickElement, typeText, scroll, locateElement, pressKey }
+  return { desktop, clickElement, typeText, scroll, locateElement, pressKey }
 }
 
 describe('desktop 指令（stub 回放客户端）', () => {
@@ -284,5 +287,63 @@ describe('desktop 指令（stub 回放客户端）', () => {
     await expect(
       reg.get('scroll')!.runner(ctx, { delta: 120 }, { id: 's2', cmdId: 'scroll', params: {} })
     ).rejects.toThrow(/scroll_failed/)
+  })
+
+  // ---------- M3 切片 4：pressKey（非文本键/快捷键） ----------
+
+  it('注册 pressKey 指令（桌面分组，keys 参数）', () => {
+    const reg = new CommandRegistry()
+    registerDesktopCommands(reg, { desktop: fakeDesktop().desktop })
+    const cmd = reg.get('pressKey')
+    expect(cmd).toBeDefined()
+    expect(cmd?.group).toBe('桌面')
+    expect(cmd?.params.map((p) => p.key)).toEqual(['keys'])
+  })
+
+  it('pressKey 调回放并成功日志', async () => {
+    const { desktop, pressKey } = fakeDesktop()
+    const reg = new CommandRegistry()
+    registerDesktopCommands(reg, { desktop })
+    const { ctx, logs } = makeCtx()
+
+    const result = await reg.get('pressKey')!.runner(
+      ctx,
+      { keys: 'Enter' },
+      { id: 's1', cmdId: 'pressKey', params: {} }
+    )
+    expect(pressKey).toHaveBeenCalledWith('Enter')
+    expect(result).toEqual({ keys: 'Enter' })
+    expect(logs.some((l) => l.includes('已按下按键/快捷键：Enter'))).toBe(true)
+  })
+
+  it('pressKey 支持 ${var} 插值，空 keys 抛错', async () => {
+    const { desktop, pressKey } = fakeDesktop()
+    const reg = new CommandRegistry()
+    registerDesktopCommands(reg, { desktop })
+    const { ctx, vars } = makeCtx()
+    vars.set('k', 'Control+A')
+
+    await reg.get('pressKey')!.runner(
+      ctx,
+      { keys: '${k}' },
+      { id: 's1', cmdId: 'pressKey', params: {} }
+    )
+    expect(pressKey).toHaveBeenCalledWith('Control+A')
+
+    await expect(
+      reg.get('pressKey')!.runner(ctx, { keys: '' }, { id: 's2', cmdId: 'pressKey', params: {} })
+    ).rejects.toThrow(/缺少有效的 keys/)
+  })
+
+  it('pressKey 回放失败抛错带原因', async () => {
+    const { desktop, pressKey } = fakeDesktop()
+    pressKey.mockResolvedValueOnce({ ok: false, error: 'SendInput 失败' })
+    const reg = new CommandRegistry()
+    registerDesktopCommands(reg, { desktop })
+    const { ctx } = makeCtx()
+
+    await expect(
+      reg.get('pressKey')!.runner(ctx, { keys: 'Tab' }, { id: 's1', cmdId: 'pressKey', params: {} })
+    ).rejects.toThrow(/SendInput 失败/)
   })
 })

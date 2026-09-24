@@ -103,11 +103,16 @@ const api = {
     /** 删除一条元素 */
     delete: (id: string): Promise<ElementsDeleteReply> =>
       ipcRenderer.invoke('elements:delete', id),
-    /** dry-run 校验：按回退链只定位不点击，返回命中策略（M3 切片 3） */
+    /** dry-run 校验：按回退链只定位不点击，返回命中策略与逐级定位报告（M3 切片 3/4） */
     verify: (
       id: string
-    ): Promise<{ ok: boolean; found?: boolean; strategy?: string; error?: string }> =>
-      ipcRenderer.invoke('elements:verify', id)
+    ): Promise<{
+      ok: boolean
+      found?: boolean
+      strategy?: string
+      trace?: string[]
+      error?: string
+    }> => ipcRenderer.invoke('elements:verify', id)
   },
   /** 桌面智能录制（M3 切片 3）：观察式录制 → 指令序列 */
   record: {

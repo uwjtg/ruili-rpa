@@ -471,12 +471,12 @@ export default function EditorView(): JSX.Element {
       )
       push(
         'success',
-        `录制完成：${reply.instructions.length} 条指令（点击 ${counts.click ?? 0} / 输入 ${counts.type ?? 0} / 滚动 ${counts.scroll ?? 0}），元素已写入元素库`
+        `录制完成：${reply.instructions.length} 条指令（点击 ${counts.click ?? 0} / 输入 ${counts.type ?? 0} / 滚动 ${counts.scroll ?? 0} / 按键 ${counts.key ?? 0}），元素已写入元素库`
       )
       return
     }
     setRecording(true)
-    push('sys', '录制模式已开启：请在目标窗口中执行操作（点击 / 输入 / 滚动将被录制）；完成后点「停止录制」')
+    push('sys', '录制模式已开启：请在目标窗口中执行操作（点击 / 输入 / 滚动 / 按键将被录制）；完成后点「停止录制」')
     const reply = await ruili.record.start()
     if (!reply.ok || !reply.started) {
       setRecording(false)

@@ -228,8 +228,7 @@ export class SidecarClient {
     x?: number
     y?: number
     delta: number
-  }): Promise<{ ok: boolean; error?: string }> {
-    try {
+  }): Promise<{ ok: boolean; error?: string }> {    try {
       const res = await fetch(`${this.baseUrl}/desktop/scroll`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -239,6 +238,23 @@ export class SidecarClient {
           y: opts.y,
           delta: opts.delta
         })
+      })
+      return (await res.json()) as { ok: boolean; error?: string }
+    } catch (e) {
+      return {
+        ok: false as const,
+        error: e instanceof Error ? e.message : String(e)
+      }
+    }
+  }
+
+  /** 录制回放：pressKey —— 按下并释放一个按键/组合键（"Enter" / "Control+A"） */
+  async pressKey(keys: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await fetch(`${this.baseUrl}/desktop/press_key`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keys })
       })
       return (await res.json()) as { ok: boolean; error?: string }
     } catch (e) {

@@ -42,6 +42,8 @@ export interface DesktopLike {
     strategy?: string
     error?: string
   }>
+  /** 按下并释放一个按键/组合键（"Enter" / "Control+A"，M3 切片 4） */
+  pressKey(keys: string): Promise<{ ok: boolean; error?: string }>
 }
 
 export interface DesktopCommandsDeps {
@@ -198,6 +200,39 @@ export function registerDesktopCommands(
       }
       ctx.log('success', `已滚动鼠标（${delta > 0 ? '向上' : '向下'} ${Math.abs(delta)}）`)
       return { delta }
+    }
+  })
+
+  registry.register({
+    id: 'pressKey',
+    name: '按键 / 快捷键',
+    group: '桌面',
+    icon: 'keyboard',
+    params: [
+      {
+        key: 'keys',
+        label: '按键组合',
+        type: 'text',
+        placeholder: '如 Enter、Tab、Backspace、Control+A、Ctrl+Shift+S（支持 ${变量}）'
+      }
+    ],
+    summary: (p) => {
+      const keys = typeof p.keys === 'string' ? p.keys : String(p.keys ?? '')
+      return keys ? `按键 ${keys}` : '按键 / 快捷键（未配置）'
+    },
+    runner: async (ctx, p) => {
+      const keys =
+        typeof p.keys === 'string' ? ctx.interpolate(p.keys) : String(p.keys ?? '')
+      if (!keys) {
+        throw new Error('pressKey 缺少有效的 keys 参数')
+      }
+      ctx.log('info', `按下按键/快捷键：${keys}`)
+      const r = await desktop.pressKey(keys)
+      if (!r.ok) {
+        throw new Error(`按键失败：${r.error ?? '未知错误'}`)
+      }
+      ctx.log('success', `已按下按键/快捷键：${keys}`)
+      return { keys }
     }
   })
 }

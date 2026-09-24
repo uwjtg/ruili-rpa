@@ -18,3 +18,4 @@
 | [12-M3-切片1-桌面拾取POC.md](./12-M3-切片1-桌面拾取POC.md) | M3 切片 1 · 桌面元素拾取 POC（Python UIA sidecar + pickElement 指令 + 编辑器「拾取」按钮） | 2026-09-24 | ✅ 完成 |
 | [13-M3-切片2-选择器回退链与元素库.md](./13-M3-%20切片%202%20-%20选择器回退链与元素库.md) | M3 切片 2 · 选择器回退链（strict→property→ancestor→index→coords）+ 元素库持久化（elements 表 + 编辑器「元素」页签） | 2026-09-24 | ✅ 完成 |
 | [14-M3-切片3-智能录制POC.md](./14-M3-%20切片%203%20-%20智能录制POC.md) | M3 切片 3 · 智能录制 POC（观察式事件流→click/typeText/scroll 指令 + 录制即入库 + 编辑器「录制」按钮/录制态 + locate_element dry-run 校验） | 2026-09-24 | ✅ 完成 |
+| [15-M3-切片4-录制重放闭环与pressKey.md](./15-M3-%20切片%204%20-%20录制重放闭环与pressKey.md) | M3 切片 4 · 录制重放闭环（录→存→跑记事本回读验证）+ pressKey 非文本键/快捷键指令 + locate 校验失败原因 trace + HTTP 线程 COM 修复 | 2026-09-24 | ✅ 完成 |
