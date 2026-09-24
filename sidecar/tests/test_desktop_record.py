@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import server  # noqa: E402
 from desktop_pick import DesktopRecorder  # noqa: E402
 from desktop_pick import _parse_key_combo  # noqa: E402
-from desktop_pick import DesktopPicker, ElementNotFoundError  # noqa: E402
+from desktop_pick import DesktopPicker, ElementNotFoundError, element_to_dict  # noqa: E402
 
 
 def _start_server():
@@ -622,3 +622,74 @@ def test_click_coords_fallback_click_box():
     strategy = p.click_element({}, retries=0, retry_delay=0)
     assert strategy == "coords"
     assert calls["clicks"] == 1
+
+
+# ---------- M3 切片 7：坐标兜底按窗口当前位置换算偏移 ----------
+
+class _Rect:
+    def __init__(self, l, tp, r, b):
+        self.left, self.top, self.right, self.bottom = l, tp, r, b
+
+
+class _FakeRoot:
+    def __init__(self, rect):
+        self.BoundingRectangle = rect
+
+
+def test_remap_coords_box_window_moved():
+    p = object.__new__(DesktopPicker)
+    root = _FakeRoot(_Rect(300, 400, 700, 600))  # 当前窗口在 (300,400)
+    rec_win = {"x": 100, "y": 200, "width": 400, "height": 200}  # 拾取时窗口在 (100,200)
+    el_box = {"x": 150, "y": 250, "width": 50, "height": 30}
+    out, moved = p._remap_coords_box(root, rec_win, el_box)
+    assert moved is True
+    # dx=200, dy=200 → 元素新位置 (350,450)
+    assert out == {"x": 350, "y": 450, "width": 50, "height": 30}
+
+
+def test_remap_coords_box_no_records_window():
+    p = object.__new__(DesktopPicker)
+    root = _FakeRoot(_Rect(300, 400, 700, 600))
+    el_box = {"x": 150, "y": 250, "width": 50, "height": 30}
+    out, moved = p._remap_coords_box(root, None, el_box)  # 旧签名无窗口矩形
+    assert moved is False
+    assert out == el_box
+
+
+def test_remap_coords_box_window_not_moved():
+    p = object.__new__(DesktopPicker)
+    root = _FakeRoot(_Rect(100, 200, 500, 400))
+    rec_win = {"x": 100, "y": 200, "width": 400, "height": 200}
+    el_box = {"x": 150, "y": 250, "width": 50, "height": 30}
+    out, moved = p._remap_coords_box(root, rec_win, el_box)
+    assert moved is False
+    assert out == el_box
+
+
+class _FakeTopCtrl:
+    def __init__(self, rect):
+        self.BoundingRectangle = rect
+        self.NativeWindowHandle = 4242
+
+
+class _FakePickCtrl:
+    """模拟一个子控件：Name=OK、自身无窗口句柄，顶层窗口 rect 可独立设置。"""
+    Name = "OK"
+    AutomationId = "btnOk"
+    ControlTypeName = "ButtonControl"
+    ClassName = "Button"
+    NativeWindowHandle = 0
+    BoundingRectangle = _Rect(150, 250, 200, 280)
+    def __init__(self, top):
+        self._top = top
+    def GetTopLevelControl(self):
+        return self._top
+
+
+def test_element_to_dict_records_window_bounding_box():
+    top = _FakeTopCtrl(_Rect(100, 200, 500, 400))
+    sig = element_to_dict(_FakePickCtrl(top))
+    assert sig["windowHandle"] == 4242  # 从顶层窗口取到句柄
+    assert sig["boundingBox"] == {"x": 150, "y": 250, "width": 50, "height": 30}
+    # M3 切片 7：记录时顶层窗口矩形
+    assert sig["windowBoundingBox"] == {"x": 100, "y": 200, "width": 400, "height": 200}

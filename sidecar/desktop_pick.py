@@ -638,16 +638,19 @@ def element_to_dict(ctrl: Any) -> Dict[str, Any]:
         pass
 
     window_handle = 0
+    top_ctrl = None
+    try:
+        top_ctrl = ctrl.GetTopLevelControl()
+    except Exception:
+        top_ctrl = None
     try:
         window_handle = int(ctrl.NativeWindowHandle or 0)
     except Exception:
         window_handle = 0
     # 子控件自身没有窗口句柄时，取其顶层窗口句柄（拾取结果需要定位到所在窗口）
-    if window_handle <= 0:
+    if window_handle <= 0 and top_ctrl is not None:
         try:
-            top = ctrl.GetTopLevelControl()
-            if top is not None:
-                window_handle = int(top.NativeWindowHandle or 0)
+            window_handle = int(top_ctrl.NativeWindowHandle or 0)
         except Exception:
             pass
 
@@ -658,6 +661,16 @@ def element_to_dict(ctrl: Any) -> Dict[str, Any]:
             box = _box(rect)
     except Exception:
         pass
+
+    # M3 切片 7：记录时顶层窗口矩形，回放坐标兜底时据此把旧包围盒换算到窗口新偏移
+    win_box: Dict[str, int] = {"x": 0, "y": 0, "width": 0, "height": 0}
+    if top_ctrl is not None:
+        try:
+            wr = top_ctrl.BoundingRectangle
+            if wr is not None:
+                win_box = _box(wr)
+        except Exception:
+            pass
 
     # M3 切片 2：选择器回退链的冗余特征（可复用选择器描述）
     ancestor, index = _collect_ancestors(ctrl)
@@ -675,6 +688,7 @@ def element_to_dict(ctrl: Any) -> Dict[str, Any]:
         "text": name,  # 可见文本：UIA Name 通常即文本；独立字段便于文本定位
         "index": index,
         "ancestor": ancestor,
+        "windowBoundingBox": win_box,
     }
 
 
@@ -1024,10 +1038,14 @@ class DesktopPicker:
         else:
             trace.append("序号：未知(-1)，跳过")
 
-        # 5) 坐标兜底
+        # 5) 坐标兜底（M3 切片 7：窗口移动后按窗口当前位置换算偏移）
         if box is not None:
-            trace.append("坐标兜底命中（使用拾取时包围盒）")
-            return {"found": True, "strategy": "coords", "control": None, "box": box, "trace": trace}
+            remapped, moved = self._remap_coords_box(root, target.get("windowBoundingBox"), box)
+            if moved:
+                trace.append("坐标兜底命中（按窗口当前位置换算偏移后点击）")
+            else:
+                trace.append("坐标兜底命中（使用拾取时包围盒）")
+            return {"found": True, "strategy": "coords", "control": None, "box": remapped, "trace": trace}
         trace.append("坐标兜底：无有效包围盒 → 全部策略落空")
         return {"found": False, "strategy": "none", "control": None, "box": None, "trace": trace}
 
@@ -1076,6 +1094,45 @@ class DesktopPicker:
         if w <= 0 or h <= 0:
             return None
         return {"x": x, "y": y, "width": w, "height": h}
+
+    @staticmethod
+    def _box_from_ctrl(ctrl: Any) -> Optional[Dict[str, int]]:
+        """读 UIA 控件的 BoundingRectangle 为 {x,y,width,height}；失败返回 None。"""
+        try:
+            rect = ctrl.BoundingRectangle
+            if rect is None:
+                return None
+            left, top = int(rect.left), int(rect.top)
+            right, bottom = int(rect.right), int(rect.bottom)
+            return {"x": left, "y": top, "width": right - left, "height": bottom - top}
+        except Exception:
+            return None
+
+    def _remap_coords_box(self, root: Any, recorded_win_box: Any, element_box: Dict[str, int]):
+        """M3 切片 7：窗口移动后，把拾取时的元素包围盒按窗口当前位置换算到新偏移。
+        返回 (新box, 是否真的发生了平移)；缺记录窗口矩形/当前窗口无效/未移动时原样返回。"""
+        try:
+            rwb = self._valid_box(recorded_win_box)
+            if not rwb or rwb["width"] <= 0 or rwb["height"] <= 0:
+                return element_box, False
+            cur = self._box_from_ctrl(root)
+            if not cur or cur["width"] <= 0:
+                return element_box, False
+            dx = cur["x"] - rwb["x"]
+            dy = cur["y"] - rwb["y"]
+            if dx == 0 and dy == 0:
+                return element_box, False
+            return (
+                {
+                    "x": int(element_box["x"]) + dx,
+                    "y": int(element_box["y"]) + dy,
+                    "width": int(element_box["width"]),
+                    "height": int(element_box["height"]),
+                },
+                True,
+            )
+        except Exception:
+            return element_box, False
 
     def _click_box_center(self, box: Dict[str, int]) -> None:
         """坐标兜底：包围盒中心直接点击。"""

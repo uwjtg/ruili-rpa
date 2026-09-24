@@ -54,6 +54,8 @@ export interface PickedElement {
   index?: number
   /** 祖先链（从近到远，最多 3 层；ancestor[0] 是目标控件的直接父级） */
   ancestor?: ElementAncestor[]
+  /** 拾取时顶层窗口矩形（M3 切片 7：坐标兜底回放时据此把旧包围盒换算到窗口新偏移） */
+  windowBoundingBox?: ElementBox
 }
 
 /** pick:start 的返回 / pick:result 事件载荷 */

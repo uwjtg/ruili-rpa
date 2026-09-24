@@ -86,6 +86,7 @@ def test_element_to_dict_extracts_all_fields():
         "text": "按钮",
         "index": -1,
         "ancestor": [],
+        "windowBoundingBox": {"x": 0, "y": 0, "width": 0, "height": 0},
     }
 
 
