@@ -14,6 +14,7 @@ import ElementPanel from './editor/ElementPanel'
 import type { PickedElement } from '../../../shared/desktop-pick'
 import type { RecordedInstruction } from '../../../shared/desktop-record'
 import { parameterizeRecording } from '../../../shared/record-params'
+import { applyRunOverrides } from '../../../shared/run-overrides'
 import {
   buildInitialFlow,
   countSteps,
@@ -110,6 +111,8 @@ export default function EditorView(): JSX.Element {
   const [recording, setRecording] = useState(false)
   // 圈定录制目标窗口（M3 切片 6）：录制只保留该进程 PID 的事件
   const [recTarget, setRecTarget] = useState<{ pid: number; title: string } | null>(null)
+  // M3 切片 10：运行前变量填写框（null=关闭）
+  const [varDialog, setVarDialog] = useState<Record<string, string> | null>(null)
   const [lines, setLines] = useState<LogLine[]>([])
   const [rightTab, setRightTab] = useState<'params' | 'vars' | 'elements' | 'ai'>('params')
   const [status, setStatus] = useState('空闲')
@@ -362,10 +365,28 @@ export default function EditorView(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab?.dirty, activeTab?.flow])
 
-  async function run(): Promise<void> {
+  async function doRun(flow: FlowDoc): Promise<void> {
     if (!ruili?.run) return
     runningTabRef.current = activeTab.tabId
-    await ruili.run.start(activeTab.flow, activeTab.flowId ?? undefined)
+    await ruili.run.start(flow, activeTab.flowId ?? undefined)
+  }
+  async function run(): Promise<void> {
+    if (!ruili?.run) return
+    // M3 切片 10：流程声明了变量 → 先弹框让用户填值
+    if (activeTab.flow.vars.length > 0) {
+      const initial: Record<string, string> = {}
+      for (const v of activeTab.flow.vars) initial[v.name] = String(v.value ?? '')
+      setVarDialog(initial)
+      return
+    }
+    await doRun(activeTab.flow)
+  }
+  /** 变量填值框确认：合并覆盖值后运行；关闭则取消 */
+  async function confirmVarDialog(): Promise<void> {
+    if (varDialog === null) return
+    const flow = applyRunOverrides(activeTab.flow, varDialog)
+    setVarDialog(null)
+    await doRun(flow)
   }
   async function runM1(): Promise<void> {
     if (!ruili?.run) return
@@ -912,6 +933,63 @@ export default function EditorView(): JSX.Element {
           ))
         )}
       </div>
+
+      {/* M3 切片 10：运行前变量填写框 */}
+      {varDialog !== null ? (
+        <div
+          onClick={() => setVarDialog(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fff',
+              borderRadius: 10,
+              padding: 20,
+              width: 360,
+              boxShadow: '0 8px 30px rgba(0,0,0,0.2)'
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>运行前填写变量</div>
+            {activeTab.flow.vars.map((v) => (
+              <div key={v.name} style={{ marginBottom: 10 }}>
+                <label style={{ display: 'block', fontSize: 12, color: '#51565D', marginBottom: 4 }}>
+                  {v.name}（{v.type}）
+                </label>
+                <input
+                  value={varDialog[v.name] ?? ''}
+                  onChange={(e) => setVarDialog({ ...varDialog, [v.name]: e.target.value })}
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '6px 8px',
+                    border: '1px solid #D8DADD',
+                    borderRadius: 6,
+                    fontSize: 13
+                  }}
+                />
+              </div>
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+              <button onClick={() => setVarDialog(null)} style={{ ...btn }}>取消</button>
+              <button
+                onClick={() => void confirmVarDialog()}
+                style={{ ...btn, background: '#7C5CFC', color: '#fff', border: 'none' }}
+              >
+                运行
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
