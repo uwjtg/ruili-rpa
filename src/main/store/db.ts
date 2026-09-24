@@ -29,6 +29,12 @@ import type {
   ElementsListReply,
   ElementsSaveReply
 } from '../../shared/elements'
+import {
+  RECORD_THRESHOLD_DEFAULTS,
+  mergeRecordThresholds,
+  sanitizeRecordThresholds
+} from '../../shared/record-settings'
+import type { RecordThresholds } from '../../shared/record-settings'
 
 export type {
   DeleteReply,
@@ -109,6 +115,11 @@ function migrate(d: DB): void {
       updated_at    INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_elements_updated ON elements(updated_at);
+    CREATE TABLE IF NOT EXISTS settings (
+      key        TEXT PRIMARY KEY,
+      value      TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `)
 }
 
@@ -365,6 +376,56 @@ export function appendRunLog(
     })
     tx()
     return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/** 录制聚合阈值落盘的 settings 键（M3 切片 12）。 */
+const SETTINGS_KEY_RECORD_THRESHOLDS = 'record.thresholds'
+
+/** 读一条设置（原始 JSON 字符串；不存在返回 null）。 */
+function getSetting(key: string): string | null {
+  const d = requireDb()
+  const row = d.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
+    | { value: string }
+    | undefined
+  return row?.value ?? null
+}
+
+/** 写一条设置（upsert）。 */
+function setSetting(key: string, value: string): void {
+  const d = requireDb()
+  d.prepare(
+    `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+  ).run(key, value, Date.now())
+}
+
+/**
+ * 读取持久化的录制聚合阈值（M3 切片 12）。
+ * 不存在/损坏时回退全量默认值；总是返回完整 RecordThresholds。
+ */
+export function loadRecordThresholds(): RecordThresholds {
+  try {
+    const raw = getSetting(SETTINGS_KEY_RECORD_THRESHOLDS)
+    if (raw === null) return { ...RECORD_THRESHOLD_DEFAULTS }
+    const parsed: unknown = JSON.parse(raw)
+    return mergeRecordThresholds(RECORD_THRESHOLD_DEFAULTS, sanitizeRecordThresholds(parsed))
+  } catch {
+    return { ...RECORD_THRESHOLD_DEFAULTS }
+  }
+}
+
+/** 保存录制聚合阈值：净化非法值后与现存量合并落盘。 */
+export function saveRecordThresholds(
+  raw: unknown
+): { ok: true; updatedAt: number } | { ok: false; error: string } {
+  try {
+    const clean = sanitizeRecordThresholds(raw)
+    const merged = mergeRecordThresholds(loadRecordThresholds(), clean)
+    setSetting(SETTINGS_KEY_RECORD_THRESHOLDS, JSON.stringify(merged))
+    return { ok: true, updatedAt: Date.now() }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }

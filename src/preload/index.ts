@@ -18,6 +18,7 @@ import type {
   ElementsDeleteReply,
   ElementsListReply
 } from '../shared/elements'
+import type { RecordThresholds } from '../shared/record-settings'
 
 /**
  * 暴露给渲染进程的桥接 API。
@@ -120,10 +121,10 @@ const api = {
     pickTargetWindow: (): Promise<
       { ok: true; pid: number; title: string } | { ok: false; error: string }
     > => ipcRenderer.invoke('record:pickTargetWindow'),
-    /** 开启录制：sidecar 钩子就绪后立即返回；targetPid 圈定目标窗口进程（可选）；thresholds 聚合阈值（可选，M3 切片 8） */
+    /** 开启录制：sidecar 钩子就绪后立即返回；targetPid 圈定目标窗口进程（可选）；thresholds 聚合阈值（可选，未传键自动取 DB 设置，M3 切片 8/12） */
     start: (
       targetPid?: number,
-      thresholds?: { clickDebounceMs?: number; clickDebouncePx?: number; typingGapMs?: number; scrollGapMs?: number }
+      thresholds?: Partial<RecordThresholds>
     ): Promise<RecordStartReply> => ipcRenderer.invoke('record:start', targetPid, thresholds),
     /** 结束录制：返回聚合指令序列（元素已写入元素库） */
     stop: (): Promise<RecordStopReply> => ipcRenderer.invoke('record:stop'),
@@ -133,6 +134,15 @@ const api = {
       ipcRenderer.on('record:result', listener)
       return () => ipcRenderer.removeListener('record:result', listener)
     }
+  },
+  /** 设置（M3 切片 12）：录制聚合阈值持久化；录制时自动带上，免去每次传参 */
+  settings: {
+    /** 读取持久化阈值（总是返回完整 RecordThresholds，缺省回退默认值） */
+    getRecordThresholds: (): Promise<RecordThresholds> =>
+      ipcRenderer.invoke('settings:get-record-thresholds'),
+    /** 保存阈值（非法值净化后与现存量合并落盘） */
+    setRecordThresholds: (raw: Partial<RecordThresholds>): Promise<{ ok: boolean; updatedAt?: number; error?: string }> =>
+      ipcRenderer.invoke('settings:set-record-thresholds', raw)
   }
 } as const
 

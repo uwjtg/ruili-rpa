@@ -19,6 +19,7 @@ import type {
   ElementsDeleteReply,
   ElementsListReply
 } from '../../shared/elements'
+import type { RecordThresholds } from '../../shared/record-settings'
 
 /**
  * preload 暴露的桥接 API 类型声明。
@@ -85,9 +86,13 @@ declare global {
         pickTargetWindow: () => Promise<
           { ok: true; pid: number; title: string } | { ok: false; error: string }
         >
-        start: (targetPid?: number, thresholds?: { clickDebounceMs?: number; clickDebouncePx?: number; typingGapMs?: number; scrollGapMs?: number }) => Promise<RecordStartReply>
+        start: (targetPid?: number, thresholds?: Partial<RecordThresholds>) => Promise<RecordStartReply>
         stop: () => Promise<RecordStopReply>
         onResult: (cb: (r: RecordStopReply) => void) => () => void
+      }
+      settings: {
+        getRecordThresholds: () => Promise<RecordThresholds>
+        setRecordThresholds: (raw: Partial<RecordThresholds>) => Promise<{ ok: boolean; updatedAt?: number; error?: string }>
       }
     }
   }

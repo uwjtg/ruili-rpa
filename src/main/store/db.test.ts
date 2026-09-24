@@ -12,10 +12,13 @@ import {
   listElements,
   listFlows,
   loadFlow,
+  loadRecordThresholds,
   openDb,
   saveElement,
-  saveFlow
+  saveFlow,
+  saveRecordThresholds
 } from './db'
+import { RECORD_THRESHOLD_DEFAULTS } from '../../shared/record-settings'
 import type { PickedElement } from '../../shared/desktop-pick'
 import type { FlowDoc } from '../../shared/ast'
 
@@ -208,5 +211,58 @@ describe('元素库（M3 切片 2）', () => {
   it('getElement 不存在的 id 返回错误', () => {
     const got = getElement('no-such-element')
     expect(got.ok).toBe(false)
+  })
+})
+
+describe('录制聚合阈值持久化（M3 切片 12）', () => {
+  beforeEach(() => openDb(':memory:'))
+  afterEach(() => closeDb())
+
+  it('未保存时读取返回全量默认值', () => {
+    expect(loadRecordThresholds()).toEqual(RECORD_THRESHOLD_DEFAULTS)
+  })
+
+  it('保存后可完整读回', () => {
+    const saved = saveRecordThresholds({
+      clickDebounceMs: 500,
+      clickDebouncePx: 12,
+      typingGapMs: 900,
+      scrollGapMs: 600
+    })
+    expect(saved.ok).toBe(true)
+    expect(loadRecordThresholds()).toEqual({
+      clickDebounceMs: 500,
+      clickDebouncePx: 12,
+      typingGapMs: 900,
+      scrollGapMs: 600
+    })
+  })
+
+  it('部分保存与现存值合并（未传键保留旧值/默认值）', () => {
+    saveRecordThresholds({ clickDebounceMs: 500 })
+    saveRecordThresholds({ typingGapMs: 1000 })
+    expect(loadRecordThresholds()).toEqual({
+      clickDebounceMs: 500,
+      clickDebouncePx: 10,
+      typingGapMs: 1000,
+      scrollGapMs: 400
+    })
+  })
+
+  it('非法值（负数/非数字/未知键）净化后不落盘', () => {
+    const saved = saveRecordThresholds({
+      clickDebounceMs: -1,
+      clickDebouncePx: 'abc',
+      typingGapMs: 700,
+      scrollGapMs: null,
+      bogus: 5
+    })
+    expect(saved.ok).toBe(true)
+    expect(loadRecordThresholds()).toEqual({
+      clickDebounceMs: 350,
+      clickDebouncePx: 10,
+      typingGapMs: 700,
+      scrollGapMs: 400
+    })
   })
 })

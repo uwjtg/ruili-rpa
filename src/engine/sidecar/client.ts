@@ -26,6 +26,7 @@ import type {
   RecordStartReply,
   RecordStopReply
 } from '../../shared/desktop-record'
+import type { RecordThresholds } from '../../shared/record-settings'
 
 export interface SidecarHealth {
   ok: boolean
@@ -286,17 +287,10 @@ export class SidecarClient {
     }
   }
 
-  /** 聚合阈值覆盖（M3 切片 8）；缺省沿用 sidecar 默认 */
-  recordThresholds?: {
-    clickDebounceMs?: number
-    clickDebouncePx?: number
-    typingGapMs?: number
-    scrollGapMs?: number
-  }
-  /** 开启桌面智能录制（观察不吞输入；appPid 排除自身；targetPid 圈定目标窗口进程，M3 切片 6；thresholds 聚合阈值，M3 切片 8） */
-  async recordStart(appPid?: number, targetPid?: number, thresholds?: {
-    clickDebounceMs?: number; clickDebouncePx?: number; typingGapMs?: number; scrollGapMs?: number
-  }): Promise<RecordStartReply> {
+  /** 聚合阈值覆盖（M3 切片 8/12）；缺省键沿用 sidecar 默认 */
+  recordThresholds?: Partial<RecordThresholds>
+  /** 开启桌面智能录制（观察不吞输入；appPid 排除自身；targetPid 圈定目标窗口进程，M3 切片 6；thresholds 聚合阈值，M3 切片 8/12） */
+  async recordStart(appPid?: number, targetPid?: number, thresholds?: Partial<RecordThresholds>): Promise<RecordStartReply> {
     try {
       const body: Record<string, unknown> = { app_pid: appPid ?? 0, target_pid: targetPid ?? 0 }
       if (thresholds) {

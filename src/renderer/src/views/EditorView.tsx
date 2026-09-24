@@ -11,6 +11,7 @@ import ParamPanel from './editor/ParamPanel'
 import VarPanel from './editor/VarPanel'
 import AiPanel from './editor/AiPanel'
 import ElementPanel from './editor/ElementPanel'
+import ThresholdPanel from './editor/ThresholdPanel'
 import type { PickedElement } from '../../../shared/desktop-pick'
 import type { RecordedInstruction } from '../../../shared/desktop-record'
 import { parameterizeRecording } from '../../../shared/record-params'
@@ -114,7 +115,7 @@ export default function EditorView(): JSX.Element {
   // M3 切片 10：运行前变量填写框（null=关闭）
   const [varDialog, setVarDialog] = useState<Record<string, string> | null>(null)
   const [lines, setLines] = useState<LogLine[]>([])
-  const [rightTab, setRightTab] = useState<'params' | 'vars' | 'elements' | 'ai'>('params')
+  const [rightTab, setRightTab] = useState<'params' | 'vars' | 'elements' | 'settings' | 'ai'>('params')
   const [status, setStatus] = useState('空闲')
   // 标签重命名编辑态
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -868,7 +869,7 @@ export default function EditorView(): JSX.Element {
           }}
         >
           <div style={{ display: 'flex', borderBottom: '1px solid #E5E6EB' }}>
-            {(['params', 'vars', 'elements', 'ai'] as const).map((t) => (
+            {(['params', 'vars', 'elements', 'settings', 'ai'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setRightTab(t)}
@@ -884,7 +885,7 @@ export default function EditorView(): JSX.Element {
                   borderBottom: rightTab === t ? '2px solid #7C5CFC' : '2px solid transparent'
                 }}
               >
-                {t === 'params' ? '参数' : t === 'vars' ? '变量' : t === 'elements' ? '元素' : 'AI'}
+                {t === 'params' ? '参数' : t === 'vars' ? '变量' : t === 'elements' ? '元素' : t === 'settings' ? '设置' : 'AI'}
               </button>
             ))}
           </div>
@@ -900,6 +901,8 @@ export default function EditorView(): JSX.Element {
               <VarPanel vars={flow.vars} onChange={(vars) => commit({ ...flow, vars })} />
             ) : rightTab === 'elements' ? (
               <ElementPanel onInsert={insertElementStep} />
+            ) : rightTab === 'settings' ? (
+              <ThresholdPanel onNotify={(msg) => push('sys', msg)} />
             ) : (
               <AiPanel onAccept={acceptAiFlow} />
             )}

@@ -16,19 +16,28 @@ import type {
   RecordedInstruction
 } from '../shared/desktop-record'
 import type { PickedElement } from '../shared/desktop-pick'
+import type { RecordThresholds } from '../shared/record-settings'
+import { mergeRecordThresholds } from '../shared/record-settings'
 import { ensureSidecar } from './sidecar'
-import { saveElement } from './store/db'
+import { loadRecordThresholds, saveElement } from './store/db'
 
 export class RecordController {
   constructor(private readonly getWindow: () => BrowserWindow | null) {}
 
-  /** 开启录制：sidecar 观察模式钩子就绪后立即返回（不阻塞用户操作）；thresholds 聚合阈值（M3 切片 8） */
-  async start(targetPid?: number, thresholds?: {
-    clickDebounceMs?: number; clickDebouncePx?: number; typingGapMs?: number; scrollGapMs?: number
-  }): Promise<RecordStartReply> {
+  /**
+   * 开启录制：sidecar 观察模式钩子就绪后立即返回（不阻塞用户操作）。
+   * thresholds 显式聚合阈值（M3 切片 8，可选）；未传的键自动取 DB 持久化设置
+   * （M3 切片 12：编辑器设置面板落盘后录制自动带上，免去每次传参）。
+   */
+  async start(
+    targetPid?: number,
+    thresholds?: Partial<RecordThresholds>
+  ): Promise<RecordStartReply> {
     try {
       const client = await ensureSidecar()
-      return await client.recordStart(process.pid, targetPid, thresholds)
+      // DB 持久化阈值为 base，显式传值覆盖；sidecar 缺省沿用其默认常量
+      const merged = mergeRecordThresholds(loadRecordThresholds(), thresholds)
+      return await client.recordStart(process.pid, targetPid, merged)
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) }
     }
