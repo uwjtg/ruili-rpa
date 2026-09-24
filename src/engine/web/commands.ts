@@ -15,11 +15,31 @@
 
 import type { RegisteredCommand } from '../commands/registry'
 import { getWebSession, type WebSession } from './session'
+import { SCRAPE_FN_BODY } from '../../shared/scrape/page-script'
+import type { ScrapeFieldSpec } from '../../shared/scrape/spec'
+import { writeFile } from 'node:fs/promises'
 
 type RegistryLike = { register(c: RegisteredCommand): void }
 
 function str(v: unknown, fallback = ''): string {
   return v == null ? fallback : String(v)
+}
+
+/** CSV 单元格转义（含逗号/引号/换行则双引号包裹，引号双写） */
+function csvCell(v: unknown): string {
+  const s = v == null ? '' : String(v)
+  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"'
+  return s
+}
+
+/** dict 数组 → UTF-8 BOM CSV（Excel 双击不乱码） */
+function toCsv(rows: Array<Record<string, unknown>>, headers: string[]): string {
+  const lines = [headers.map(csvCell).join(',')]
+  for (const row of rows) {
+    lines.push(headers.map((h) => csvCell(row[h])).join(','))
+  }
+  // BOM + CRLF（Excel 友好）
+  return '\uFEFF' + lines.join('\r\n')
 }
 
 export interface WebCommandsDeps {
@@ -153,6 +173,60 @@ export function registerWebCommands(
       await session.waitFor(selector, timeoutMs)
       ctx.log('success', `元素 ${selector} 已出现`)
       return true
+    }
+  })
+
+  registry.register({
+    id: 'webScrapeList',
+    name: '抓取列表数据',
+    group: '网页',
+    icon: 'scissors',
+    params: [
+      { key: 'listSelector', label: '列表项选择器', type: 'text', placeholder: '如 .product-card（向导生成）' },
+      {
+        key: 'fieldsJson',
+        label: '字段映射 JSON',
+        type: 'text',
+        placeholder: '[{"name":"标题","subSelector":".title"}]'
+      },
+      { key: 'resultVar', label: '结果变量', type: 'text', default: 'rows' },
+      { key: 'maxItems', label: '最多抓取条数（0=不限）', type: 'number', default: 0 },
+      { key: 'csvPath', label: '导出 CSV 路径（可选）', type: 'text', placeholder: '如 D:\\out.csv，支持 ${变量}' }
+    ],
+    summary: (p) => `抓取 ${str(p.listSelector, '…')} → ${str(p.resultVar, 'rows')}`,
+    runner: async (ctx, p) => {
+      const listSelector = ctx.interpolate(str(p.listSelector))
+      const resultVar = str(p.resultVar, 'rows')
+      const maxItems = Number(p.maxItems) || 0
+      const csvPath = ctx.interpolate(str(p.csvPath)).trim()
+
+      let fields: ScrapeFieldSpec[] = []
+      try {
+        fields = JSON.parse(str(p.fieldsJson))
+        if (!Array.isArray(fields) || fields.length === 0) {
+          throw new Error('fieldsJson 必须是非空数组')
+        }
+      } catch (e) {
+        throw new Error(`字段映射 JSON 解析失败：${e instanceof Error ? e.message : String(e)}`)
+      }
+
+      ctx.log('info', `开始抓取 ${listSelector}（${fields.length} 个字段）…`)
+      const rows = (await session.eval(SCRAPE_FN_BODY, {
+        listSelector,
+        fields,
+        maxItems
+      })) as Array<Record<string, unknown>>
+
+      if (!Array.isArray(rows)) throw new Error('页面抓取返回格式异常（非数组）')
+      ctx.setVar(resultVar, rows)
+      ctx.log('success', `抓取完成：${rows.length} 行 → 变量 ${resultVar}`)
+
+      if (csvPath) {
+        const headers = fields.map((f) => f.name)
+        await writeFile(csvPath, toCsv(rows, headers), 'utf8')
+        ctx.log('success', `已导出 CSV（${rows.length} 行）→ ${csvPath}`)
+      }
+      return rows
     }
   })
 

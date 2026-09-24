@@ -30,6 +30,12 @@ export interface WebSession {
   getTitle(): Promise<string>
   /** 等待选择器可见（超时抛错；Playwright auto-waiting 之外的显式等待） */
   waitFor(selector: string, timeoutMs: number): Promise<void>
+  /**
+   * 在当前页面上下文里执行一段自包含函数体（M4 切片 1 数据抓取）。
+   * fnBody 形如 `function myFn(arg){…return x}`；生产由 Playwright
+   * Runtime.callFunctionOn 注入页面（不受页面 CSP 影响），返回值可 JSON 序列化。
+   */
+  eval(fnBody: string, arg: unknown): Promise<unknown>
   /** 关闭浏览器 */
   close(): Promise<void>
   /** 是否已启动 */
@@ -136,6 +142,16 @@ export class RealWebSession implements WebSession {
       .locator(selector)
       .first()
       .waitFor({ state: 'visible', timeout: timeoutMs })
+  }
+
+  async eval(fnBody: string, arg: unknown): Promise<unknown> {
+    // 包成函数对象交给 Playwright：内部用 Runtime.callFunctionOn，
+    // 不受目标页面 CSP / 全局污染影响。fnBody 必须自包含（不闭包外部变量）。
+    const fn = new Function(
+      'arg',
+      `"use strict"; return (${fnBody})(arg)`
+    ) as (arg: unknown) => unknown
+    return await this.requirePage().evaluate(fn, arg)
   }
 
   async close(): Promise<void> {

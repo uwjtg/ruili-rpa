@@ -20,6 +20,7 @@ import type {
   ElementsListReply
 } from '../../shared/elements'
 import type { RecordThresholds } from '../../shared/record-settings'
+import type { ScrapeInspectResult } from '../../shared/scrape/spec'
 
 /**
  * preload 暴露的桥接 API 类型声明。
@@ -95,6 +96,9 @@ declare global {
         setRecordThresholds: (raw: Partial<RecordThresholds>) => Promise<{ ok: boolean; updatedAt?: number; error?: string }>
         getForegroundDelayMs: () => Promise<number>
         setForegroundDelayMs: (ms: number) => Promise<{ ok: boolean; updatedAt?: number; error?: string }>
+      }
+      scrape: {
+        inspect: (sampleSelector: string) => Promise<ScrapeInspectResult>
       }
     }
   }

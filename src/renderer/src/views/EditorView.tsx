@@ -12,6 +12,9 @@ import VarPanel from './editor/VarPanel'
 import AiPanel from './editor/AiPanel'
 import ElementPanel from './editor/ElementPanel'
 import ThresholdPanel from './editor/ThresholdPanel'
+import ScrapeWizard from './editor/ScrapeWizard'
+import { generateScrapeFlow } from '../../../shared/scrape/generate'
+import type { ScrapeWizardSpec } from '../../../shared/scrape/spec'
 import type { PickedElement } from '../../../shared/desktop-pick'
 import type { RecordedInstruction } from '../../../shared/desktop-record'
 import { parameterizeRecording } from '../../../shared/record-params'
@@ -120,6 +123,8 @@ export default function EditorView(): JSX.Element {
   const [varDialog, setVarDialog] = useState<Record<string, string> | null>(null)
   // M3 切片 14：必填校验错误提示（null/''=无错误）
   const [varDialogError, setVarDialogError] = useState('')
+  // M4 切片 1：数据抓取向导弹窗
+  const [scrapeOpen, setScrapeOpen] = useState(false)
   const [lines, setLines] = useState<LogLine[]>([])
   const [rightTab, setRightTab] = useState<'params' | 'vars' | 'elements' | 'settings' | 'ai'>('params')
   const [status, setStatus] = useState('空闲')
@@ -628,6 +633,26 @@ export default function EditorView(): JSX.Element {
     }
   }
 
+  /** M4 切片 1：抓取向导生成 → 重写 id 后追加到当前流程末尾（与录制追加同模式） */
+  function onGenerateScrape(spec: ScrapeWizardSpec): void {
+    const { steps: generated, newVars } = generateScrapeFlow(spec)
+    let idSource = activeTab.flow.steps
+    const steps: StepNode[] = []
+    for (const g of generated) {
+      const step: StepNode = { id: nextStepId(idSource), cmdId: g.cmdId, params: { ...g.params } }
+      idSource = [...idSource, step]
+      steps.push(step)
+    }
+    const merged = insertAfter(activeTab.flow.steps, null, steps[0])
+    for (let i = 1; i < steps.length; i++) merged.push(steps[i])
+    const existing = new Set(activeTab.flow.vars.map((v) => v.name))
+    const varsToAdd = newVars.filter((v) => !existing.has(v.name))
+    commit({ ...activeTab.flow, steps: merged, vars: [...activeTab.flow.vars, ...varsToAdd] })
+    patchTab(activeTab.tabId, { selectedId: steps[steps.length - 1].id })
+    setScrapeOpen(false)
+    push('success', '抓取向导已插入 ' + steps.length + ' 条步骤（' + spec.fields.length + ' 个字段 → 变量 ' + spec.resultVar + '）；先在浏览器跑通，再按需调整')
+  }
+
   /** AI 生成成功：把 FlowDoc 打开为新标签 */
   function acceptAiFlow(flow: FlowDoc): void {
     const t = makeTab(flow)
@@ -874,6 +899,14 @@ export default function EditorView(): JSX.Element {
         <button onClick={() => void runM1()} disabled={running || recording} style={{ ...btn, background: '#2F80ED', color: '#fff', border: 'none' }}>
           M1 端到端
         </button>
+        <button
+          onClick={() => setScrapeOpen(true)}
+          disabled={running || recording}
+          title='数据抓取向导：在已开浏览器列表页识别相似项、标注字段，一键生成抓取流程'
+          style={{ ...btn, background: scrapeOpen ? '#1DBF73' : '#fff', color: scrapeOpen ? '#fff' : '#1DBF73', border: scrapeOpen ? 'none' : '1px solid #1DBF73' }}
+        >
+          抓取
+        </button>
         <span style={{ marginLeft: 'auto' }}>
           {/* §5 第8条：顶部常显未保存/已保存状态；录制态红点常显 */}
           {recording ? (
@@ -1067,6 +1100,9 @@ export default function EditorView(): JSX.Element {
           </div>
         </div>
       ) : null}
+
+      {/* M4 切片 1：数据抓取向导 */}
+      {scrapeOpen ? <ScrapeWizard onClose={() => setScrapeOpen(false)} onGenerate={onGenerateScrape} /> : null}
     </div>
   )
 }

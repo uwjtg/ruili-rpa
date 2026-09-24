@@ -19,6 +19,7 @@ import type {
   ElementsListReply
 } from '../shared/elements'
 import type { RecordThresholds } from '../shared/record-settings'
+import type { ScrapeInspectResult } from '../shared/scrape/spec'
 
 /**
  * 暴露给渲染进程的桥接 API。
@@ -149,6 +150,12 @@ const api = {
     /** 保存置前台后短延时（ms；非法值归 0；已起 sidecar 实时推送） */
     setForegroundDelayMs: (ms: number): Promise<{ ok: boolean; updatedAt?: number; error?: string }> =>
       ipcRenderer.invoke('settings:set-foreground-delay-ms', ms)
+  },
+  /** 数据抓取向导（M4 切片 1）：在已开浏览器页面里识别相似列表项 */
+  scrape: {
+    /** 给定示例项选择器，返回聚类出的列表项选择器 + 候选字段 */
+    inspect: (sampleSelector: string): Promise<ScrapeInspectResult> =>
+      ipcRenderer.invoke('scrape:inspect', sampleSelector)
   }
 } as const
 
@@ -167,5 +174,6 @@ export type {
   RecordStartReply,
   RecordStopReply,
   ElementsDeleteReply,
-  ElementsListReply
+  ElementsListReply,
+  ScrapeInspectResult
 }

@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { CommandRegistry } from '../commands/registry'
 import { registerWebCommands } from './commands'
 import type { RunContext } from '../core/context'
+import { mkdtempSync, readFileSync, existsSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 /** 构造一个最小可运行的 RunContext */
 function makeCtx(): { ctx: RunContext; vars: Map<string, unknown>; logs: string[] } {
@@ -28,6 +31,7 @@ function fakeSession() {
     getText: vi.fn(async () => '提取到的文本'),
     getTitle: vi.fn(async () => '页面标题'),
     waitFor: vi.fn(async () => {}),
+    eval: vi.fn(async () => []),
     close: vi.fn(async () => {}),
     isRunning: () => true
   }
@@ -45,6 +49,7 @@ describe('web 指令（stub 会话）', () => {
         'webInput',
         'webOpenBrowser',
         'webOpenUrl',
+        'webScrapeList',
         'webWaitFor'
       ].sort()
     )
@@ -111,5 +116,65 @@ describe('web 指令（stub 会话）', () => {
       { id: 's4', cmdId: 'webWaitFor', params: {} }
     )
     expect(session.waitFor).toHaveBeenCalledWith('#result', 3000)
+  })
+  it('webScrapeList 调页面 eval 取字段并写入结果变量（可选 CSV）', async () => {
+    const session = fakeSession()
+    const fakeRows = [
+      { title: '商品 A', link: '/a' },
+      { title: '商品 B', link: '/b' }
+    ]
+    ;(session.eval as ReturnType<typeof vi.fn>).mockResolvedValue(fakeRows)
+
+    const dir = mkdtempSync(join(tmpdir(), 'ruili-scrape-'))
+    const csvPath = join(dir, 'out.csv')
+
+    const reg = new CommandRegistry()
+    registerWebCommands(reg, { session })
+    const { ctx, vars } = makeCtx()
+
+    const cmd = reg.get('webScrapeList')!
+    const fields = [
+      { name: 'title', subSelector: '.title' },
+      { name: 'link', subSelector: 'a', attr: 'href' }
+    ]
+    await cmd.runner(
+      ctx,
+      {
+        listSelector: 'div.card',
+        fieldsJson: JSON.stringify(fields),
+        resultVar: 'rows',
+        csvPath,
+        maxItems: 0
+      },
+      { id: 's5', cmdId: 'webScrapeList', params: {} }
+    )
+
+    expect(session.eval).toHaveBeenCalledTimes(1)
+    const [fnBody, arg] = (session.eval as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(typeof fnBody).toBe('string')
+    expect(arg).toMatchObject({ listSelector: 'div.card', fields, maxItems: 0 })
+    expect(vars.get('rows')).toEqual(fakeRows)
+
+    expect(existsSync(csvPath)).toBe(true)
+    const csv = readFileSync(csvPath, 'utf8')
+    expect(csv.charCodeAt(0)).toBe(0xfeff)
+    expect(csv).toContain('title,link')
+    expect(csv).toContain('商品 A,/a')
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('webScrapeList fieldsJson 非法时抛错', async () => {
+    const session = fakeSession()
+    const reg = new CommandRegistry()
+    registerWebCommands(reg, { session })
+    const { ctx } = makeCtx()
+    const cmd = reg.get('webScrapeList')!
+    await expect(
+      cmd.runner(
+        ctx,
+        { listSelector: 'x', fieldsJson: '{bad', resultVar: 'rows' },
+        { id: 's6', cmdId: 'webScrapeList', params: {} }
+      )
+    ).rejects.toThrow(/字段映射 JSON/)
   })
 })
