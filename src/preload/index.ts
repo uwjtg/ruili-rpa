@@ -11,6 +11,10 @@ import type {
 } from '../shared/flow-protocol'
 import type { PickReply, PickStopReply } from '../shared/desktop-pick'
 import type {
+  RecordStartReply,
+  RecordStopReply
+} from '../shared/desktop-record'
+import type {
   ElementsDeleteReply,
   ElementsListReply
 } from '../shared/elements'
@@ -21,6 +25,7 @@ import type {
  * - 阶段 4：流程运行控制（run:start/resume/stop）+ 事件订阅（run:event）+
  *   LLM 生成流程（llm:generate-flow，apiKey 不下发渲染端）。
  * - M2 切片 2：流程持久化（flow:save/list/load/delete，主进程 better-sqlite3）。
+ * - M3 切片 1/2/3：桌面拾取（pick）、元素库（elements）、智能录制（record）。
  */
 const api = {
   platform: process.platform,
@@ -91,13 +96,31 @@ const api = {
       return () => ipcRenderer.removeListener('pick:result', listener)
     }
   },
-  /** 元素库（M3 切片 2）：picked 元素持久化；拾取成功由主进程自动入库 */
+  /** 元素库（M3 切片 2/3）：picked 元素持久化；拾取/录制成功自动入库 */
   elements: {
     /** 全部元素（按最近拾取倒序） */
     list: (): Promise<ElementsListReply> => ipcRenderer.invoke('elements:list'),
     /** 删除一条元素 */
     delete: (id: string): Promise<ElementsDeleteReply> =>
-      ipcRenderer.invoke('elements:delete', id)
+      ipcRenderer.invoke('elements:delete', id),
+    /** dry-run 校验：按回退链只定位不点击，返回命中策略（M3 切片 3） */
+    verify: (
+      id: string
+    ): Promise<{ ok: boolean; found?: boolean; strategy?: string; error?: string }> =>
+      ipcRenderer.invoke('elements:verify', id)
+  },
+  /** 桌面智能录制（M3 切片 3）：观察式录制 → 指令序列 */
+  record: {
+    /** 开启录制：sidecar 钩子就绪后立即返回；此后用户在目标窗口执行操作 */
+    start: (): Promise<RecordStartReply> => ipcRenderer.invoke('record:start'),
+    /** 结束录制：返回聚合指令序列（元素已写入元素库） */
+    stop: (): Promise<RecordStopReply> => ipcRenderer.invoke('record:stop'),
+    /** 订阅录制结束事件（与 stop() 返回一致），返回取消订阅函数 */
+    onResult: (cb: (r: RecordStopReply) => void): (() => void) => {
+      const listener = (_: unknown, r: RecordStopReply): void => cb(r)
+      ipcRenderer.on('record:result', listener)
+      return () => ipcRenderer.removeListener('record:result', listener)
+    }
   }
 } as const
 
@@ -113,6 +136,8 @@ export type {
   SaveReply,
   PickReply,
   PickStopReply,
+  RecordStartReply,
+  RecordStopReply,
   ElementsDeleteReply,
   ElementsListReply
 }

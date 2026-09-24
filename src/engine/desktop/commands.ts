@@ -1,8 +1,11 @@
 /**
- * 桌面自动化指令（M3 切片 1 POC）。
+ * 桌面自动化指令（M3 切片 1 POC + 切片 3 录制回放）。
  *
  *  pickElement  拾取元素后点击：按拾取结果（target JSON，来自拾取按钮/手填）
- *  在运行时用 UIA 重新定位控件并点击其中心。
+ *  在运行时用 UIA 重新定位控件并点击其中心（选择器回退链 strict→property→
+ *  ancestor→index→coords）。
+ *  typeText     输入文本：SendInput Unicode 逐字符输入到当前焦点窗口（布局无关）。
+ *  scroll       滚动鼠标：在目标控件中心（target 可空，回退到坐标/当前光标）滚轮。
  *
  * target 形状 = src/shared/desktop-pick.ts 的 PickedElement：
  *   {windowHandle, automationId, name, controlType, className, boundingBox}
@@ -20,6 +23,22 @@ export interface DesktopLike {
   clickElement(target: PickedElement): Promise<{
     ok: boolean
     /** 命中的回退链策略（strict/property/ancestor/index/coords） */
+    strategy?: string
+    error?: string
+  }>
+  /** 输入文本：Unicode 逐字符发送到当前焦点窗口 */
+  typeText(text: string): Promise<{ ok: boolean; error?: string }>
+  /** 滚动鼠标：在目标控件中心（target 可空 → 坐标 / 当前光标位置）滚轮 */
+  scroll(opts: {
+    target?: PickedElement | null
+    x?: number
+    y?: number
+    delta: number
+  }): Promise<{ ok: boolean; error?: string }>
+  /** 元素 dry-run：只定位不点击（元素库「校验」） */
+  locateElement(target: PickedElement): Promise<{
+    ok: boolean
+    found?: boolean
     strategy?: string
     error?: string
   }>
@@ -99,6 +118,86 @@ export function registerDesktopCommands(
       const strategy = r.strategy ?? 'property'
       ctx.log('success', `已点击元素「${label}」（定位策略：${strategy}）`)
       return target
+    }
+  })
+
+  registry.register({
+    id: 'typeText',
+    name: '输入文本',
+    group: '桌面',
+    icon: 'type',
+    params: [
+      {
+        key: 'text',
+        label: '文本内容',
+        type: 'text',
+        placeholder: '要输入的文本（支持 ${变量}）'
+      }
+    ],
+    summary: (p) => {
+      const text = typeof p.text === 'string' ? p.text : String(p.text ?? '')
+      return text ? `输入文本「${text}」` : '输入文本（未配置）'
+    },
+    runner: async (ctx, p) => {
+      const text =
+        typeof p.text === 'string' ? ctx.interpolate(p.text) : String(p.text ?? '')
+      if (!text) {
+        throw new Error('typeText 缺少有效的 text 参数')
+      }
+      ctx.log('info', `向当前焦点窗口输入文本：${text}`)
+      const r = await desktop.typeText(text)
+      if (!r.ok) {
+        throw new Error(`输入文本失败：${r.error ?? '未知错误'}`)
+      }
+      ctx.log('success', `已输入文本「${text}」`)
+      return { text }
+    }
+  })
+
+  registry.register({
+    id: 'scroll',
+    name: '滚动鼠标',
+    group: '桌面',
+    icon: 'scroll',
+    params: [
+      {
+        key: 'target',
+        label: '元素选择器 (JSON)',
+        type: 'text',
+        placeholder: '留空 = 在当前光标位置滚动；录制会带出滚动位置元素'
+      },
+      {
+        key: 'delta',
+        label: '滚动量（正=向上）',
+        type: 'number',
+        default: 120
+      }
+    ],
+    summary: (p) => {
+      const t = parseTargetParam(p.target)
+      const label = targetLabel(t)
+      return label
+        ? `滚动「${label}」（${String(p.delta ?? 120)}）`
+        : `滚动鼠标（${String(p.delta ?? 120)}）`
+    },
+    runner: async (ctx, p) => {
+      const raw =
+        typeof p.target === 'string' ? ctx.interpolate(p.target) : p.target
+      const target = parseTargetParam(raw)
+      const delta = Math.trunc(Number(p.delta ?? 120))
+      if (!Number.isFinite(delta)) {
+        throw new Error('scroll 的 delta 参数无效')
+      }
+      // 录制坐标兜底：target 为空时回退到录制位置的屏幕坐标
+      const x = p.x != null && p.x !== '' ? Math.trunc(Number(p.x)) : undefined
+      const y = p.y != null && p.y !== '' ? Math.trunc(Number(p.y)) : undefined
+      ctx.log('info', `滚动鼠标（${delta > 0 ? '向上' : '向下'} ${Math.abs(delta)}）`)
+      const r = await desktop.scroll({ target, delta, x, y })
+      if (!r.ok) {
+        throw new Error(`滚动失败：${r.error ?? '未知错误'}`)
+      }
+      ctx.log('success', `已滚动鼠标（${delta > 0 ? '向上' : '向下'} ${Math.abs(delta)}）`)
+      return { delta }
     }
   })
 }

@@ -38,8 +38,21 @@ function fakeDesktop() {
       ok: true
     })
   )
-  const desktop: DesktopLike = { clickElement }
-  return { desktop, clickElement }
+  const typeText = vi.fn(async (): Promise<{ ok: boolean; error?: string }> => ({
+    ok: true
+  }))
+  const scroll = vi.fn(
+    async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true })
+  )
+  const locateElement = vi.fn(
+    async (): Promise<{ ok: boolean; found?: boolean; strategy?: string; error?: string }> => ({
+      ok: true,
+      found: true,
+      strategy: 'strict'
+    })
+  )
+  const desktop: DesktopLike = { clickElement, typeText, scroll, locateElement }
+  return { desktop, clickElement, typeText, scroll, locateElement }
 }
 
 describe('desktop 指令（stub 回放客户端）', () => {
@@ -154,5 +167,122 @@ describe('desktop 指令（stub 回放客户端）', () => {
     expect(
       targetLabel({ ...ELEMENT, name: '', automationId: '', windowTitle: '主窗口' })
     ).toBe('主窗口')
+  })
+
+  // ---------- M3 切片 3：typeText / scroll（录制回放指令） ----------
+
+  it('注册 typeText 指令（桌面分组，text 参数）', () => {
+    const reg = new CommandRegistry()
+    registerDesktopCommands(reg, { desktop: fakeDesktop().desktop })
+    const cmd = reg.get('typeText')
+    expect(cmd).toBeDefined()
+    expect(cmd?.group).toBe('桌面')
+    expect(cmd?.params.map((p) => p.key)).toEqual(['text'])
+  })
+
+  it('typeText 调回放并成功日志', async () => {
+    const { desktop, typeText } = fakeDesktop()
+    const reg = new CommandRegistry()
+    registerDesktopCommands(reg, { desktop })
+    const { ctx, logs } = makeCtx()
+
+    const result = await reg.get('typeText')!.runner(
+      ctx,
+      { text: 'hello' },
+      { id: 's1', cmdId: 'typeText', params: {} }
+    )
+    expect(typeText).toHaveBeenCalledWith('hello')
+    expect(result).toEqual({ text: 'hello' })
+    expect(logs.some((l) => l.includes('已输入文本「hello」'))).toBe(true)
+  })
+
+  it('typeText 支持 ${var} 插值，空文本抛错', async () => {
+    const { desktop, typeText } = fakeDesktop()
+    const reg = new CommandRegistry()
+    registerDesktopCommands(reg, { desktop })
+    const { ctx, vars } = makeCtx()
+    vars.set('kw', '锐流')
+
+    await reg.get('typeText')!.runner(
+      ctx,
+      { text: '${kw}' },
+      { id: 's1', cmdId: 'typeText', params: {} }
+    )
+    expect(typeText).toHaveBeenCalledWith('锐流')
+
+    await expect(
+      reg.get('typeText')!.runner(ctx, { text: '' }, { id: 's2', cmdId: 'typeText', params: {} })
+    ).rejects.toThrow(/缺少有效的 text/)
+  })
+
+  it('typeText 回放失败抛错带原因', async () => {
+    const { desktop, typeText } = fakeDesktop()
+    typeText.mockResolvedValueOnce({ ok: false, error: 'SendInput 失败' })
+    const reg = new CommandRegistry()
+    registerDesktopCommands(reg, { desktop })
+    const { ctx } = makeCtx()
+
+    await expect(
+      reg.get('typeText')!.runner(ctx, { text: 'x' }, { id: 's1', cmdId: 'typeText', params: {} })
+    ).rejects.toThrow(/SendInput 失败/)
+  })
+
+  it('注册 scroll 指令（target/delta 参数，默认 delta=120）', () => {
+    const reg = new CommandRegistry()
+    registerDesktopCommands(reg, { desktop: fakeDesktop().desktop })
+    const cmd = reg.get('scroll')
+    expect(cmd).toBeDefined()
+    expect(cmd?.group).toBe('桌面')
+    expect(cmd?.params.map((p) => p.key)).toEqual(['target', 'delta'])
+    expect(cmd?.params.find((p) => p.key === 'delta')?.default).toBe(120)
+  })
+
+  it('scroll 解析 target JSON 并传 delta（录制坐标兜底）', async () => {
+    const { desktop, scroll } = fakeDesktop()
+    const reg = new CommandRegistry()
+    registerDesktopCommands(reg, { desktop })
+    const { ctx, logs } = makeCtx()
+
+    await reg.get('scroll')!.runner(
+      ctx,
+      {
+        target: JSON.stringify(ELEMENT),
+        delta: -120,
+        x: 200,
+        y: 300
+      },
+      { id: 's1', cmdId: 'scroll', params: {} }
+    )
+    expect(scroll).toHaveBeenCalledWith({ target: ELEMENT, delta: -120, x: 200, y: 300 })
+    expect(logs.some((l) => l.includes('已滚动鼠标'))).toBe(true)
+  })
+
+  it('scroll 无 target 时传 undefined 坐标（当前光标滚动）', async () => {
+    const { desktop, scroll } = fakeDesktop()
+    const reg = new CommandRegistry()
+    registerDesktopCommands(reg, { desktop })
+    const { ctx } = makeCtx()
+
+    await reg.get('scroll')!.runner(
+      ctx,
+      { target: '', delta: 120 },
+      { id: 's1', cmdId: 'scroll', params: {} }
+    )
+    expect(scroll).toHaveBeenCalledWith({ target: null, delta: 120, x: undefined, y: undefined })
+  })
+
+  it('scroll delta 非法抛错、回放失败抛错', async () => {
+    const { desktop, scroll } = fakeDesktop()
+    scroll.mockResolvedValueOnce({ ok: false, error: 'scroll_failed' })
+    const reg = new CommandRegistry()
+    registerDesktopCommands(reg, { desktop })
+    const { ctx } = makeCtx()
+
+    await expect(
+      reg.get('scroll')!.runner(ctx, { delta: 'abc' }, { id: 's1', cmdId: 'scroll', params: {} })
+    ).rejects.toThrow(/delta/)
+    await expect(
+      reg.get('scroll')!.runner(ctx, { delta: 120 }, { id: 's2', cmdId: 'scroll', params: {} })
+    ).rejects.toThrow(/scroll_failed/)
   })
 })

@@ -8,6 +8,7 @@ import {
   deleteElement,
   deleteFlow,
   elementLabel,
+  getElement,
   listElements,
   listFlows,
   loadFlow,
@@ -188,5 +189,24 @@ describe('元素库（M3 切片 2）', () => {
     expect(
       elementLabel({ ...full, name: '', automationId: '', controlType: '' })
     ).toBe('未命名元素')
+  })
+
+  // M3 切片 3：元素库「校验」按 id 取回
+  it('getElement 按 id 取回完整签名', () => {
+    const sig = makeElement()
+    const saved = saveElement(sig)
+    expect(saved.ok).toBe(true)
+    if (!saved.ok) return
+
+    const got = getElement(saved.id)
+    expect(got.ok).toBe(true)
+    if (!got.ok) return
+    expect(got.element.signature).toEqual(sig)
+    expect(got.element.id).toBe(saved.id)
+  })
+
+  it('getElement 不存在的 id 返回错误', () => {
+    const got = getElement('no-such-element')
+    expect(got.ok).toBe(false)
   })
 })

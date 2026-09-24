@@ -12,6 +12,7 @@ import VarPanel from './editor/VarPanel'
 import AiPanel from './editor/AiPanel'
 import ElementPanel from './editor/ElementPanel'
 import type { PickedElement } from '../../../shared/desktop-pick'
+import type { RecordedInstruction } from '../../../shared/desktop-record'
 import {
   buildInitialFlow,
   countSteps,
@@ -104,6 +105,8 @@ export default function EditorView(): JSX.Element {
   const [paused, setPaused] = useState(false)
   // 桌面元素拾取模式（M3 切片 1）
   const [picking, setPicking] = useState(false)
+  // 桌面智能录制模式（M3 切片 3）：观察式录制，不吞输入
+  const [recording, setRecording] = useState(false)
   const [lines, setLines] = useState<LogLine[]>([])
   const [rightTab, setRightTab] = useState<'params' | 'vars' | 'elements' | 'ai'>('params')
   const [status, setStatus] = useState('空闲')
@@ -444,6 +447,68 @@ export default function EditorView(): JSX.Element {
     push('success', `已从元素库插入「拾取元素后点击」步骤（${label}）`)
   }
 
+  /**
+   * 桌面智能录制（M3 切片 3）：观察式录制。点「录制」开启（sidecar 全局钩子不吞
+   * 输入），用户在目标窗口执行点击/输入/滚动；点「停止录制」后 sidecar 按阈值
+   * 聚合为指令序列，元素签名写入元素库（与拾取共用 saveElement 去重），指令
+   * 追加为当前流程步骤。
+   */
+  async function onRecord(): Promise<void> {
+    if (!ruili?.record) return
+    if (recording) {
+      setRecording(false)
+      push('sys', '正在结束录制并聚合指令…')
+      const reply = await ruili.record.stop()
+      if (!reply.ok) {
+        setRecording(false)
+        push('error', `结束录制失败：${reply.error}`)
+        return
+      }
+      appendRecordedSteps(reply.instructions)
+      const counts = reply.instructions.reduce(
+        (a, i) => ({ ...a, [i.kind]: (a[i.kind] ?? 0) + 1 }),
+        {} as Record<string, number>
+      )
+      push(
+        'success',
+        `录制完成：${reply.instructions.length} 条指令（点击 ${counts.click ?? 0} / 输入 ${counts.type ?? 0} / 滚动 ${counts.scroll ?? 0}），元素已写入元素库`
+      )
+      return
+    }
+    setRecording(true)
+    push('sys', '录制模式已开启：请在目标窗口中执行操作（点击 / 输入 / 滚动将被录制）；完成后点「停止录制」')
+    const reply = await ruili.record.start()
+    if (!reply.ok || !reply.started) {
+      setRecording(false)
+      push('error', `开启录制失败：${'error' in reply ? reply.error : '未知错误'}`)
+    }
+  }
+
+  /** 把录制指令追加为流程步骤（对象参数序列化为 JSON；全部追加到末尾，单次 commit） */
+  function appendRecordedSteps(instructions: RecordedInstruction[]): void {
+    if (instructions.length === 0) {
+      push('sys', '未录制到任何操作（没有可聚合的点击 / 输入 / 滚动）')
+      return
+    }
+    // 逐条生成唯一 id：nextStepId 基于"已含前序新步骤"的数组递增，避免同基重复
+    let idSource = activeTab.flow.steps
+    const steps: StepNode[] = []
+    for (const ins of instructions) {
+      const params: Record<string, unknown> = { ...ins.params }
+      for (const [k, v] of Object.entries(params)) {
+        if (v && typeof v === 'object') params[k] = JSON.stringify(v)
+      }
+      const step: StepNode = { id: nextStepId(idSource), cmdId: ins.cmdId, params }
+      idSource = [...idSource, step]
+      steps.push(step)
+    }
+    // insertAfter(null) 追加到末尾；后续步骤按录制顺序续排
+    const merged = insertAfter(activeTab.flow.steps, null, steps[0])
+    for (let i = 1; i < steps.length; i++) merged.push(steps[i])
+    commit({ ...activeTab.flow, steps: merged })
+    patchTab(activeTab.tabId, { selectedId: steps[0].id })
+  }
+
   /** AI 生成成功：把 FlowDoc 打开为新标签 */
   function acceptAiFlow(flow: FlowDoc): void {
     const t = makeTab(flow)
@@ -633,7 +698,7 @@ export default function EditorView(): JSX.Element {
         </button>
         <button
           onClick={() => void run()}
-          disabled={running}
+          disabled={running || recording}
           style={{ ...btn, background: running ? '#B0B6BF' : '#1DBF73', color: '#fff', border: 'none' }}
         >
           {running ? '运行中…' : '运行'}
@@ -648,11 +713,19 @@ export default function EditorView(): JSX.Element {
         </button>
         <button
           onClick={() => void onPick()}
-          disabled={running}
+          disabled={running || recording}
           title="拾取桌面元素：移动鼠标到目标控件，左键点击确认；Esc 或右键取消"
           style={{ ...btn, background: picking ? '#7C5CFC' : '#fff', color: picking ? '#fff' : '#7C5CFC', border: picking ? 'none' : '1px solid #7C5CFC' }}
         >
           {picking ? '取消拾取' : '拾取'}
+        </button>
+        <button
+          onClick={() => void onRecord()}
+          disabled={running || picking}
+          title="智能录制：观察目标窗口操作（点击/输入/滚动）生成指令序列；录制不吞输入，点「停止录制」结束"
+          style={{ ...btn, background: recording ? '#E64340' : '#fff', color: recording ? '#fff' : '#E64340', border: recording ? 'none' : '1px solid #E64340' }}
+        >
+          {recording ? '停止录制' : '录制'}
         </button>
         {paused ? (
           <button onClick={() => ruili?.run.resume()} style={{ ...btn, background: '#7C5CFC', color: '#fff', border: 'none' }}>
@@ -671,12 +744,14 @@ export default function EditorView(): JSX.Element {
           ↻ 重做
         </button>
         <span style={{ width: 1, height: 20, background: '#E5E6EB' }} />
-        <button onClick={() => void runM1()} disabled={running} style={{ ...btn, background: '#2F80ED', color: '#fff', border: 'none' }}>
+        <button onClick={() => void runM1()} disabled={running || recording} style={{ ...btn, background: '#2F80ED', color: '#fff', border: 'none' }}>
           M1 端到端
         </button>
         <span style={{ marginLeft: 'auto' }}>
-          {/* §5 第8条：顶部常显未保存/已保存状态 */}
-          {activeTab.dirty ? (
+          {/* §5 第8条：顶部常显未保存/已保存状态；录制态红点常显 */}
+          {recording ? (
+            <span style={{ color: '#E64340', fontSize: 12 }}>● 录制中…</span>
+          ) : activeTab.dirty ? (
             <span style={{ color: '#E64340', fontSize: 12 }}>● 未保存的更改</span>
           ) : activeTab.savedAt ? (
             <span style={{ color: '#1DBF73', fontSize: 12 }}>✓ 已保存 {activeTab.savedAt}</span>

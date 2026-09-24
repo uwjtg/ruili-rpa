@@ -32,3 +32,6 @@ __pycache__/
 *.db
 *.db-wal
 *.db-shm
+
+# uiautomation 调试残留
+@AutomationLog.txt

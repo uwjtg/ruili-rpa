@@ -5,6 +5,10 @@ import type { FlowDoc } from '../../shared/ast'
 import type { CmdMeta } from '../../shared/cmd-schema'
 import type { PickReply, PickStopReply } from '../../shared/desktop-pick'
 import type {
+  RecordStartReply,
+  RecordStopReply
+} from '../../shared/desktop-record'
+import type {
   DeleteReply,
   FlowSummary,
   ListReply,
@@ -67,6 +71,14 @@ declare global {
       elements: {
         list: () => Promise<ElementsListReply>
         delete: (id: string) => Promise<ElementsDeleteReply>
+        verify: (
+          id: string
+        ) => Promise<{ ok: boolean; found?: boolean; strategy?: string; error?: string }>
+      }
+      record: {
+        start: () => Promise<RecordStartReply>
+        stop: () => Promise<RecordStopReply>
+        onResult: (cb: (r: RecordStopReply) => void) => () => void
       }
     }
   }

@@ -85,3 +85,13 @@ export interface ClickElementReply {
   strategy?: ClickStrategy
   error?: string
 }
+
+/** 元素库「校验」/ dry-run：/desktop/locate_element 的返回（只定位不点击） */
+export interface LocateElementReply {
+  ok: boolean
+  /** 是否按回退链定位成功 */
+  found?: boolean
+  /** 命中策略（strict/property/ancestor/index/coords）；未命中为 'none' */
+  strategy?: ClickStrategy | 'none'
+  error?: string
+}

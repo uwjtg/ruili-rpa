@@ -13,7 +13,12 @@
   POST /find_image       body {"source_path", "template_path"} -> {"ok": true, "x", "y", "score"} | 501
   POST /pick/start       body {} -> 阻塞拾取；{"ok": true, "element": {...}} | {"ok": true, "cancelled": true} | {"ok": false, "error"}
   POST /pick/stop        body {} -> {"ok": true, "stopped": bool}
-  POST /desktop/click_element  body {"target": {...}} -> {"ok": true} | 404 {"ok": false, "error"} | 400
+  POST /desktop/click_element  body {"target": {...}} -> {"ok": true, "strategy"} | 404 {"ok": false, "error"} | 400
+  POST /desktop/locate_element body {"target": {...}} -> {"ok": true, "found": bool, "strategy"} | 400
+  POST /desktop/type_text      body {"text": str} -> {"ok": true} | 400
+  POST /desktop/scroll         body {"target"?: {...}, "x"?: int, "y"?: int, "delta": int} -> {"ok": true} | 400
+  POST /record/start           body {"app_pid"?: int} -> {"ok": true, "started": true} | 400 already_recording
+  POST /record/stop            body {} -> {"ok": true, "instructions": [...]} | 400 not_recording
 
 启动时向 stdout 打印一行 `SIDECAR_READY port=<port>`，供 Node 侧同步握手。
 仅依赖 Python 标准库即可启动；RapidOCR / OpenCV 为可选增强；桌面拾取依赖
@@ -26,7 +31,7 @@ import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict
 
-from desktop_pick import DesktopPicker, ElementNotFoundError
+from desktop_pick import DesktopPicker, DesktopRecorder, ElementNotFoundError
 
 VERSION = "0.1.0"
 
@@ -56,6 +61,9 @@ def engines_report() -> Dict[str, bool]:
 
 # 桌面拾取单例（M3 切片 1）：HTTP handler 线程调 start() 阻塞；测试可替换
 _PICKER = DesktopPicker()
+
+# 录制器单例（M3 切片 3）：观察式智能录制；测试可替换
+_RECORDER = DesktopRecorder()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -175,6 +183,94 @@ class Handler(BaseHTTPRequestHandler):
                 return
             # strategy：命中的回退链策略（strict/property/ancestor/index/coords）
             self._send_json(200, {"ok": True, "strategy": strategy})
+            return
+
+        # ---- 元素 dry-run 定位 / 录制回放（M3 切片 3） ----
+        if self.path == "/desktop/locate_element":
+            target = body.get("target")
+            if not isinstance(target, dict):
+                self._send_json(400, {"ok": False, "error": "target_required"})
+                return
+            try:
+                hit = _PICKER.locate_element(target)
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"locate_element_failed: {e}"})
+                return
+            # found/strategy：元素库「校验」与回放 dry-run（不点击）
+            self._send_json(
+                200,
+                {
+                    "ok": True,
+                    "found": bool(hit.get("found", False)),
+                    "strategy": hit.get("strategy", "none"),
+                },
+            )
+            return
+
+        if self.path == "/desktop/type_text":
+            text = body.get("text")
+            if not isinstance(text, str) or not text:
+                self._send_json(400, {"ok": False, "error": "text_required"})
+                return
+            try:
+                _PICKER.type_text(text)
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"type_text_failed: {e}"})
+                return
+            self._send_json(200, {"ok": True})
+            return
+
+        if self.path == "/desktop/scroll":
+            try:
+                delta = int(body.get("delta"))
+            except (TypeError, ValueError):
+                self._send_json(400, {"ok": False, "error": "delta_required"})
+                return
+            target = body.get("target")
+            if not isinstance(target, dict):
+                target = None
+            try:
+                x = None if body.get("x") is None else int(body.get("x"))
+                y = None if body.get("y") is None else int(body.get("y"))
+            except (TypeError, ValueError):
+                self._send_json(400, {"ok": False, "error": "xy_invalid"})
+                return
+            try:
+                _PICKER.scroll(target, delta, x, y)
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"scroll_failed: {e}"})
+                return
+            self._send_json(200, {"ok": True})
+            return
+
+        # ---- 智能录制（M3 切片 3） ----
+        if self.path == "/record/start":
+            try:
+                app_pid = int(body.get("app_pid") or 0)
+            except (TypeError, ValueError):
+                self._send_json(400, {"ok": False, "error": "app_pid_invalid"})
+                return
+            try:
+                started = _RECORDER.start(app_pid)
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"record_start_failed: {e}"})
+                return
+            if not started:
+                self._send_json(400, {"ok": False, "error": "already_recording"})
+                return
+            self._send_json(200, {"ok": True, "started": True})
+            return
+
+        if self.path == "/record/stop":
+            try:
+                instructions = _RECORDER.stop()
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"record_stop_failed: {e}"})
+                return
+            if instructions is None:
+                self._send_json(400, {"ok": False, "error": "not_recording"})
+                return
+            self._send_json(200, {"ok": True, "instructions": instructions})
             return
 
         self._send_json(404, {"ok": False, "error": "not_found"})

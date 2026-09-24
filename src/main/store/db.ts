@@ -299,6 +299,41 @@ export function deleteElement(id: string): ElementsDeleteReply {
   }
 }
 
+/** 按 id 取一条元素库记录（元素库「校验」用；M3 切片 3）。 */
+export function getElement(
+  id: string
+): { ok: true; element: ElementRecord } | { ok: false; error: string } {
+  try {
+    const d = requireDb()
+    const row = d
+      .prepare(
+        'SELECT id, label, signature, created_at, updated_at FROM elements WHERE id = ?'
+      )
+      .get(id) as
+      | {
+          id: string
+          label: string
+          signature: string
+          created_at: number
+          updated_at: number
+        }
+      | undefined
+    if (!row) return { ok: false, error: `元素不存在：${id}` }
+    return {
+      ok: true,
+      element: {
+        id: row.id,
+        label: row.label,
+        signature: JSON.parse(row.signature) as PickedElement,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }
+    }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 /** 一条待落盘的运行日志行（主进程 run 结束时批量写入） */
 export interface RunLogEntry {
   level: string

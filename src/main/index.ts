@@ -13,6 +13,7 @@ import {
   closeDb,
   deleteElement,
   deleteFlow,
+  getElement,
   listElements,
   listFlows,
   loadFlow,
@@ -22,6 +23,8 @@ import {
 } from './store/db'
 import type { RunLogEntry } from './store/db'
 import { PickController } from './pick'
+import { RecordController } from './record'
+import { ensureSidecar, disposeSidecar } from './sidecar'
 import { randomUUID } from 'node:crypto'
 
 /** 冒烟模式：窗口显示后截取首屏（smoke.png）并自动退出，供无人值守验证基线窗口（RUILI_SMOKE=1） */
@@ -247,9 +250,30 @@ ipcMain.handle('pick:start', async () => {
 })
 ipcMain.handle('pick:stop', () => pickController.stop())
 
-/* ---------- 元素库（M3 切片 2）：picked 元素持久化 ---------- */
+/* ---------- 元素库（M3 切片 2/3）：picked 元素持久化 + dry-run 校验 ---------- */
 ipcMain.handle('elements:list', () => listElements())
 ipcMain.handle('elements:delete', (_e, id: string) => deleteElement(id))
+ipcMain.handle('elements:verify', async (_e, id: string) => {
+  const el = getElement(id)
+  if (!el.ok) return { ok: false as const, error: el.error }
+  try {
+    const client = await ensureSidecar()
+    const r = await client.locateElement(el.element.signature)
+    return {
+      ok: r.ok,
+      found: r.found ?? false,
+      strategy: r.strategy ?? ('none' as const),
+      error: r.error
+    }
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : String(err) }
+  }
+})
+
+/* ---------- 桌面智能录制（M3 切片 3）：观察式录制 → 指令序列 ---------- */
+const recordController = new RecordController(() => mainWindow)
+ipcMain.handle('record:start', () => recordController.start())
+ipcMain.handle('record:stop', () => recordController.stop())
 
 app.whenReady().then(() => {
   // 数据库落在 userData 下（Electron 提供的跨版本稳定用户目录）
@@ -264,5 +288,6 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   closeDb()
   pickController.dispose()
+  disposeSidecar()
   if (process.platform !== 'darwin') app.quit()
 })

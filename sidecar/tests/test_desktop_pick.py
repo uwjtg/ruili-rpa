@@ -542,3 +542,47 @@ def test_element_to_dict_window_meta():
     d = element_to_dict(_ChildOfTop())
     assert d["windowTitle"] == "锐流 RPA 主窗口"
     assert d["processId"] == 4242
+
+
+# ---------- M3 切片 3：locate_element dry-run（只定位不点击） ----------
+
+def test_locate_element_finds_without_clicking():
+    root, _inner, btn = _make_tree()
+    picker = DesktopPicker(uia=_FakeUia(root))
+    hit = picker.locate_element(_sig(
+        automationId="btn_ok", name="确定", controlType="ButtonControl"
+    ))
+    assert hit["found"] is True
+    assert hit["strategy"] == "strict"
+    assert hit["control"] is btn
+    assert btn.clicked is False  # dry-run 不点击
+
+
+def test_locate_element_coords_strategy_with_box():
+    root, _inner, _btn = _make_tree()
+    picker = DesktopPicker(uia=_FakeUia(root))
+    hit = picker.locate_element(_sig(
+        windowHandle=404,
+        automationId="nope",
+        name="不存在的",
+        controlType="ButtonControl",
+        boundingBox=_box(100, 100, 20, 40),
+    ))
+    assert hit["found"] is True
+    assert hit["strategy"] == "coords"
+    assert hit["control"] is None
+    assert hit["box"] == {"x": 100, "y": 100, "width": 20, "height": 40}
+
+
+def test_locate_element_not_found_without_box():
+    root, _inner, _btn = _make_tree()
+    picker = DesktopPicker(uia=_FakeUia(root))
+    hit = picker.locate_element(_sig(
+        windowHandle=404,
+        automationId="nope",
+        name="不存在的",
+        controlType="ButtonControl",
+        boundingBox=_box(0, 0, 0, 0),  # 无效 box → 无坐标兜底
+    ))
+    assert hit["found"] is False
+    assert hit["strategy"] == "none"

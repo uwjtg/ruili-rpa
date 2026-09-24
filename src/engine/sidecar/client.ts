@@ -17,10 +17,15 @@ import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type {
   ClickElementReply,
+  LocateElementReply,
   PickReply,
   PickStopReply,
   PickedElement
 } from '../../shared/desktop-pick'
+import type {
+  RecordStartReply,
+  RecordStopReply
+} from '../../shared/desktop-record'
 
 export interface SidecarHealth {
   ok: boolean
@@ -175,6 +180,101 @@ export class SidecarClient {
         body: JSON.stringify({ target })
       })
       return (await res.json()) as ClickElementReply
+    } catch (e) {
+      return {
+        ok: false as const,
+        error: e instanceof Error ? e.message : String(e)
+      }
+    }
+  }
+
+  /** 元素 dry-run：只定位不点击（元素库「校验」；M3 切片 3） */
+  async locateElement(target: PickedElement): Promise<LocateElementReply> {
+    try {
+      const res = await fetch(`${this.baseUrl}/desktop/locate_element`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target })
+      })
+      return (await res.json()) as LocateElementReply
+    } catch (e) {
+      return {
+        ok: false as const,
+        error: e instanceof Error ? e.message : String(e)
+      }
+    }
+  }
+
+  /** 录制回放：typeText —— Unicode 逐字符输入到当前焦点窗口 */
+  async typeText(text: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await fetch(`${this.baseUrl}/desktop/type_text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      })
+      return (await res.json()) as { ok: boolean; error?: string }
+    } catch (e) {
+      return {
+        ok: false as const,
+        error: e instanceof Error ? e.message : String(e)
+      }
+    }
+  }
+
+  /** 录制回放：scroll —— 在目标控件中心（或坐标）发送滚轮 delta */
+  async scroll(opts: {
+    target?: PickedElement | null
+    x?: number
+    y?: number
+    delta: number
+  }): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await fetch(`${this.baseUrl}/desktop/scroll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          target: opts.target ?? undefined,
+          x: opts.x,
+          y: opts.y,
+          delta: opts.delta
+        })
+      })
+      return (await res.json()) as { ok: boolean; error?: string }
+    } catch (e) {
+      return {
+        ok: false as const,
+        error: e instanceof Error ? e.message : String(e)
+      }
+    }
+  }
+
+  /** 开启桌面智能录制（观察不吞输入；appPid 用于过滤点到自己应用的杂音） */
+  async recordStart(appPid?: number): Promise<RecordStartReply> {
+    try {
+      const res = await fetch(`${this.baseUrl}/record/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app_pid: appPid ?? 0 })
+      })
+      return (await res.json()) as RecordStartReply
+    } catch (e) {
+      return {
+        ok: false as const,
+        error: e instanceof Error ? e.message : String(e)
+      }
+    }
+  }
+
+  /** 结束录制并返回聚合后的指令序列（元素签名随后由主进程写入元素库） */
+  async recordStop(): Promise<RecordStopReply> {
+    try {
+      const res = await fetch(`${this.baseUrl}/record/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      })
+      return (await res.json()) as RecordStopReply
     } catch (e) {
       return {
         ok: false as const,
