@@ -587,3 +587,104 @@ def test_locate_element_not_found_without_box():
     ))
     assert hit["found"] is False
     assert hit["strategy"] == "none"
+
+
+# ---------- M3 切片 13：坐标兜底点击前 SetForegroundWindow 置前 ----------
+
+def test_coords_click_brings_window_foreground_first(monkeypatch):
+    """坐标兜底点击：先对目标窗口置前（SetForegroundWindow），再点包围盒中心。"""
+    root, _inner, _btn = _make_tree()
+    picker = DesktopPicker(uia=_FakeUia(root))
+    brought = []
+    sent = []
+    monkeypatch.setattr(
+        DesktopPicker, "_send_click", classmethod(lambda cls, x, y: sent.append((x, y)))
+    )
+    monkeypatch.setattr(picker, "_bring_foreground", lambda hwnd: brought.append(hwnd))
+    picker.click_element({
+        "windowHandle": 1,
+        "automationId": "nope",
+        "name": "不存在的",
+        "controlType": "",
+        "boundingBox": {"x": 100, "y": 100, "width": 20, "height": 40},
+    })
+    assert brought == [1]
+    assert sent == [(110, 120)]
+
+
+def test_coords_click_no_window_skips_foreground(monkeypatch):
+    """窗口找不到（无句柄/无标题匹配）→ 不调用置前，仍按坐标点击。"""
+    root, _inner, _btn = _make_tree()
+    picker = DesktopPicker(uia=_FakeUia(root))
+    brought = []
+    sent = []
+    monkeypatch.setattr(
+        DesktopPicker, "_send_click", classmethod(lambda cls, x, y: sent.append((x, y)))
+    )
+    monkeypatch.setattr(picker, "_bring_foreground", lambda hwnd: brought.append(hwnd))
+    picker.click_element({
+        "windowHandle": 0,
+        "automationId": "",
+        "name": "找不到的窗口",
+        "controlType": "",
+        "boundingBox": {"x": 100, "y": 100, "width": 20, "height": 40},
+    })
+    assert brought == []  # 无窗口可置前
+    assert sent == [(110, 120)]
+
+
+def test_coords_click_foreground_uses_reresolved_window_handle(monkeypatch):
+    """句柄失效 → 按标题重新定位窗口根 → 坐标兜底置前用根窗口句柄。"""
+    root = _FakeUiaCtrl(automation_id="", name="主窗口", control_type="WindowControl", children=[])
+    root.NativeWindowHandle = 777  # 重新定位到的窗口根自身句柄
+    desktop = _FakeUiaCtrl(automation_id="", name="桌面", control_type="", children=[root])
+    uia = _FakeUia(desktop)
+    uia.handles[1] = root
+    picker = DesktopPicker(uia=uia)
+    brought = []
+    sent = []
+    monkeypatch.setattr(
+        DesktopPicker, "_send_click", classmethod(lambda cls, x, y: sent.append((x, y)))
+    )
+    monkeypatch.setattr(picker, "_bring_foreground", lambda hwnd: brought.append(hwnd))
+    picker.click_element({
+        "windowHandle": 404,
+        "windowTitle": "主窗口",
+        "automationId": "nope",
+        "name": "不存在的",
+        "controlType": "",
+        "boundingBox": {"x": 100, "y": 100, "width": 20, "height": 40},
+    })
+    assert brought == [777]
+    assert sent == [(110, 120)]
+
+
+def test_bring_foreground_zero_handle_is_noop():
+    """无句柄时 _bring_foreground 直接返回 False，不触碰 Win32。"""
+    picker = DesktopPicker(uia=_FakeUia(_make_tree()[0]))
+    assert picker._bring_foreground(0) is False
+    assert picker._bring_foreground(None) is False
+
+
+def test_locate_coords_returns_window_handle_field():
+    """locate_element 的 coords 命中带 window_handle（有窗口时），无窗口为 0。"""
+    root, _inner, _btn = _make_tree()
+    picker = DesktopPicker(uia=_FakeUia(root))
+    hit = picker.locate_element(_sig(
+        windowHandle=1,
+        automationId="nope",
+        name="不存在的",
+        controlType="",
+        boundingBox=_box(100, 100, 20, 40),
+    ))
+    assert hit["strategy"] == "coords"
+    assert hit["window_handle"] == 1
+    miss = picker.locate_element({
+        "windowHandle": 0,
+        "automationId": "",
+        "name": "找不到的窗口",
+        "controlType": "",
+        "boundingBox": _box(100, 100, 20, 40),
+    })
+    assert miss["strategy"] == "coords"
+    assert miss["window_handle"] == 0

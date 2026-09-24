@@ -166,6 +166,17 @@ _user32.GetForegroundWindow.restype = ctypes.c_void_p
 _user32.GetSystemMetrics.argtypes = [ctypes.c_int]
 _user32.GetSystemMetrics.restype = ctypes.c_int
 
+# ---- 前台置顶（M3 切片 13：坐标兜底点击前把目标窗口置前） ----
+SW_RESTORE = 9
+_user32.SetForegroundWindow.argtypes = [ctypes.c_void_p]
+_user32.SetForegroundWindow.restype = ctypes.c_int
+_user32.IsIconic.argtypes = [ctypes.c_void_p]
+_user32.IsIconic.restype = ctypes.c_int
+_user32.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
+_user32.ShowWindow.restype = ctypes.c_int
+_user32.AttachThreadInput.argtypes = [ctypes.c_ulong, ctypes.c_ulong, ctypes.c_int]
+_user32.AttachThreadInput.restype = ctypes.c_int
+
 # ---- SendInput（typeText Unicode 输入） ----
 class KEYBDINPUT(ctypes.Structure):
     _fields_ = [
@@ -533,6 +544,15 @@ def _safe_attr(ctrl: Any, attr: str) -> str:
         return _safe_str(getattr(ctrl, attr))
     except Exception:
         return ""
+
+
+def _native_window_handle(ctrl: Any) -> int:
+    """取 UIA 控件自带的窗口句柄（M3 切片 13：标题重新定位窗口根后用于置前）；
+    缺失/异常返回 0。"""
+    try:
+        return int(ctrl.NativeWindowHandle or 0)
+    except Exception:
+        return 0
 
 
 def _collect_ancestors(ctrl: Any, max_depth: int = 3) -> tuple:
@@ -974,9 +994,11 @@ class DesktopPicker:
 
         # 0) 定位窗口根：优先 windowHandle；句柄缺失/失效 → windowTitle → name
         root = None
+        root_handle = 0  # M3 切片 13：实际解析成功的窗口句柄（坐标兜底点击前置顶用）
         if handle > 0:
             try:
                 root = self._control_from_handle(handle)
+                root_handle = handle
                 trace.append(f"窗口句柄 {handle} 解析成功")
             except ElementNotFoundError:
                 trace.append(f"窗口句柄 {handle} 失效（可能窗口已关闭）")
@@ -985,6 +1007,7 @@ class DesktopPicker:
                 self._root_control(), window_title or name, 0, [0]
             )
             if root is not None:
+                root_handle = _native_window_handle(root)
                 trace.append(f"按窗口标题「{window_title or name}」定位成功")
             elif window_title or name:
                 trace.append(f"按窗口标题「{window_title or name}」未找到窗口")
@@ -994,9 +1017,9 @@ class DesktopPicker:
             # 窗口都找不到（被关闭/句柄失效）：只剩坐标兜底
             if box is not None:
                 trace.append("窗口未找到 → 坐标兜底命中")
-                return {"found": True, "strategy": "coords", "control": None, "box": box, "trace": trace}
+                return {"found": True, "strategy": "coords", "control": None, "box": box, "trace": trace, "window_handle": 0}
             trace.append("窗口未找到且无有效坐标 → 全部策略落空")
-            return {"found": False, "strategy": "none", "control": None, "box": None, "trace": trace}
+            return {"found": False, "strategy": "none", "control": None, "box": None, "trace": trace, "window_handle": 0}
 
         has_features = bool(automation_id or name or control_type)
 
@@ -1004,14 +1027,14 @@ class DesktopPicker:
         found = self._find_strict(root, name, automation_id, control_type, 0, [0])
         if found is not None:
             trace.append("严格属性命中")
-            return {"found": True, "strategy": "strict", "control": found, "box": None, "trace": trace}
+            return {"found": True, "strategy": "strict", "control": found, "box": None, "trace": trace, "window_handle": root_handle}
         trace.append("严格属性未命中" if has_features else "严格属性：无可匹配特征，跳过")
 
         # 2) 宽松属性（任一非空特征命中，容忍特征漂移）
         found = self._find_loose(root, name, automation_id, control_type, 0, [0])
         if found is not None:
             trace.append("宽松属性命中")
-            return {"found": True, "strategy": "property", "control": found, "box": None, "trace": trace}
+            return {"found": True, "strategy": "property", "control": found, "box": None, "trace": trace, "window_handle": root_handle}
         trace.append("宽松属性未命中" if has_features else "宽松属性：无可匹配特征，跳过")
 
         # 3) ancestor 链
@@ -1021,7 +1044,7 @@ class DesktopPicker:
             )
             if found is not None:
                 trace.append("祖先链命中")
-                return {"found": True, "strategy": "ancestor", "control": found, "box": None, "trace": trace}
+                return {"found": True, "strategy": "ancestor", "control": found, "box": None, "trace": trace, "window_handle": root_handle}
             trace.append("祖先链未命中")
         else:
             trace.append("祖先链：无特征，跳过")
@@ -1033,7 +1056,7 @@ class DesktopPicker:
             )
             if found is not None:
                 trace.append(f"序号定位命中（children[{index}]）")
-                return {"found": True, "strategy": "index", "control": found, "box": None, "trace": trace}
+                return {"found": True, "strategy": "index", "control": found, "box": None, "trace": trace, "window_handle": root_handle}
             trace.append(f"序号定位未命中（children[{index}]）")
         else:
             trace.append("序号：未知(-1)，跳过")
@@ -1045,9 +1068,39 @@ class DesktopPicker:
                 trace.append("坐标兜底命中（按窗口当前位置换算偏移后点击）")
             else:
                 trace.append("坐标兜底命中（使用拾取时包围盒）")
-            return {"found": True, "strategy": "coords", "control": None, "box": remapped, "trace": trace}
+            return {"found": True, "strategy": "coords", "control": None, "box": remapped, "trace": trace, "window_handle": root_handle}
         trace.append("坐标兜底：无有效包围盒 → 全部策略落空")
-        return {"found": False, "strategy": "none", "control": None, "box": None, "trace": trace}
+        return {"found": False, "strategy": "none", "control": None, "box": None, "trace": trace, "window_handle": 0}
+
+    def _bring_foreground(self, hwnd: int) -> bool:
+        """M3 切片 13：把窗口句柄对应的窗口置前台（坐标兜底点击前置，避免被遮挡点空）。
+
+        Windows 前台锁限制：调用进程非前台时 SetForegroundWindow 可能被拒；先
+        AttachThreadInput 把当前线程输入附加到前台线程再置前；最小化窗口先还原。
+        任何失败静默返回 False（不阻断坐标兜底点击本身）。
+        """
+        if not hwnd:
+            return False
+        try:
+            user32 = ctypes.windll.user32
+            if user32.IsIconic(hwnd):
+                user32.ShowWindow(hwnd, SW_RESTORE)
+            fg = user32.GetForegroundWindow()
+            cur_thread = ctypes.windll.kernel32.GetCurrentThreadId()
+            fg_thread = 0
+            if fg:
+                fg_thread = user32.GetWindowThreadProcessId(fg, None)
+            attached = False
+            if fg_thread and fg_thread != cur_thread:
+                attached = bool(
+                    user32.AttachThreadInput(cur_thread, fg_thread, True)
+                )
+            user32.SetForegroundWindow(hwnd)
+            if attached:
+                user32.AttachThreadInput(cur_thread, fg_thread, False)
+            return True
+        except Exception:
+            return False
 
     def click_element(self, target: Dict[str, Any], retries: int = 2, retry_delay: float = 0.3) -> str:
         """
@@ -1071,6 +1124,10 @@ class DesktopPicker:
                 if hit["control"] is not None:
                     self._click(hit["control"])
                 else:
+                    # M3 切片 13：坐标兜底点击前把目标窗口置前，避免被遮挡点空
+                    win_handle = hit.get("window_handle") or 0
+                    if win_handle:
+                        self._bring_foreground(win_handle)
                     self._click_box_center(hit["box"])
                 return hit["strategy"]
             if attempt < retries:
