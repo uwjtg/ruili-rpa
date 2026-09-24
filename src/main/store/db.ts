@@ -22,6 +22,13 @@ import type {
   LoadReply,
   SaveReply
 } from '../../shared/flow-protocol'
+import type { PickedElement } from '../../shared/desktop-pick'
+import type {
+  ElementRecord,
+  ElementsDeleteReply,
+  ElementsListReply,
+  ElementsSaveReply
+} from '../../shared/elements'
 
 export type {
   DeleteReply,
@@ -89,6 +96,19 @@ function migrate(d: DB): void {
       ts           INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_logs_flow ON logs(flow_id);
+    CREATE TABLE IF NOT EXISTS elements (
+      id            TEXT PRIMARY KEY,
+      label         TEXT NOT NULL,
+      window_handle INTEGER NOT NULL,
+      automation_id TEXT DEFAULT '',
+      name          TEXT DEFAULT '',
+      control_type  TEXT DEFAULT '',
+      signature     TEXT NOT NULL,
+      dedupe_key    TEXT NOT NULL UNIQUE,
+      created_at    INTEGER NOT NULL,
+      updated_at    INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_elements_updated ON elements(updated_at);
   `)
 }
 
@@ -185,6 +205,94 @@ export function deleteFlow(id: string): DeleteReply {
       d.prepare('DELETE FROM apps WHERE id = ?').run(id)
     })
     tx()
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/** 元素库（M3 切片 2）：拾取成功的元素自动入库；同一签名去重 upsert。 */
+
+function elementDedupeKey(sig: PickedElement): string {
+  return [sig.windowHandle, sig.automationId, sig.name, sig.controlType].join('|')
+}
+
+/** 元素库展示名：name || automationId || controlType || 未命名元素 */
+export function elementLabel(sig: PickedElement): string {
+  return sig.name || sig.automationId || sig.controlType || '未命名元素'
+}
+
+/** 保存元素（新建或按签名去重更新）；返回元素库 id 与时间戳。 */
+export function saveElement(
+  sig: PickedElement
+): ElementsSaveReply {
+  try {
+    const d = requireDb()
+    const now = Date.now()
+    const id = randomUUID()
+    const key = elementDedupeKey(sig)
+    const label = elementLabel(sig)
+    const sigJson = JSON.stringify(sig)
+    const upsert = d.prepare(
+      `INSERT INTO elements (id, label, window_handle, automation_id, name, control_type, signature, dedupe_key, created_at, updated_at)
+       VALUES (@id, @label, @handle, @aid, @name, @ctype, @sig, @key, @now, @now)
+       ON CONFLICT(dedupe_key) DO UPDATE SET
+         label = @label, signature = @sig, updated_at = @now`
+    )
+    upsert.run({
+      id,
+      label,
+      handle: sig.windowHandle,
+      aid: sig.automationId ?? '',
+      name: sig.name ?? '',
+      ctype: sig.controlType ?? '',
+      sig: sigJson,
+      key,
+      now
+    })
+    // upsert 后取实际 id（去重命中时保持原 id）
+    const row = d
+      .prepare('SELECT id, updated_at FROM elements WHERE dedupe_key = ?')
+      .get(key) as { id: string; updated_at: number } | undefined
+    return { ok: true, id: row?.id ?? id, updatedAt: row?.updated_at ?? now }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/** 列出全部元素（按最近拾取倒序）。 */
+export function listElements(): ElementsListReply {
+  try {
+    const d = requireDb()
+    const rows = d
+      .prepare(
+        'SELECT id, label, signature, created_at, updated_at FROM elements ORDER BY updated_at DESC, rowid DESC'
+      )
+      .all() as Array<{
+      id: string
+      label: string
+      signature: string
+      created_at: number
+      updated_at: number
+    }>
+    const items: ElementRecord[] = rows.map((r) => ({
+      id: r.id,
+      label: r.label,
+      signature: JSON.parse(r.signature) as PickedElement,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    }))
+    return { ok: true, items }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/** 删除一条元素库记录。 */
+export function deleteElement(id: string): ElementsDeleteReply {
+  try {
+    const d = requireDb()
+    d.prepare('DELETE FROM elements WHERE id = ?').run(id)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }

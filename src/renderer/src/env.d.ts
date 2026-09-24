@@ -3,6 +3,7 @@
 import type { RunWireEvent } from '../../shared/run-protocol'
 import type { FlowDoc } from '../../shared/ast'
 import type { CmdMeta } from '../../shared/cmd-schema'
+import type { PickReply, PickStopReply } from '../../shared/desktop-pick'
 import type {
   DeleteReply,
   FlowSummary,
@@ -10,6 +11,10 @@ import type {
   LoadReply,
   SaveReply
 } from '../../shared/flow-protocol'
+import type {
+  ElementsDeleteReply,
+  ElementsListReply
+} from '../../shared/elements'
 
 /**
  * preload 暴露的桥接 API 类型声明。
@@ -53,6 +58,15 @@ declare global {
         list: () => Promise<ListReply>
         load: (id: string) => Promise<LoadReply>
         delete: (id: string) => Promise<DeleteReply>
+      }
+      pick: {
+        start: () => Promise<PickReply>
+        stop: () => Promise<PickStopReply>
+        onResult: (cb: (r: PickReply) => void) => () => void
+      }
+      elements: {
+        list: () => Promise<ElementsListReply>
+        delete: (id: string) => Promise<ElementsDeleteReply>
       }
     }
   }

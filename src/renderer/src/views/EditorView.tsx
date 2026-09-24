@@ -10,6 +10,8 @@ import StepList from './editor/StepList'
 import ParamPanel from './editor/ParamPanel'
 import VarPanel from './editor/VarPanel'
 import AiPanel from './editor/AiPanel'
+import ElementPanel from './editor/ElementPanel'
+import type { PickedElement } from '../../../shared/desktop-pick'
 import {
   buildInitialFlow,
   countSteps,
@@ -100,8 +102,10 @@ export default function EditorView(): JSX.Element {
   const runningTabRef = useRef<string | null>(null)
   const [running, setRunning] = useState(false)
   const [paused, setPaused] = useState(false)
+  // 桌面元素拾取模式（M3 切片 1）
+  const [picking, setPicking] = useState(false)
   const [lines, setLines] = useState<LogLine[]>([])
-  const [rightTab, setRightTab] = useState<'params' | 'vars' | 'ai'>('params')
+  const [rightTab, setRightTab] = useState<'params' | 'vars' | 'elements' | 'ai'>('params')
   const [status, setStatus] = useState('空闲')
   // 标签重命名编辑态
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -223,6 +227,15 @@ export default function EditorView(): JSX.Element {
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight })
   }, [lines])
+
+  // 拾取结果兜底复位（pick:result 事件；正常路径由 onPick 的 await 返回处理）
+  useEffect(() => {
+    if (!ruili?.pick) return
+    const off = ruili.pick.onResult(() => {
+      setPicking(false)
+    })
+    return off
+  }, [ruili])
 
   function push(level: LogLevel | 'sys', message: string): void {
     setLines((prev) => [...prev, { time: now(), level, message }])
@@ -364,6 +377,71 @@ export default function EditorView(): JSX.Element {
       ruili.run.step()
       void ruili.run.start(activeTab.flow, activeTab.flowId ?? undefined)
     }
+  }
+
+  /**
+   * 桌面元素拾取（M3 切片 1）：进入拾取模式 → 主进程起 Python sidecar 全屏遮罩，
+   * 用户移动鼠标高亮、左键点击确认；结果直接追加一条 pickElement 步骤到当前流程。
+   */
+  async function onPick(): Promise<void> {
+    if (!ruili?.pick) return
+    if (picking) {
+      setPicking(false)
+      await ruili.pick.stop()
+      push('sys', '已取消拾取')
+      return
+    }
+    setPicking(true)
+    push('sys', '拾取模式已开启：移动鼠标到目标控件，左键点击确认；Esc 或右键取消')
+    const reply = await ruili.pick.start()
+    setPicking(false)
+    if (!reply.ok) {
+      push('error', `拾取失败：${reply.error}`)
+      return
+    }
+    if (!('element' in reply)) {
+      push('sys', '已取消拾取')
+      return
+    }
+    const element = reply.element
+    const cmd = commands.find((c) => c.id === 'pickElement')
+    if (!cmd) {
+      push('error', '指令库缺少 pickElement，无法追加步骤')
+      return
+    }
+    const step = makeStep(cmd)
+    step.id = nextStepId(activeTab.flow.steps)
+    step.params.target = JSON.stringify(element)
+    commit({
+      ...activeTab.flow,
+      steps: insertAfter(activeTab.flow.steps, activeTab.selectedId, step)
+    })
+    patchTab(activeTab.tabId, { selectedId: step.id })
+    const label = element.name || element.automationId || element.controlType
+    const libNote =
+      'elementId' in reply && reply.elementId
+        ? `，已加入元素库（${reply.elementId.slice(0, 8)}…）`
+        : ''
+    push('success', `已拾取「${label}」，已追加「拾取元素后点击」步骤${libNote}`)
+  }
+
+  /** 元素库「插入步骤」：用库中元素签名追加一条 pickElement 步骤 */
+  function insertElementStep(element: PickedElement): void {
+    const cmd = commands.find((c) => c.id === 'pickElement')
+    if (!cmd) {
+      push('error', '指令库缺少 pickElement，无法插入步骤')
+      return
+    }
+    const step = makeStep(cmd)
+    step.id = nextStepId(activeTab.flow.steps)
+    step.params.target = JSON.stringify(element)
+    commit({
+      ...activeTab.flow,
+      steps: insertAfter(activeTab.flow.steps, activeTab.selectedId, step)
+    })
+    patchTab(activeTab.tabId, { selectedId: step.id })
+    const label = element.name || element.automationId || element.controlType
+    push('success', `已从元素库插入「拾取元素后点击」步骤（${label}）`)
   }
 
   /** AI 生成成功：把 FlowDoc 打开为新标签 */
@@ -568,6 +646,14 @@ export default function EditorView(): JSX.Element {
         >
           单步
         </button>
+        <button
+          onClick={() => void onPick()}
+          disabled={running}
+          title="拾取桌面元素：移动鼠标到目标控件，左键点击确认；Esc 或右键取消"
+          style={{ ...btn, background: picking ? '#7C5CFC' : '#fff', color: picking ? '#fff' : '#7C5CFC', border: picking ? 'none' : '1px solid #7C5CFC' }}
+        >
+          {picking ? '取消拾取' : '拾取'}
+        </button>
         {paused ? (
           <button onClick={() => ruili?.run.resume()} style={{ ...btn, background: '#7C5CFC', color: '#fff', border: 'none' }}>
             继续
@@ -646,7 +732,7 @@ export default function EditorView(): JSX.Element {
           }}
         >
           <div style={{ display: 'flex', borderBottom: '1px solid #E5E6EB' }}>
-            {(['params', 'vars', 'ai'] as const).map((t) => (
+            {(['params', 'vars', 'elements', 'ai'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setRightTab(t)}
@@ -662,7 +748,7 @@ export default function EditorView(): JSX.Element {
                   borderBottom: rightTab === t ? '2px solid #7C5CFC' : '2px solid transparent'
                 }}
               >
-                {t === 'params' ? '参数' : t === 'vars' ? '变量' : 'AI'}
+                {t === 'params' ? '参数' : t === 'vars' ? '变量' : t === 'elements' ? '元素' : 'AI'}
               </button>
             ))}
           </div>
@@ -676,6 +762,8 @@ export default function EditorView(): JSX.Element {
               />
             ) : rightTab === 'vars' ? (
               <VarPanel vars={flow.vars} onChange={(vars) => commit({ ...flow, vars })} />
+            ) : rightTab === 'elements' ? (
+              <ElementPanel onInsert={insertElementStep} />
             ) : (
               <AiPanel onAccept={acceptAiFlow} />
             )}

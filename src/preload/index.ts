@@ -9,6 +9,11 @@ import type {
   LoadReply,
   SaveReply
 } from '../shared/flow-protocol'
+import type { PickReply, PickStopReply } from '../shared/desktop-pick'
+import type {
+  ElementsDeleteReply,
+  ElementsListReply
+} from '../shared/elements'
 
 /**
  * 暴露给渲染进程的桥接 API。
@@ -73,6 +78,26 @@ const api = {
     load: (id: string): Promise<LoadReply> => ipcRenderer.invoke('flow:load', id),
     /** 删除流程（级联清 logs/apps） */
     delete: (id: string): Promise<DeleteReply> => ipcRenderer.invoke('flow:delete', id)
+  },
+  pick: {
+    /** 进入桌面拾取模式；阻塞直到用户点击元素 / Esc 取消 / 失败 */
+    start: (): Promise<PickReply> => ipcRenderer.invoke('pick:start'),
+    /** 取消进行中的拾取 */
+    stop: (): Promise<PickStopReply> => ipcRenderer.invoke('pick:stop'),
+    /** 订阅拾取结果/取消/失败事件（与 start() 返回一致），返回取消订阅函数 */
+    onResult: (cb: (r: PickReply) => void): (() => void) => {
+      const listener = (_: unknown, r: PickReply): void => cb(r)
+      ipcRenderer.on('pick:result', listener)
+      return () => ipcRenderer.removeListener('pick:result', listener)
+    }
+  },
+  /** 元素库（M3 切片 2）：picked 元素持久化；拾取成功由主进程自动入库 */
+  elements: {
+    /** 全部元素（按最近拾取倒序） */
+    list: (): Promise<ElementsListReply> => ipcRenderer.invoke('elements:list'),
+    /** 删除一条元素 */
+    delete: (id: string): Promise<ElementsDeleteReply> =>
+      ipcRenderer.invoke('elements:delete', id)
   }
 } as const
 
@@ -80,4 +105,14 @@ contextBridge.exposeInMainWorld('ruili', api)
 
 export type RuiliApi = typeof api
 
-export type { DeleteReply, FlowSummary, ListReply, LoadReply, SaveReply }
+export type {
+  DeleteReply,
+  FlowSummary,
+  ListReply,
+  LoadReply,
+  SaveReply,
+  PickReply,
+  PickStopReply,
+  ElementsDeleteReply,
+  ElementsListReply
+}

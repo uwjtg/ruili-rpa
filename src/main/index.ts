@@ -11,13 +11,17 @@ import { M1_E2E_FLOW } from '../engine/core/m1-flow'
 import {
   appendRunLog,
   closeDb,
+  deleteElement,
   deleteFlow,
+  listElements,
   listFlows,
   loadFlow,
   openDb,
+  saveElement,
   saveFlow
 } from './store/db'
 import type { RunLogEntry } from './store/db'
+import { PickController } from './pick'
 import { randomUUID } from 'node:crypto'
 
 /** 冒烟模式：窗口显示后截取首屏（smoke.png）并自动退出，供无人值守验证基线窗口（RUILI_SMOKE=1） */
@@ -228,6 +232,25 @@ ipcMain.handle('flow:save', (_e, flow: FlowDoc, existingId?: string) =>
 )
 ipcMain.handle('flow:delete', (_e, id: string) => deleteFlow(id))
 
+/* ---------- 桌面元素拾取（M3 切片 1/2）：Python sidecar 桥 ---------- */
+const pickController = new PickController(() => mainWindow)
+ipcMain.handle('pick:start', async () => {
+  const reply = await pickController.start()
+  // M3 切片 2：拾取成功自动入库（元素库），reply 带元素库 id（向后兼容）
+  if (reply.ok && 'element' in reply) {
+    const saved = saveElement(reply.element)
+    if (saved.ok) {
+      return { ...reply, elementId: saved.id }
+    }
+  }
+  return reply
+})
+ipcMain.handle('pick:stop', () => pickController.stop())
+
+/* ---------- 元素库（M3 切片 2）：picked 元素持久化 ---------- */
+ipcMain.handle('elements:list', () => listElements())
+ipcMain.handle('elements:delete', (_e, id: string) => deleteElement(id))
+
 app.whenReady().then(() => {
   // 数据库落在 userData 下（Electron 提供的跨版本稳定用户目录）
   openDb(join(app.getPath('userData'), 'ruili.db'))
@@ -240,5 +263,6 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   closeDb()
+  pickController.dispose()
   if (process.platform !== 'darwin') app.quit()
 })

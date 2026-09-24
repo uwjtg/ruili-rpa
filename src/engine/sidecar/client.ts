@@ -15,6 +15,12 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { createServer } from 'node:net'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import type {
+  ClickElementReply,
+  PickReply,
+  PickStopReply,
+  PickedElement
+} from '../../shared/desktop-pick'
 
 export interface SidecarHealth {
   ok: boolean
@@ -113,6 +119,68 @@ export class SidecarClient {
       body: JSON.stringify({ image_path: imagePath })
     })
     return (await res.json()) as OcrResult
+  }
+
+  /**
+   * 阻塞进入桌面拾取模式（M3 切片 1）：sidecar 弹出全屏遮罩，用户移动鼠标
+   * 高亮 UIA 控件、左键点击确认。等待直到点击 / Esc 取消 / 超时。
+   */
+  async pickStart(timeoutMs = 120_000): Promise<PickReply> {
+    const ac = new AbortController()
+    const timer = setTimeout(() => ac.abort(), timeoutMs)
+    try {
+      const res = await fetch(`${this.baseUrl}/pick/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+        signal: ac.signal
+      })
+      return (await res.json()) as PickReply
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        return { ok: false as const, error: 'pick_timeout' }
+      }
+      return {
+        ok: false as const,
+        error: `sidecar 拾取请求失败：${e instanceof Error ? e.message : String(e)}`
+      }
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  /** 取消进行中的桌面拾取 */
+  async pickStop(): Promise<PickStopReply> {
+    try {
+      const res = await fetch(`${this.baseUrl}/pick/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      })
+      return (await res.json()) as PickStopReply
+    } catch (e) {
+      return {
+        ok: false as const,
+        error: e instanceof Error ? e.message : String(e)
+      }
+    }
+  }
+
+  /** pickElement 指令回放：按拾取结果重新定位 UIA 控件并点击中心 */
+  async clickElement(target: PickedElement): Promise<ClickElementReply> {
+    try {
+      const res = await fetch(`${this.baseUrl}/desktop/click_element`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target })
+      })
+      return (await res.json()) as ClickElementReply
+    } catch (e) {
+      return {
+        ok: false as const,
+        error: e instanceof Error ? e.message : String(e)
+      }
+    }
   }
 
   stop(): void {

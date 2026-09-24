@@ -11,9 +11,13 @@
   GET  /health           -> {"ok": true, "version", "engines": {"ocr": bool, "cv2": bool}}
   POST /ocr              body {"image_path": str} -> {"ok": true, "text": str, "lines": [...]} | 501
   POST /find_image       body {"source_path", "template_path"} -> {"ok": true, "x", "y", "score"} | 501
+  POST /pick/start       body {} -> 阻塞拾取；{"ok": true, "element": {...}} | {"ok": true, "cancelled": true} | {"ok": false, "error"}
+  POST /pick/stop        body {} -> {"ok": true, "stopped": bool}
+  POST /desktop/click_element  body {"target": {...}} -> {"ok": true} | 404 {"ok": false, "error"} | 400
 
 启动时向 stdout 打印一行 `SIDECAR_READY port=<port>`，供 Node 侧同步握手。
-仅依赖 Python 标准库即可启动；RapidOCR / OpenCV 为可选增强。
+仅依赖 Python 标准库即可启动；RapidOCR / OpenCV 为可选增强；桌面拾取依赖
+uiautomation 库（Unlicense，计划书 §4.1 选型）与 tkinter（标准库）。
 """
 
 import argparse
@@ -21,6 +25,8 @@ import json
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict
+
+from desktop_pick import DesktopPicker, ElementNotFoundError
 
 VERSION = "0.1.0"
 
@@ -46,6 +52,10 @@ except Exception as e:  # noqa: BLE001
 
 def engines_report() -> Dict[str, bool]:
     return {"ocr": _OCR_ENGINE is not None, "cv2": _CV2 is not None}
+
+
+# 桌面拾取单例（M3 切片 1）：HTTP handler 线程调 start() 阻塞；测试可替换
+_PICKER = DesktopPicker()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -129,6 +139,42 @@ class Handler(BaseHTTPRequestHandler):
                     "score": float(max_val),
                 },
             )
+            return
+
+        # ---- 桌面元素拾取（M3 切片 1） ----
+        if self.path == "/pick/start":
+            try:
+                reply = _PICKER.start(timeout=120.0)
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"pick_start_failed: {e}"})
+                return
+            self._send_json(200, reply)
+            return
+
+        if self.path == "/pick/stop":
+            try:
+                stopped = _PICKER.stop()
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"pick_stop_failed: {e}"})
+                return
+            self._send_json(200, {"ok": True, "stopped": stopped})
+            return
+
+        if self.path == "/desktop/click_element":
+            target = body.get("target")
+            if not isinstance(target, dict):
+                self._send_json(400, {"ok": False, "error": "target_required"})
+                return
+            try:
+                strategy = _PICKER.click_element(target)
+            except ElementNotFoundError as e:
+                self._send_json(404, {"ok": False, "error": str(e)})
+                return
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"click_element_failed: {e}"})
+                return
+            # strategy：命中的回退链策略（strict/property/ancestor/index/coords）
+            self._send_json(200, {"ok": True, "strategy": strategy})
             return
 
         self._send_json(404, {"ok": False, "error": "not_found"})

@@ -5,12 +5,17 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   closeDb,
+  deleteElement,
   deleteFlow,
+  elementLabel,
+  listElements,
   listFlows,
   loadFlow,
   openDb,
+  saveElement,
   saveFlow
 } from './db'
+import type { PickedElement } from '../../shared/desktop-pick'
 import type { FlowDoc } from '../../shared/ast'
 
 function makeFlow(name: string, stepCount = 2): FlowDoc {
@@ -108,5 +113,80 @@ describe('SQLite 流程持久化', () => {
     if (!r.ok) return
     const list = listFlows()
     expect(list.ok && list.items[0].stepCount).toBe(4)
+  })
+})
+
+function makeElement(overrides: Partial<PickedElement> = {}): PickedElement {
+  return {
+    windowHandle: 123,
+    automationId: 'btn_ok',
+    name: '确定',
+    controlType: 'ButtonControl',
+    className: 'Button',
+    boundingBox: { x: 10, y: 20, width: 100, height: 30 },
+    windowTitle: '主窗口',
+    processId: 4242,
+    text: '确定',
+    index: 2,
+    ancestor: [{ controlType: 'PaneControl', automationId: 'panel_main', name: '' }],
+    ...overrides
+  }
+}
+
+describe('元素库（M3 切片 2）', () => {
+  beforeEach(() => openDb(':memory:'))
+  afterEach(() => closeDb())
+
+  it('保存元素后可列出，签名完整往返', () => {
+    const sig = makeElement()
+    const saved = saveElement(sig)
+    expect(saved.ok).toBe(true)
+    if (!saved.ok) return
+
+    const list = listElements()
+    expect(list.ok).toBe(true)
+    if (!list.ok) return
+    expect(list.items).toHaveLength(1)
+    expect(list.items[0].label).toBe('确定')
+    expect(list.items[0].signature).toEqual(sig)
+    expect(list.items[0].signature.ancestor).toEqual(sig.ancestor)
+    expect(list.items[0].signature.index).toBe(2)
+  })
+
+  it('同一签名去重 upsert（重复拾取不新增行）', () => {
+    const a = saveElement(makeElement())
+    const b = saveElement(makeElement())
+    expect(a.ok && b.ok).toBe(true)
+    if (!a.ok || !b.ok) return
+    expect(b.id).toBe(a.id) // 去重命中保持原 id
+
+    const list = listElements()
+    expect(list.ok && list.items.length).toBe(1)
+  })
+
+  it('不同特征视为不同元素', () => {
+    saveElement(makeElement())
+    saveElement(makeElement({ automationId: 'btn_cancel', name: '取消' }))
+    const list = listElements()
+    expect(list.ok && list.items.length).toBe(2)
+  })
+
+  it('删除元素后列表为空', () => {
+    const r = saveElement(makeElement())
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(deleteElement(r.id)).toEqual({ ok: true })
+    const list = listElements()
+    expect(list.ok && list.items.length).toBe(0)
+  })
+
+  it('elementLabel 兜底命名', () => {
+    const full = makeElement()
+    expect(elementLabel(full)).toBe('确定')
+    expect(elementLabel({ ...full, name: '' })).toBe('btn_ok')
+    expect(elementLabel({ ...full, name: '', automationId: '' })).toBe('ButtonControl')
+    expect(
+      elementLabel({ ...full, name: '', automationId: '', controlType: '' })
+    ).toBe('未命名元素')
   })
 })
