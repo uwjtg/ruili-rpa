@@ -7,15 +7,16 @@
 1) docs\锐流RPA-V3-接力开发模式说明.md
 2) docs\锐流RPA-V3-开发计划书.md
 3) docs\handoff\INDEX.md
-4) docs\handoff\28-M3 - 切片 17 - 流程级录制阈值覆盖.md（最新）
-5) docs\handoff\27-M3 - 切片 16 - 控件路径点击统一置前.md
-6) docs\handoff\26-M3 - 切片 15 - 点击 boundingBox 参数化.md
-7) docs\handoff\25-M3 - 切片 14 - 变量弹窗增强.md
+4) docs\handoff\29-M3 - 切片 18 - 置前短延时开关.md（最新）
+5) docs\handoff\28-M3 - 切片 17 - 流程级录制阈值覆盖.md
+6) docs\handoff\27-M3 - 切片 16 - 控件路径点击统一置前.md
+7) docs\handoff\26-M3 - 切片 15 - 点击 boundingBox 参数化.md
+8) docs\handoff\25-M3 - 切片 14 - 变量弹窗增强.md
 8) docs\锐流RPA-开发交接文档.md（§5 编辑器交互清单、§7 边界）
 
 当前基线：
-- M3 切片 1-17 全部完成并落盘；M3 计划内实质项已清空，剩余仅 1 个可选小项。
-- 验证全绿：pytest 81/81、vitest 21 文件 129 用例、typecheck 0、build renderer 845.71 kB、license 无新增禁用。
+- M3 切片 1-18 全部完成并落盘；M3 计划内 + 全部可选项已清空，M3 正式收尾。
+- 验证全绿：pytest 84/84、vitest 21 文件 130 用例、typecheck 0、build renderer 848.67 kB、license 无新增禁用。
 - 录→存→跑闭环：.runtime/smoke_replay.py 记事本回读 'line one\r\nline two' PASS。
 - 切片 13/16 置前：click_element 控件+坐标兜底点击前统一 _bring_foreground(hwnd)（SW_RESTORE + AttachThreadInput）；locate 各返回带 window_handle；smoke_bring_foreground.py 真实记事本置前 PASS。
 - 切片 14 变量弹窗：FlowVar 增 required/description；missingRequiredOverrides 纯函数；弹窗必填拦截+说明+localStorage 上次值记忆（ruili.runOverrides.flow.<id>/name.<name>）。
@@ -25,13 +26,13 @@
 - sidecar 协议：/pick/start|stop、/desktop/click_element(+retries)、/desktop/type_text、/desktop/scroll、/desktop/locate_element(+trace)、/desktop/press_key、/desktop/window_pid、/record/start(+target_pid,+thresholds)|stop。
 - 流程 AST：FlowDoc{version,name,vars:FlowVar[],steps:StepNode[]}；FlowVar{name,type,value,required?,description?}。
 - DB %APPDATA%\ruili-rpa\ruili.db；元素去重 key=windowHandle|automationId|name|controlType。
-- Git 基线：切片14 (f4374d8)、切片15 (ccbf117)、切片16 (8ee1df4)、切片17 (dc14c88)。
+- Git 基线：切片15 (ccbf117)、切片16 (8ee1df4)、切片17 (dc14c88)、切片18 (3fb91b9)。
 - 冒烟留存：.runtime/smoke_record.py、smoke_replay.py、smoke_bring_foreground.py、gui_smoke_record.py、smoke_fallback.py、smoke_pick_chain.py、diag_record_keys.py、probe_taskbar.py。
 
-下一步建议（M3 剩余可选项 / M4 方向，按优先级）：
-1. （M3 可选项，最后 1 个小项）置前后短延时开关（默认关；切片 13/16 实测记事本无需延时，仅作可配置开关——settings 表加开关 + _bring_foreground 后可选 sleep）。
-2. （M4）数据抓取向导 V1：表格识别/字段映射/导出（计划书 M3 范围「数据抓取」）。
-3. （M4）浏览器录制器（CDP）与 10 站基准用例集。
+下一步建议（M3 已全部收尾，仅 M4 方向，按优先级）：
+1. （M4）数据抓取向导 V1：表格识别/字段映射/导出（计划书 M3 范围「数据抓取」）。
+2. （M4）浏览器录制器（CDP）与 10 站基准用例集。
+注：M3 切片 1-18 全部完成；M3 计划内实质项与全部可选项均已清空，下一阶段建议直接开 M4。
 
 关键约束：
 - 环境 Windows 桌面，PowerShell（不用 Bash），node 22.23.2，Electron 44，npm 镜像 npmmirror；better-sqlite3 v13 NAPI 免 rebuild；RunWireEvent 形状从未改动。
@@ -49,5 +50,5 @@
 - 本 session Edit/Write 对源码偶发报「未读取」，改文件优先写 .runtime/_p*.py 临时脚本做字符串 replace 再删除（TS/Python 同此）；同一轮内先 Read 过的文件可直接 Edit。
 - lint 有基线告警（EditorView.tsx:134 setState-in-effect、env.d.ts:13 FlowSummary 未用等），非本轮引入，修复前先确认。
 
-完成后按 §4 模板落盘 docs/handoff/29-M3 - 切片 18-XXX.md（或 M4-1-XXX.md）、更新 INDEX.md 与本文件，并生成下一对话开场白。
+完成后按 §4 模板落盘 docs/handoff/30-M4-1-XXX.md、更新 INDEX.md 与本文件，并生成下一对话开场白。
 ```
