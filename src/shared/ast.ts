@@ -12,6 +12,10 @@ export interface FlowVar {
   name: string
   type: VarType
   value: unknown
+  /** 运行前必填：弹窗中未填（trim 为空）时阻止运行（M3 切片 14） */
+  required?: boolean
+  /** 变量说明：显示在运行前弹窗与变量面板（M3 切片 14） */
+  description?: string
 }
 
 /** 单个步骤节点（树形 AST） */

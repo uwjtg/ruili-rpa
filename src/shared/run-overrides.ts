@@ -26,3 +26,16 @@ export function applyRunOverrides(
   })
   return { ...flow, vars }
 }
+
+/**
+ * 返回「必填但当前填值为空」的变量名列表（M3 切片 14）。
+ * 运行前弹窗用它在提交时阻止运行并提示；required 未设/为 false 的变量不参与。
+ */
+export function missingRequiredOverrides(
+  vars: FlowVar[],
+  values: Record<string, string>
+): string[] {
+  return vars
+    .filter((v) => v.required === true && (values[v.name] ?? '').trim() === '')
+    .map((v) => v.name)
+}

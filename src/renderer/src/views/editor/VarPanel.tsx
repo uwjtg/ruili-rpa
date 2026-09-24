@@ -94,6 +94,20 @@ export default function VarPanel({ vars, onChange }: Props): JSX.Element {
               placeholder="初始值"
               style={miniInput}
             />
+            <input
+              value={v.description ?? ''}
+              onChange={(e) => update(i, { description: e.target.value })}
+              placeholder="说明（可选，显示在运行前填写框）"
+              style={miniInput}
+            />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#51565D', marginTop: 4, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={v.required === true}
+                onChange={(e) => update(i, { required: e.target.checked })}
+              />
+              运行前必填
+            </label>
           </div>
         ))
       )}

@@ -15,7 +15,10 @@ import ThresholdPanel from './editor/ThresholdPanel'
 import type { PickedElement } from '../../../shared/desktop-pick'
 import type { RecordedInstruction } from '../../../shared/desktop-record'
 import { parameterizeRecording } from '../../../shared/record-params'
-import { applyRunOverrides } from '../../../shared/run-overrides'
+import {
+  applyRunOverrides,
+  missingRequiredOverrides
+} from '../../../shared/run-overrides'
 import {
   buildInitialFlow,
   countSteps,
@@ -114,6 +117,8 @@ export default function EditorView(): JSX.Element {
   const [recTarget, setRecTarget] = useState<{ pid: number; title: string } | null>(null)
   // M3 切片 10：运行前变量填写框（null=关闭）
   const [varDialog, setVarDialog] = useState<Record<string, string> | null>(null)
+  // M3 切片 14：必填校验错误提示（null/''=无错误）
+  const [varDialogError, setVarDialogError] = useState('')
   const [lines, setLines] = useState<LogLine[]>([])
   const [rightTab, setRightTab] = useState<'params' | 'vars' | 'elements' | 'settings' | 'ai'>('params')
   const [status, setStatus] = useState('空闲')
@@ -377,16 +382,57 @@ export default function EditorView(): JSX.Element {
     if (activeTab.flow.vars.length > 0) {
       const initial: Record<string, string> = {}
       for (const v of activeTab.flow.vars) initial[v.name] = String(v.value ?? '')
+      // M3 切片 14：上次填值记忆优先预填（只对仍在声明中的变量生效）
+      const last = readLastOverrides()
+      if (last) {
+        for (const name of Object.keys(last)) {
+          if (name in initial) initial[name] = last[name]
+        }
+      }
       setVarDialog(initial)
+      setVarDialogError('')
       return
     }
     await doRun(activeTab.flow)
   }
-  /** 变量填值框确认：合并覆盖值后运行；关闭则取消 */
+  const overrideMemKey = (): string => {
+    const id = activeTab.flowId
+    const scope = id ? `flow.${id}` : `name.${activeTab.flow.name || 'untitled'}`
+    return `ruili.runOverrides.${scope}`
+  }
+  /** 读上次填值记忆（localStorage；JSON 损坏/缺失返回 null） */
+  function readLastOverrides(): Record<string, string> | null {
+    try {
+      const raw = localStorage.getItem(overrideMemKey())
+      if (!raw) return null
+      const obj: unknown = JSON.parse(raw)
+      return obj && typeof obj === 'object'
+        ? (obj as Record<string, string>)
+        : null
+    } catch {
+      return null
+    }
+  }
+  /** 保存本次填值（失败静默：隐私模式/配额等） */
+  function writeLastOverrides(values: Record<string, string>): void {
+    try {
+      localStorage.setItem(overrideMemKey(), JSON.stringify(values))
+    } catch {
+      /* 忽略 */
+    }
+  }
+  /** 变量填值框确认：必填校验 → 记忆填值 → 合并覆盖后运行；关闭则取消 */
   async function confirmVarDialog(): Promise<void> {
     if (varDialog === null) return
+    const missing = missingRequiredOverrides(activeTab.flow.vars, varDialog)
+    if (missing.length > 0) {
+      setVarDialogError(`必填变量未填写：${missing.join('、')}`)
+      return
+    }
+    writeLastOverrides(varDialog)
     const flow = applyRunOverrides(activeTab.flow, varDialog)
     setVarDialog(null)
+    setVarDialogError('')
     await doRun(flow)
   }
   async function runM1(): Promise<void> {
@@ -964,9 +1010,15 @@ export default function EditorView(): JSX.Element {
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>运行前填写变量</div>
             {activeTab.flow.vars.map((v) => (
               <div key={v.name} style={{ marginBottom: 10 }}>
-                <label style={{ display: 'block', fontSize: 12, color: '#51565D', marginBottom: 4 }}>
+                <label style={{ display: 'block', fontSize: 12, color: '#51565D', marginBottom: 2 }}>
+                  {v.required === true ? (
+                    <span style={{ color: '#E64340', marginRight: 2 }}>*</span>
+                  ) : null}
                   {v.name}（{v.type}）
                 </label>
+                {v.description ? (
+                  <div style={{ fontSize: 11, color: '#8A8F99', marginBottom: 4 }}>{v.description}</div>
+                ) : null}
                 <input
                   value={varDialog[v.name] ?? ''}
                   onChange={(e) => setVarDialog({ ...varDialog, [v.name]: e.target.value })}
@@ -981,6 +1033,9 @@ export default function EditorView(): JSX.Element {
                 />
               </div>
             ))}
+            {varDialogError ? (
+              <div style={{ fontSize: 12, color: '#E64340', marginBottom: 8 }}>⚠ {varDialogError}</div>
+            ) : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
               <button onClick={() => setVarDialog(null)} style={{ ...btn }}>取消</button>
               <button
