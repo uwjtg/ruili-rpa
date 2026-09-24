@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import server  # noqa: E402
 from desktop_pick import DesktopRecorder  # noqa: E402
 from desktop_pick import _parse_key_combo  # noqa: E402
+from desktop_pick import DesktopPicker, ElementNotFoundError  # noqa: E402
 
 
 def _start_server():
@@ -518,3 +519,68 @@ def test_press_key_endpoint(monkeypatch):
         assert body["error"] == "keys_required"
     finally:
         httpd.shutdown()
+
+
+# ---------- M3 切片 5：click_element 回放稳定性（precheck + 重试 + 重取窗口） ----------
+
+def _picker_with_locate(seq):
+    """绕过 __init__（不启真实 UIA/钩子），仅注入 locate_element/_click。"""
+    p = object.__new__(DesktopPicker)
+    calls = {"n": 0, "clicks": 0}
+
+    def fake_locate(target):
+        calls["n"] += 1
+        return seq[calls["n"] - 1]
+
+    p.locate_element = fake_locate
+    p._click = lambda ctrl: calls.__setitem__("clicks", calls["clicks"] + 1)
+    p._click_box_center = lambda box: calls.__setitem__("clicks", calls["clicks"] + 1)
+    return p, calls
+
+
+def _hit_ok():
+    return {"found": True, "strategy": "property", "control": object(), "box": None, "trace": ["严格属性未命中", "宽松属性命中"]}
+
+
+def _hit_fail():
+    return {"found": False, "strategy": "none", "control": None, "box": None,
+            "trace": ["窗口句柄 123 失效", "全部策略落空"]}
+
+
+def test_click_retries_then_succeeds():
+    """第一次定位失败、第二次成功 → 重试后点击一次，返回策略。"""
+    p, calls = _picker_with_locate([_hit_fail(), _hit_ok()])
+    strategy = p.click_element({}, retries=3, retry_delay=0)
+    assert strategy == "property"
+    assert calls["n"] == 2          # 首次 + 重试 1 次
+    assert calls["clicks"] == 1     # 只在命中后点击一次
+
+
+def test_click_retries_exhausted_raises_with_trace():
+    """始终定位不到 → 重试满 retries 次后抛错，消息带 trace。"""
+    p, calls = _picker_with_locate([_hit_fail(), _hit_fail(), _hit_fail()])
+    with pytest.raises(ElementNotFoundError) as ei:
+        p.click_element({}, retries=2, retry_delay=0)
+    assert calls["n"] == 3          # 首次 + 重试 2 次
+    assert calls["clicks"] == 0
+    msg = str(ei.value)
+    assert "重试 2 次后仍落空" in msg
+    assert "窗口句柄 123 失效" in msg  # trace 拼进消息
+
+
+def test_click_retries_zero_single_attempt():
+    """retries=0 → 只尝试一次，立即抛错。"""
+    p, calls = _picker_with_locate([_hit_fail()])
+    with pytest.raises(ElementNotFoundError):
+        p.click_element({}, retries=0, retry_delay=0)
+    assert calls["n"] == 1
+
+
+def test_click_coords_fallback_click_box():
+    """命中策略为 coords（control=None）→ 走坐标兜底点击包围盒中心。"""
+    box_hit = {"found": True, "strategy": "coords", "control": None,
+               "box": {"x": 10, "y": 20, "width": 100, "height": 50}, "trace": ["坐标兜底命中"]}
+    p, calls = _picker_with_locate([box_hit])
+    strategy = p.click_element({}, retries=0, retry_delay=0)
+    assert strategy == "coords"
+    assert calls["clicks"] == 1

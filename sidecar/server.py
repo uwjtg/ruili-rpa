@@ -13,7 +13,7 @@
   POST /find_image       body {"source_path", "template_path"} -> {"ok": true, "x", "y", "score"} | 501
   POST /pick/start       body {} -> 阻塞拾取；{"ok": true, "element": {...}} | {"ok": true, "cancelled": true} | {"ok": false, "error"}
   POST /pick/stop        body {} -> {"ok": true, "stopped": bool}
-  POST /desktop/click_element  body {"target": {...}} -> {"ok": true, "strategy"} | 404 {"ok": false, "error"} | 400
+  POST /desktop/click_element  body {"target": {...}, "retries"?: int} -> {"ok": true, "strategy"} | 404 {"ok": false, "error"} | 400
   POST /desktop/locate_element body {"target": {...}} -> {"ok": true, "found": bool, "strategy": str, "trace": [str]} | 400
   POST /desktop/type_text      body {"text": str} -> {"ok": true} | 400
   POST /desktop/scroll         body {"target"?: {...}, "x"?: int, "y"?: int, "delta": int} -> {"ok": true} | 400
@@ -174,8 +174,11 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(target, dict):
                 self._send_json(400, {"ok": False, "error": "target_required"})
                 return
+            retries = body.get("retries")
+            if not isinstance(retries, int) or retries < 0 or retries > 5:
+                retries = 2  # 默认重试 2 次（共 3 次尝试）
             try:
-                strategy = _PICKER.click_element(target)
+                strategy = _PICKER.click_element(target, retries=retries)
             except ElementNotFoundError as e:
                 self._send_json(404, {"ok": False, "error": str(e)})
                 return

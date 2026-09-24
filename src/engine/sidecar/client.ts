@@ -171,13 +171,20 @@ export class SidecarClient {
     }
   }
 
-  /** pickElement 指令回放：按拾取结果重新定位 UIA 控件并点击中心 */
-  async clickElement(target: PickedElement): Promise<ClickElementReply> {
+  /** pickElement 指令回放：按拾取结果重新定位 UIA 控件并点击中心（retries=回放稳定性重试次数，M3 切片 5） */
+  async clickElement(
+    target: PickedElement,
+    retries?: number
+  ): Promise<ClickElementReply> {
     try {
+      const body: Record<string, unknown> = { target }
+      if (typeof retries === 'number' && Number.isFinite(retries)) {
+        body.retries = retries
+      }
       const res = await fetch(`${this.baseUrl}/desktop/click_element`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target })
+        body: JSON.stringify(body)
       })
       return (await res.json()) as ClickElementReply
     } catch (e) {

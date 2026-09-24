@@ -1031,23 +1031,35 @@ class DesktopPicker:
         trace.append("坐标兜底：无有效包围盒 → 全部策略落空")
         return {"found": False, "strategy": "none", "control": None, "box": None, "trace": trace}
 
-    def click_element(self, target: Dict[str, Any]) -> str:
+    def click_element(self, target: Dict[str, Any], retries: int = 2, retry_delay: float = 0.3) -> str:
         """
         按选择器回退链定位 UIA 控件并点击其中心，返回命中的策略名。
 
         定位逻辑见 locate_element（strict → property → ancestor → index → coords）；
         全部落空且无有效坐标抛 ElementNotFoundError；点击失败抛 RuntimeError。
+
+        回放稳定性（M3 切片 5）：
+          - 每次尝试都重跑 locate_element——窗口句柄失效时 locate 会按 windowTitle
+            重取窗口根，天然实现「重取窗口句柄」；
+          - 未命中则等 retry_delay 秒后重试，最多 retries 次（应对目标应用尚在加载、
+            元素暂未就绪的瞬态）；
+          - 全部失败抛 ElementNotFoundError，消息附带逐级 trace 便于排查。
         """
-        hit = self.locate_element(target)
-        if not hit["found"]:
-            raise ElementNotFoundError(
-                "未找到元素：全部回退链策略落空且无有效坐标（boundingBox）"
-            )
-        if hit["control"] is not None:
-            self._click(hit["control"])
-        else:
-            self._click_box_center(hit["box"])
-        return hit["strategy"]
+        trace: list = []
+        for attempt in range(retries + 1):
+            hit = self.locate_element(target)
+            trace = list(hit.get("trace") or [])
+            if hit["found"]:
+                if hit["control"] is not None:
+                    self._click(hit["control"])
+                else:
+                    self._click_box_center(hit["box"])
+                return hit["strategy"]
+            if attempt < retries:
+                time.sleep(retry_delay)
+        raise ElementNotFoundError(
+            "未找到元素（重试 {} 次后仍落空）：{}".format(retries, " | ".join(trace))
+        )
 
     @staticmethod
     def _valid_box(raw: Any) -> Optional[Dict[str, int]]:

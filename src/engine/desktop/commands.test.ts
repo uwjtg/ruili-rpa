@@ -65,7 +65,7 @@ describe('desktop 指令（stub 回放客户端）', () => {
     const cmd = reg.get('pickElement')
     expect(cmd).toBeDefined()
     expect(cmd?.group).toBe('桌面')
-    expect(cmd?.params.map((p) => p.key)).toEqual(['target'])
+    expect(cmd?.params.map((p) => p.key)).toEqual(['target', 'retries'])
   })
 
   it('pickElement 用 JSON target 调回放并成功', async () => {
@@ -80,7 +80,7 @@ describe('desktop 指令（stub 回放客户端）', () => {
       { target: JSON.stringify(ELEMENT) },
       { id: 's1', cmdId: 'pickElement', params: {} }
     )
-    expect(clickElement).toHaveBeenCalledWith(ELEMENT)
+    expect(clickElement).toHaveBeenCalledWith(ELEMENT, 2)
     expect(result).toEqual(ELEMENT)
     expect(logs.some((l) => l.includes('已点击元素「确定」'))).toBe(true)
   })
@@ -97,7 +97,7 @@ describe('desktop 指令（stub 回放客户端）', () => {
       { target: '${sel}' },
       { id: 's1', cmdId: 'pickElement', params: {} }
     )
-    expect(clickElement).toHaveBeenCalledWith(ELEMENT)
+    expect(clickElement).toHaveBeenCalledWith(ELEMENT, 2)
   })
 
   it('target 非法时抛错', async () => {

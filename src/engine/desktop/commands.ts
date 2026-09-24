@@ -20,7 +20,7 @@ type RegistryLike = { register(c: RegisteredCommand): void }
 
 /** 最小回放客户端接口（测试可注入 stub；SidecarClient 天然实现） */
 export interface DesktopLike {
-  clickElement(target: PickedElement): Promise<{
+  clickElement(target: PickedElement, retries?: number): Promise<{
     ok: boolean
     /** 命中的回退链策略（strict/property/ancestor/index/coords） */
     strategy?: string
@@ -97,6 +97,12 @@ export function registerDesktopCommands(
         type: 'text',
         placeholder:
           '点工具栏「拾取」自动填充；或手填 {"windowHandle":…,"automationId":…,"name":…,"controlType":…}'
+      },
+      {
+        key: 'retries',
+        label: '定位失败重试次数',
+        type: 'number',
+        placeholder: '回放稳定性：定位不到时重试几次（默认 2，共 3 次尝试）'
       }
     ],
     summary: (p) => {
@@ -112,8 +118,10 @@ export function registerDesktopCommands(
         throw new Error('pickElement 缺少有效的 target（JSON）参数')
       }
       const label = targetLabel(target) || '未知元素'
-      ctx.log('info', `按选择器定位并点击元素：${label}`)
-      const r = await desktop.clickElement(target)
+      const retriesRaw = p.retries === undefined || p.retries === null ? '' : String(p.retries)
+      const retries = retriesRaw === '' ? 2 : Math.max(0, Math.min(5, Number(retriesRaw) || 0))
+      ctx.log('info', `按选择器定位并点击元素：${label}（重试上限 ${retries} 次）`)
+      const r = await desktop.clickElement(target, retries)
       if (!r.ok) {
         throw new Error(`点击元素失败：${r.error ?? '未知错误'}`)
       }

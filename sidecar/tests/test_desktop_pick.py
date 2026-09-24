@@ -170,7 +170,7 @@ class _FakePicker:
         self.stop_calls += 1
         return True
 
-    def click_element(self, target):
+    def click_element(self, target, **_kw):
         self.click_calls.append(target)
         return "coords"
 
@@ -197,7 +197,7 @@ def test_pick_start_endpoint_cancelled(monkeypatch):
         def stop(self):
             return True
 
-        def click_element(self, target):
+        def click_element(self, target, **_kw):
             raise AssertionError("unused")
 
     monkeypatch.setattr(server, "_PICKER", Cancelled())
@@ -236,7 +236,7 @@ def test_click_element_endpoint_ok_and_404(monkeypatch):
         httpd.shutdown()
 
     class NotFound:
-        def click_element(self, target):
+        def click_element(self, target, **_kw):
             raise ElementNotFoundError("未找到元素")
 
         def start(self, timeout=120.0):
