@@ -1121,13 +1121,13 @@ class DesktopPicker:
             hit = self.locate_element(target)
             trace = list(hit.get("trace") or [])
             if hit["found"]:
+                # M3 切片 13/16：点击（控件路径或坐标兜底）前把目标窗口置前，避免被遮挡点空
+                win_handle = hit.get("window_handle") or 0
+                if win_handle:
+                    self._bring_foreground(win_handle)
                 if hit["control"] is not None:
                     self._click(hit["control"])
                 else:
-                    # M3 切片 13：坐标兜底点击前把目标窗口置前，避免被遮挡点空
-                    win_handle = hit.get("window_handle") or 0
-                    if win_handle:
-                        self._bring_foreground(win_handle)
                     self._click_box_center(hit["box"])
                 return hit["strategy"]
             if attempt < retries:

@@ -659,6 +659,22 @@ def test_coords_click_foreground_uses_reresolved_window_handle(monkeypatch):
     assert sent == [(110, 120)]
 
 
+def test_control_click_brings_window_foreground_first(monkeypatch):
+    """控件命中点击同样先置前（M3 切片 16：控件/坐标兜底统一置前）。"""
+    root, _inner, btn = _make_tree()
+    picker = DesktopPicker(uia=_FakeUia(root))
+    brought = []
+    monkeypatch.setattr(picker, "_bring_foreground", lambda hwnd: brought.append(hwnd))
+    picker.click_element({
+        "windowHandle": 1,
+        "automationId": "btn_ok",
+        "name": "确定",
+        "controlType": "ButtonControl",
+    })
+    assert brought == [1]
+    assert btn.clicked is True
+
+
 def test_bring_foreground_zero_handle_is_noop():
     """无句柄时 _bring_foreground 直接返回 False，不触碰 Win32。"""
     picker = DesktopPicker(uia=_FakeUia(_make_tree()[0]))
