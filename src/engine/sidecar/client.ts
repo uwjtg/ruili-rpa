@@ -272,13 +272,27 @@ export class SidecarClient {
     }
   }
 
-  /** 开启桌面智能录制（观察不吞输入；appPid 用于过滤点到自己应用的杂音） */
-  async recordStart(appPid?: number): Promise<RecordStartReply> {
+  /** 顶层窗口句柄 → 所属进程 PID（圈定录制范围用；M3 切片 6） */
+  async windowPid(hwnd: number): Promise<{ ok: boolean; pid?: number; error?: string }> {
+    try {
+      const res = await fetch(`${this.baseUrl}/desktop/window_pid`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hwnd })
+      })
+      return (await res.json()) as { ok: boolean; pid?: number }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  }
+
+  /** 开启桌面智能录制（观察不吞输入；appPid 排除自身；targetPid 圈定目标窗口进程，M3 切片 6） */
+  async recordStart(appPid?: number, targetPid?: number): Promise<RecordStartReply> {
     try {
       const res = await fetch(`${this.baseUrl}/record/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ app_pid: appPid ?? 0 })
+        body: JSON.stringify({ app_pid: appPid ?? 0, target_pid: targetPid ?? 0 })
       })
       return (await res.json()) as RecordStartReply
     } catch (e) {

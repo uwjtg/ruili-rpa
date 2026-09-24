@@ -23,10 +23,10 @@ export class RecordController {
   constructor(private readonly getWindow: () => BrowserWindow | null) {}
 
   /** 开启录制：sidecar 观察模式钩子就绪后立即返回（不阻塞用户操作） */
-  async start(): Promise<RecordStartReply> {
+  async start(targetPid?: number): Promise<RecordStartReply> {
     try {
       const client = await ensureSidecar()
-      return await client.recordStart(process.pid)
+      return await client.recordStart(process.pid, targetPid)
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) }
     }

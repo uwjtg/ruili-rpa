@@ -116,8 +116,14 @@ const api = {
   },
   /** 桌面智能录制（M3 切片 3）：观察式录制 → 指令序列 */
   record: {
-    /** 开启录制：sidecar 钩子就绪后立即返回；此后用户在目标窗口执行操作 */
-    start: (): Promise<RecordStartReply> => ipcRenderer.invoke('record:start'),
+    /** 圈定录制目标窗口：点选目标窗口，返回其顶层进程 PID（M3 切片 6） */
+    pickTargetWindow: (): Promise<
+      { ok: true; pid: number; title: string } | { ok: false; error: string }
+    > => ipcRenderer.invoke('record:pickTargetWindow'),
+    /** 开启录制：sidecar 钩子就绪后立即返回；targetPid 圈定目标窗口进程（可选） */
+    start: (
+      targetPid?: number
+    ): Promise<RecordStartReply> => ipcRenderer.invoke('record:start', targetPid),
     /** 结束录制：返回聚合指令序列（元素已写入元素库） */
     stop: (): Promise<RecordStopReply> => ipcRenderer.invoke('record:stop'),
     /** 订阅录制结束事件（与 stop() 返回一致），返回取消订阅函数 */

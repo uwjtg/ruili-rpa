@@ -107,6 +107,8 @@ export default function EditorView(): JSX.Element {
   const [picking, setPicking] = useState(false)
   // 桌面智能录制模式（M3 切片 3）：观察式录制，不吞输入
   const [recording, setRecording] = useState(false)
+  // 圈定录制目标窗口（M3 切片 6）：录制只保留该进程 PID 的事件
+  const [recTarget, setRecTarget] = useState<{ pid: number; title: string } | null>(null)
   const [lines, setLines] = useState<LogLine[]>([])
   const [rightTab, setRightTab] = useState<'params' | 'vars' | 'elements' | 'ai'>('params')
   const [status, setStatus] = useState('空闲')
@@ -453,6 +455,19 @@ export default function EditorView(): JSX.Element {
    * 聚合为指令序列，元素签名写入元素库（与拾取共用 saveElement 去重），指令
    * 追加为当前流程步骤。
    */
+  /** 圈定录制目标窗口：点选目标窗口，记录其进程 PID（M3 切片 6） */
+  async function onPickTargetWindow(): Promise<void> {
+    if (!ruili?.record?.pickTargetWindow) return
+    push('sys', '请点击要录制的目标窗口（Esc 取消）…')
+    const r = await ruili.record.pickTargetWindow()
+    if (!r.ok) {
+      push('error', `圈定录制窗口失败：${r.error}`)
+      return
+    }
+    setRecTarget({ pid: r.pid, title: r.title })
+    push('success', `已圈定录制目标窗口：${r.title || '(未命名)'}（PID ${r.pid}）；此后录制只录该窗口`)
+  }
+
   async function onRecord(): Promise<void> {
     if (!ruili?.record) return
     if (recording) {
@@ -477,7 +492,7 @@ export default function EditorView(): JSX.Element {
     }
     setRecording(true)
     push('sys', '录制模式已开启：请在目标窗口中执行操作（点击 / 输入 / 滚动 / 按键将被录制）；完成后点「停止录制」')
-    const reply = await ruili.record.start()
+    const reply = await ruili.record.start(recTarget?.pid)
     if (!reply.ok || !reply.started) {
       setRecording(false)
       push('error', `开启录制失败：${'error' in reply ? reply.error : '未知错误'}`)
@@ -726,6 +741,14 @@ export default function EditorView(): JSX.Element {
           style={{ ...btn, background: recording ? '#E64340' : '#fff', color: recording ? '#fff' : '#E64340', border: recording ? 'none' : '1px solid #E64340' }}
         >
           {recording ? '停止录制' : '录制'}
+        </button>
+        <button
+          onClick={() => void onPickTargetWindow()}
+          disabled={running || recording || picking}
+          title="圈定录制目标窗口：录制时只录该窗口所属进程的操作（M3 切片 6）"
+          style={{ ...btn, background: '#fff', color: '#0E8A5F', border: '1px solid #0E8A5F' }}
+        >
+          {recTarget ? `圈定:${recTarget.title || '窗口'}` : '圈定窗口'}
         </button>
         {paused ? (
           <button onClick={() => ruili?.run.resume()} style={{ ...btn, background: '#7C5CFC', color: '#fff', border: 'none' }}>

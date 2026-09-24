@@ -343,17 +343,55 @@ def test_parse_key_combo_rejects_unknown():
         _parse_key_combo("Control+Bogus")
 
 
+
+# ---------- M3 切片 6：target_pid 圈定录制范围 ----------
+
+def test_target_pid_filters_clicks():
+    rec = _make_recorder()
+    rec._t0 = 0.0
+    rec._target_pid = 123
+    rec.window_pid_at = lambda x, y: {10: 123, 20: 999}.get(x, 0)
+    ins = rec._aggregate([
+        ("click", 0.1, 10, 10),  # pid 123 目标 → 保留
+        ("click", 0.2, 20, 20),  # pid 999 其它窗口 → 过滤
+    ])
+    assert len(ins) == 1
+    assert ins[0]["kind"] == "click"
+
+
+def test_target_pid_filters_keys():
+    rec = _make_recorder()
+    rec._t0 = 0.0
+    rec._target_pid = 123
+    ins = rec._aggregate([
+        ("key", 0.1, ord("a"), 0, 0, 123),  # 目标进程 → 聚合文本
+        ("key", 0.2, ord("b"), 0, 0, 999),  # 其它进程 → 过滤
+    ])
+    types = [i for i in ins if i["kind"] == "type"]
+    assert [i["params"]["text"] for i in types] == ["a"]
+
+
+def test_no_target_pid_keeps_clicks_anywhere():
+    rec = _make_recorder()
+    rec._t0 = 0.0
+    rec.window_pid_at = lambda x, y: 999  # 未圈定 → 不过滤
+    ins = rec._aggregate([("click", 0.1, 10, 10)])
+    assert len(ins) == 1
+
+
 # ---------- HTTP 端点路由（替换 _RECORDER / _PICKER） ----------
 
 class _FakeRecorder:
     def __init__(self, instructions=None):
         self.started = False
         self.instructions = instructions or []
+        self.start_args = None
 
-    def start(self, app_pid=0):
+    def start(self, app_pid=0, target_pid=0):
         if self.started:
             return False
         self.started = True
+        self.start_args = (app_pid, target_pid)
         return True
 
     def stop(self):

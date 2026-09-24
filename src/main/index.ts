@@ -273,8 +273,22 @@ ipcMain.handle('elements:verify', async (_e, id: string) => {
 
 /* ---------- 桌面智能录制（M3 切片 3）：观察式录制 → 指令序列 ---------- */
 const recordController = new RecordController(() => mainWindow)
-ipcMain.handle('record:start', () => recordController.start())
+ipcMain.handle('record:start', (_e, targetPid?: number) => recordController.start(targetPid))
 ipcMain.handle('record:stop', () => recordController.stop())
+// M3 切片 6：圈定录制窗口——复用拾取框点选目标窗口，返回其顶层进程 PID（后续 record:start 传入）
+ipcMain.handle('record:pickTargetWindow', async () => {
+  const reply = await pickController.start()
+  if (!reply.ok || !('element' in reply)) {
+    return reply
+  }
+  const hwnd = Number(reply.element.windowHandle ?? 0)
+  const client = await ensureSidecar()
+  const r = await client.windowPid(hwnd)
+  if (!r.ok || !r.pid) {
+    return { ok: false, error: r.error ?? '无法获取窗口进程 PID' }
+  }
+  return { ok: true, pid: r.pid, title: reply.element.windowTitle ?? reply.element.name ?? '' }
+})
 
 app.whenReady().then(() => {
   // 数据库落在 userData 下（Electron 提供的跨版本稳定用户目录）

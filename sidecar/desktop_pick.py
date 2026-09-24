@@ -1443,6 +1443,16 @@ class DesktopPicker:
         for vk in reversed(vks[:-1]):
             self._send_key(vk, up=True)
 
+    # ---------- M3 切片 6：窗口句柄 → 进程 PID（圈定录制范围） ----------
+    @staticmethod
+    def window_pid(hwnd: int) -> int:
+        """顶层窗口句柄 → 所属进程 PID（GetWindowThreadProcessId）。失败返回 0。"""
+        pid = ctypes.wintypes.DWORD(0)
+        if not hwnd:
+            return 0
+        _user32.GetWindowThreadProcessId(int(hwnd), ctypes.byref(pid))
+        return int(pid.value)
+
     @staticmethod
     def _send_key(vk: int, up: bool) -> None:
         flags = KEYEVENTF_KEYUP if up else 0
@@ -1547,19 +1557,26 @@ class DesktopRecorder:
         self._lock = threading.Lock()
         self._recording = False
         self._app_pid = 0
+        self._target_pid = 0  # M3 切片 6：圈定录制目标窗口进程（只保留该 PID 的事件）
         self._t0 = 0.0
 
     # ---------- 状态 / 生命周期 ----------
     def is_recording(self) -> bool:
         return self._recording and self._hook is not None and self._hook.is_alive()
 
-    def start(self, app_pid: int = 0) -> bool:
-        """开启录制（观察模式，不吞输入）。已在录制中返回 False。"""
+    def start(self, app_pid: int = 0, target_pid: int = 0) -> bool:
+        """开启录制（观察模式，不吞输入）。已在录制中返回 False。
+
+        app_pid: 自身进程 PID（其事件一律过滤，避免录到编辑器按钮）；
+        target_pid: 圈定的目标窗口进程 PID（M3 切片 6）；非 0 时只保留该 PID 的事件，
+          其余窗口/进程的操作一律过滤，消除误录噪声。
+        """
         with self._lock:
             if self._recording:
                 return False
             self._t0 = time.monotonic()
             self._app_pid = app_pid
+            self._target_pid = target_pid
         hook = _HookThread(
             mode="record", resolve_sig=lambda x, y: self._element_at(int(x), int(y))
         )
@@ -1638,7 +1655,11 @@ class DesktopRecorder:
                 _, ts, x, y = ev[:4]
                 # 5 元组携带事件时解析的签名；旧 4 元组（单测）回退到聚合时解析
                 ev_sig = ev[4] if len(ev) > 4 else None
-                if self._app_pid and self.window_pid_at(int(x), int(y)) == self._app_pid:
+                need_pid = bool(self._app_pid or self._target_pid)
+                wp = self.window_pid_at(int(x), int(y)) if need_pid else 0
+                if self._target_pid and wp != self._target_pid:
+                    continue  # 不在目标窗口进程 → 过滤（M3 切片 6 圈定）
+                if self._app_pid and wp == self._app_pid:
                     continue  # 点到自己应用（编辑器按钮）→ 过滤杂音
                 if (
                     last_click
@@ -1672,7 +1693,11 @@ class DesktopRecorder:
             elif kind == "key":
                 _, ts, vk, scan, flags = ev[:5]
                 # 6 元组携带事件时前台 PID；旧 5 元组回退到实时查询（单测注入用）
-                fg_pid = ev[5] if len(ev) > 5 else (self.foreground_pid() if self._app_pid else 0)
+                need_pid = bool(self._app_pid or self._target_pid)
+                fg_pid = ev[5] if len(ev) > 5 else (self.foreground_pid() if need_pid else 0)
+                if self._target_pid and fg_pid != self._target_pid:
+                    held_mods.clear()
+                    continue  # 焦点不在目标窗口进程 → 过滤（M3 切片 6 圈定）
                 if self._app_pid and fg_pid == self._app_pid:
                     held_mods.clear()
                     continue  # 输入焦点在自己应用 → 过滤杂音
@@ -1714,7 +1739,10 @@ class DesktopRecorder:
                 _, ts, x, y, delta = ev[:5]
                 # 6 元组携带事件时解析的签名；旧 5 元组（单测）回退到聚合时解析
                 ev_sig = ev[5] if len(ev) > 5 else None
-                wp = self.window_pid_at(int(x), int(y)) if self._app_pid else 0
+                need_pid = bool(self._app_pid or self._target_pid)
+                wp = self.window_pid_at(int(x), int(y)) if need_pid else 0
+                if self._target_pid and wp != self._target_pid:
+                    continue
                 if self._app_pid and wp == self._app_pid:
                     continue
                 flush_text()

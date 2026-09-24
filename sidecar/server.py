@@ -18,7 +18,7 @@
   POST /desktop/type_text      body {"text": str} -> {"ok": true} | 400
   POST /desktop/scroll         body {"target"?: {...}, "x"?: int, "y"?: int, "delta": int} -> {"ok": true} | 400
   POST /desktop/press_key      body {"keys": str} -> {"ok": true} | 400 | 500
-  POST /record/start           body {"app_pid"?: int} -> {"ok": true, "started": true} | 400 already_recording
+  POST /record/start           body {"app_pid"?: int, "target_pid"?: int} -> {"ok": true, "started": true} | 400 already_recording
   POST /record/stop            body {} -> {"ok": true, "instructions": [...]} | 400 not_recording
 
 启动时向 stdout 打印一行 `SIDECAR_READY port=<port>`，供 Node 侧同步握手。
@@ -265,6 +265,15 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": True})
             return
 
+        if self.path == "/desktop/window_pid":
+            hwnd = body.get("hwnd")
+            if not isinstance(hwnd, int):
+                self._send_json(400, {"ok": False, "error": "hwnd_required"})
+                return
+            pid = _PICKER.window_pid(hwnd)
+            self._send_json(200, {"ok": True, "pid": pid})
+            return
+
         # ---- 智能录制（M3 切片 3） ----
         if self.path == "/record/start":
             try:
@@ -273,7 +282,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(400, {"ok": False, "error": "app_pid_invalid"})
                 return
             try:
-                started = _RECORDER.start(app_pid)
+                target_pid = int(body.get("target_pid") or 0)
+            except (TypeError, ValueError):
+                self._send_json(400, {"ok": False, "error": "target_pid_invalid"})
+                return
+            try:
+                started = _RECORDER.start(app_pid, target_pid)
             except Exception as e:  # noqa: BLE001
                 self._send_json(500, {"ok": False, "error": f"record_start_failed: {e}"})
                 return
