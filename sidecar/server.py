@@ -274,6 +274,17 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": True, "pid": pid})
             return
 
+        # ---- sidecar 运行期配置（M3 切片 18）：主进程推送全局开关 ----
+        if self.path == "/desktop/config":
+            delay = body.get("foreground_delay_ms")
+            if delay is not None and not isinstance(delay, int):
+                self._send_json(400, {"ok": False, "error": "foreground_delay_ms_invalid"})
+                return
+            if delay is not None:
+                _PICKER.set_foreground_delay_ms(delay)
+            self._send_json(200, {"ok": True})
+            return
+
         # ---- 智能录制（M3 切片 3） ----
         if self.path == "/record/start":
             try:

@@ -777,6 +777,16 @@ class DesktopPicker:
         self._cancelled = False
         self._lock = threading.Lock()
         self._highlight_id: Optional[int] = None
+        # M3 切片 18: foreground delay ms after bringing window to front (0=off)
+        self.foreground_delay_ms = 0
+
+    def set_foreground_delay_ms(self, ms: Any) -> None:
+        """Set post-foreground delay in ms (M3 s18). Non-int/negatives clamp to 0."""
+        try:
+            val = int(ms)
+        except (TypeError, ValueError):
+            val = 0
+        self.foreground_delay_ms = max(0, min(10000, val))
 
     # ---------- 状态 ----------
     def is_picking(self) -> bool:
@@ -1098,6 +1108,9 @@ class DesktopPicker:
             user32.SetForegroundWindow(hwnd)
             if attached:
                 user32.AttachThreadInput(cur_thread, fg_thread, False)
+            # M3 切片 18: optional short wait after foreground (default off)
+            if getattr(self, "foreground_delay_ms", 0) > 0:
+                time.sleep(self.foreground_delay_ms / 1000.0)
             return True
         except Exception:
             return False

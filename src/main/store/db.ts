@@ -431,3 +431,37 @@ export function saveRecordThresholds(
   }
 }
 
+/** 置前台后短延时落盘的 settings 键（M3 切片 18，单位 ms，0=关闭）。 */
+const SETTINGS_KEY_FOREGROUND_DELAY_MS = 'desktop.foregroundDelayMs'
+
+/**
+ * 读取「置前台后短延时」(ms, M3 切片 18)。缺省/损坏回 0（关闭）。
+ * 与 sidecar set_foreground_delay_ms 同口径：非负整数，上限 10000。
+ */
+export function loadForegroundDelayMs(): number {
+  try {
+    const raw = getSetting(SETTINGS_KEY_FOREGROUND_DELAY_MS)
+    if (raw === null) return 0
+    const num = Number(raw)
+    if (!Number.isFinite(num) || num < 0 || !Number.isInteger(num)) return 0
+    return Math.min(10000, num)
+  } catch {
+    return 0
+  }
+}
+
+/** 保存置前短延时：非法值归 0 落盘。 */
+export function saveForegroundDelayMs(
+  raw: unknown
+): { ok: true; updatedAt: number } | { ok: false; error: string } {
+  try {
+    let num = typeof raw === 'number' ? raw : Number(String(raw))
+    if (!Number.isFinite(num) || num < 0 || !Number.isInteger(num)) num = 0
+    num = Math.min(10000, num)
+    setSetting(SETTINGS_KEY_FOREGROUND_DELAY_MS, String(num))
+    return { ok: true, updatedAt: Date.now() }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+

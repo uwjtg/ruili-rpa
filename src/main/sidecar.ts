@@ -6,6 +6,7 @@
  * 统一回收子进程。
  */
 import { SidecarClient } from '../engine/sidecar/client'
+import { loadForegroundDelayMs } from './store/db'
 
 let client: SidecarClient | null = null
 
@@ -14,6 +15,12 @@ export async function ensureSidecar(): Promise<SidecarClient> {
   if (!client) {
     const c = new SidecarClient()
     await c.start()
+    // M3 切片 18：把持久化的置前短延时推给 sidecar（新起进程侧的默认值是 0）
+    try {
+      await c.setDesktopConfig({ foregroundDelayMs: loadForegroundDelayMs() })
+    } catch {
+      /* 推送失败不阻断后续调用（sidecar 用默认 0） */
+    }
     client = c
   }
   return client

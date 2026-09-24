@@ -142,7 +142,13 @@ const api = {
       ipcRenderer.invoke('settings:get-record-thresholds'),
     /** 保存阈值（非法值净化后与现存量合并落盘） */
     setRecordThresholds: (raw: Partial<RecordThresholds>): Promise<{ ok: boolean; updatedAt?: number; error?: string }> =>
-      ipcRenderer.invoke('settings:set-record-thresholds', raw)
+      ipcRenderer.invoke('settings:set-record-thresholds', raw),
+    /** 读取置前台后短延时（ms，0=关闭；M3 切片 18） */
+    getForegroundDelayMs: (): Promise<number> =>
+      ipcRenderer.invoke('settings:get-foreground-delay-ms'),
+    /** 保存置前台后短延时（ms；非法值归 0；已起 sidecar 实时推送） */
+    setForegroundDelayMs: (ms: number): Promise<{ ok: boolean; updatedAt?: number; error?: string }> =>
+      ipcRenderer.invoke('settings:set-foreground-delay-ms', ms)
   }
 } as const
 

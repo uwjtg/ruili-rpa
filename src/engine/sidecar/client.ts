@@ -287,6 +287,25 @@ export class SidecarClient {
     }
   }
 
+  /** 推送 sidecar 运行期配置（M3 切片 18：置前台后短延时 ms，0=关闭） */
+  async setDesktopConfig(opts: {
+    foregroundDelayMs?: number
+  }): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await fetch(`${this.baseUrl}/desktop/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ foreground_delay_ms: opts.foregroundDelayMs ?? 0 })
+      })
+      return (await res.json()) as { ok: boolean; error?: string }
+    } catch (e) {
+      return {
+        ok: false,
+        error: e instanceof Error ? e.message : String(e)
+      }
+    }
+  }
+
   /** 聚合阈值覆盖（M3 切片 8/12）；缺省键沿用 sidecar 默认 */
   recordThresholds?: Partial<RecordThresholds>
   /** 开启桌面智能录制（观察不吞输入；appPid 排除自身；targetPid 圈定目标窗口进程，M3 切片 6；thresholds 聚合阈值，M3 切片 8/12） */

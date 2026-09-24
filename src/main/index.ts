@@ -17,10 +17,12 @@ import {
   listElements,
   listFlows,
   loadFlow,
+  loadForegroundDelayMs,
   loadRecordThresholds,
   openDb,
   saveElement,
   saveFlow,
+  saveForegroundDelayMs,
   saveRecordThresholds
 } from './store/db'
 import type { RunLogEntry } from './store/db'
@@ -298,6 +300,22 @@ ipcMain.handle('settings:get-record-thresholds', () => loadRecordThresholds())
 ipcMain.handle('settings:set-record-thresholds', (_e, raw: unknown) =>
   saveRecordThresholds(raw)
 )
+
+/* ---------- M3 切片 18：置前台后短延时开关（默认关） ---------- */
+ipcMain.handle('settings:get-foreground-delay-ms', () => loadForegroundDelayMs())
+ipcMain.handle('settings:set-foreground-delay-ms', async (_e, raw: unknown) => {
+  const r = saveForegroundDelayMs(raw)
+  // sidecar 已在跑就实时推送；未在跑则下次 ensureSidecar 启动时推
+  if (r.ok) {
+    try {
+      const c = await ensureSidecar()
+      await c.setDesktopConfig({ foregroundDelayMs: loadForegroundDelayMs() })
+    } catch {
+      /* 未起 sidecar 时忽略 */
+    }
+  }
+  return r
+})
 
 app.whenReady().then(() => {
   // 数据库落在 userData 下（Electron 提供的跨版本稳定用户目录）

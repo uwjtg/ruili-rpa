@@ -54,6 +54,9 @@ export default function ThresholdPanel({
   // M3 切片 17：本流程覆盖草稿（空串=该键跟随全局，不写进流程）
   const [flowDraft, setFlowDraft] = useState<Draft | null>(null)
   const [flowMsg, setFlowMsg] = useState('')
+  // M3 切片 18：置前台后短延时（ms，0=关闭）
+  const [fgDelay, setFgDelay] = useState<string>('')
+  const [fgMsg, setFgMsg] = useState('')
 
   // 挂载时从 DB 读取当前持久化阈值（缺省回退默认值）
   useEffect(() => {
@@ -61,6 +64,12 @@ export default function ThresholdPanel({
     void ruili.settings.getRecordThresholds().then((t) => {
       setDraft(toDraft(t))
     })
+  }, [ruili])
+
+  // M3 切片 18：挂载时读置前短延时
+  useEffect(() => {
+    if (!ruili?.settings) return
+    void ruili.settings.getForegroundDelayMs().then((ms) => setFgDelay(String(ms)))
   }, [ruili])
 
   // M3 切片 17：流程级覆盖草稿随 flow.recordThresholds 同步（未覆盖的键留空）
@@ -155,6 +164,23 @@ export default function ThresholdPanel({
     setFlowDraft(blank)
     if (flow.recordThresholds) onChangeFlow({ ...flow, recordThresholds: undefined })
     setFlowMsg('已清空本流程覆盖（未写盘前请保持不改）')
+  }
+
+  /** M3 切片 18：保存置前台后短延时（非法值/空→0=关闭） */
+  async function onSaveFgDelay(): Promise<void> {
+    if (!ruili?.settings) return
+    const raw = fgDelay.trim() === '' ? 0 : Number(fgDelay)
+    if (!Number.isFinite(raw) || raw < 0 || !Number.isInteger(raw)) {
+      setFgMsg('⚠ 须是 ≥0 的整数 ms（0=关闭）')
+      return
+    }
+    const r = await ruili.settings.setForegroundDelayMs(raw)
+    if (r?.ok) {
+      setFgMsg(raw === 0 ? '✓ 已关闭置前延时' : `✓ 已保存置前延时 ${raw}ms`)
+      onNotify?.(`置前台后短延时：${raw}ms（${raw === 0 ? '关闭' : '已生效'}）`)
+    } else {
+      setFgMsg(`⚠ 保存失败：${r?.error ?? '未知错误'}`)
+    }
   }
 
   if (!draft) {
@@ -328,6 +354,57 @@ export default function ThresholdPanel({
             清空覆盖
           </button>
         </div>
+      </div>
+
+      {/* M3 切片 18：置前台后短延时（回放点击；默认关） */}
+      <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #E5E6EB' }}>
+        <div style={{ fontSize: 12, color: '#51565D', marginBottom: 4 }}>
+          回放点击置前短延时
+        </div>
+        <div style={{ fontSize: 11, color: '#8A8F99', marginBottom: 12 }}>
+          每次回放点击把目标窗口置前后额外等待的毫秒数；0=关闭（默认，实测记事本无需延时）。
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            value={fgDelay}
+            onChange={(e) => {
+              setFgDelay(e.target.value)
+              setFgMsg('')
+            }}
+            inputMode="numeric"
+            placeholder="0"
+            style={{
+              width: 90,
+              boxSizing: 'border-box',
+              padding: '6px 8px',
+              border: '1px solid #D8DADD',
+              borderRadius: 6,
+              fontSize: 13,
+              outline: 'none'
+            }}
+          />
+          <span style={{ fontSize: 12, color: '#8A8F99' }}>ms</span>
+          <button
+            onClick={() => void onSaveFgDelay()}
+            style={{
+              height: 28,
+              padding: '0 14px',
+              border: 'none',
+              borderRadius: 6,
+              background: '#7C5CFC',
+              color: '#fff',
+              fontSize: 12,
+              cursor: 'pointer'
+            }}
+          >
+            保存
+          </button>
+        </div>
+        {fgMsg ? (
+          <div style={{ fontSize: 12, marginTop: 8, color: fgMsg.startsWith('⚠') ? '#E64340' : '#1DBF73' }}>
+            {fgMsg}
+          </div>
+        ) : null}
       </div>
     </div>
   )

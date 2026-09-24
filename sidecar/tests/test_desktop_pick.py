@@ -704,3 +704,72 @@ def test_locate_coords_returns_window_handle_field():
     })
     assert miss["strategy"] == "coords"
     assert miss["window_handle"] == 0
+
+
+
+# ---------- M3 切片 18: post-foreground delay switch (default off) ----------
+
+
+def test_set_foreground_delay_ms_clamps_non_negative_int():
+    """setter: 合法值保留；负数/非整数/非数字一律归 0；上限 10000ms。"""
+    picker = DesktopPicker(uia=_FakeUia(_make_tree()[0]))
+    assert picker.foreground_delay_ms == 0
+    picker.set_foreground_delay_ms(200)
+    assert picker.foreground_delay_ms == 200
+    picker.set_foreground_delay_ms("150")
+    assert picker.foreground_delay_ms == 150
+    picker.set_foreground_delay_ms(-5)
+    assert picker.foreground_delay_ms == 0
+    picker.set_foreground_delay_ms("abc")
+    assert picker.foreground_delay_ms == 0
+    picker.set_foreground_delay_ms(None)
+    assert picker.foreground_delay_ms == 0
+    picker.set_foreground_delay_ms(99999)
+    assert picker.foreground_delay_ms == 10000
+
+
+def test_bring_foreground_sleeps_when_delay_set(monkeypatch):
+    """置前后延时>0 时 sleep(delay/1000)；=0 不 sleep。"""
+    import desktop_pick
+
+    picker = DesktopPicker(uia=_FakeUia(_make_tree()[0]))
+    slept = []
+    monkeypatch.setattr(desktop_pick.time, "sleep", lambda s: slept.append(s))
+    picker.set_foreground_delay_ms(120)
+    picker._bring_foreground(12345)
+    assert slept == [0.12]
+    picker.set_foreground_delay_ms(0)
+    picker._bring_foreground(12345)
+    assert slept == [0.12]
+
+
+def test_desktop_config_endpoint_sets_delay(monkeypatch):
+    """/desktop/config 推送 foreground_delay_ms 到 picker。"""
+    picker = DesktopPicker(uia=_FakeUia(_make_tree()[0]))
+    monkeypatch.setattr(server, "_PICKER", picker)
+    httpd, port = _start_server()
+    try:
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/desktop/config",
+            data=json.dumps({"foreground_delay_ms": 80}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+        assert body == {"ok": True}
+        assert picker.foreground_delay_ms == 80
+        # 非法类型 → 400
+        bad = urllib.request.Request(
+            f"http://127.0.0.1:{port}/desktop/config",
+            data=json.dumps({"foreground_delay_ms": "abc"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            urllib.request.urlopen(bad, timeout=5)
+            raise AssertionError("expected 400")
+        except urllib.error.HTTPError as e:
+            assert e.code == 400
+    finally:
+        httpd.shutdown()

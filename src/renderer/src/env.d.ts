@@ -93,6 +93,8 @@ declare global {
       settings: {
         getRecordThresholds: () => Promise<RecordThresholds>
         setRecordThresholds: (raw: Partial<RecordThresholds>) => Promise<{ ok: boolean; updatedAt?: number; error?: string }>
+        getForegroundDelayMs: () => Promise<number>
+        setForegroundDelayMs: (ms: number) => Promise<{ ok: boolean; updatedAt?: number; error?: string }>
       }
     }
   }

@@ -12,10 +12,12 @@ import {
   listElements,
   listFlows,
   loadFlow,
+  loadForegroundDelayMs,
   loadRecordThresholds,
   openDb,
   saveElement,
   saveFlow,
+  saveForegroundDelayMs,
   saveRecordThresholds
 } from './db'
 import { RECORD_THRESHOLD_DEFAULTS } from '../../shared/record-settings'
@@ -140,6 +142,18 @@ describe('SQLite 流程持久化', () => {
     if (!r2.ok) return
     const loadedLegacy = loadFlow(r2.id)
     expect(loadedLegacy.ok && loadedLegacy.flow.recordThresholds === undefined).toBe(true)
+  })
+
+  it('M3 切片 18：置前台短延时默认 0、保存/读取往返、非法值归 0', () => {
+    expect(loadForegroundDelayMs()).toBe(0)
+    expect(saveForegroundDelayMs(120)).toEqual({ ok: true, updatedAt: expect.any(Number) })
+    expect(loadForegroundDelayMs()).toBe(120)
+    expect(saveForegroundDelayMs('abc')).toEqual({ ok: true, updatedAt: expect.any(Number) })
+    expect(loadForegroundDelayMs()).toBe(0)
+    expect(saveForegroundDelayMs(-5)).toEqual({ ok: true, updatedAt: expect.any(Number) })
+    expect(loadForegroundDelayMs()).toBe(0)
+    expect(saveForegroundDelayMs(99999)).toEqual({ ok: true, updatedAt: expect.any(Number) })
+    expect(loadForegroundDelayMs()).toBe(10000)
   })
 })
 
