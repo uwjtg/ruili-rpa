@@ -1,0 +1,725 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { JSX } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import type { FlowDoc, StepNode } from '../../../shared/ast'
+import type { LogLevel } from '../../../shared/events'
+import type { RunWireEvent } from '../../../shared/run-protocol'
+import type { CmdMeta } from '../../../shared/cmd-schema'
+import CmdLibrary from './editor/CmdLibrary'
+import StepList from './editor/StepList'
+import ParamPanel from './editor/ParamPanel'
+import VarPanel from './editor/VarPanel'
+import AiPanel from './editor/AiPanel'
+import {
+  buildInitialFlow,
+  countSteps,
+  duplicateStep,
+  findStepPath,
+  insertAfter,
+  moveStep,
+  nextStepId,
+  patchStep,
+  removeStep
+} from './editor/flowTree'
+
+type RendererCmd = Omit<CmdMeta, 'summary'>
+
+interface LogLine {
+  time: string
+  level: LogLevel | 'sys'
+  message: string
+}
+
+/** 一个编辑器标签页 = 一份可独立撤销/重做、独立脏标记的 FlowDoc */
+interface EditorTab {
+  tabId: string
+  /** SQLite 落盘后的 id；null 表示尚未保存过 */
+  flowId: string | null
+  flow: FlowDoc
+  dirty: boolean
+  /** 最近保存成功的时间（用于工具栏状态文案） */
+  savedAt: string | null
+  selectedId: string | null
+  runningStepId: string | null
+  doneIds: Set<string>
+  past: FlowDoc[]
+  future: FlowDoc[]
+}
+
+const LEVEL_COLOR: Record<string, string> = {
+  info: '#2F80ED',
+  success: '#1DBF73',
+  warn: '#C46211',
+  error: '#E64340',
+  sys: '#8A8F99'
+}
+
+function now(): string {
+  return new Date().toLocaleTimeString('zh-CN', { hour12: false })
+}
+
+function tabStamp(): string {
+  return `t${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
+}
+
+/** 用指令 schema 的默认值构造一个新步骤 */
+function makeStep(cmd: RendererCmd): StepNode {
+  const params: Record<string, unknown> = {}
+  for (const f of cmd.params) {
+    if (f.default !== undefined) params[f.key] = f.default
+    else if (f.type === 'text') params[f.key] = ''
+    else if (f.type === 'number') params[f.key] = 0
+  }
+  return { id: '', cmdId: cmd.id, params }
+}
+
+function makeTab(flow: FlowDoc, flowId: string | null = null): EditorTab {
+  return {
+    tabId: tabStamp(),
+    flowId,
+    flow,
+    dirty: false,
+    savedAt: null,
+    selectedId: null,
+    runningStepId: null,
+    doneIds: new Set(),
+    past: [],
+    future: []
+  }
+}
+
+export default function EditorView(): JSX.Element {
+  const ruili = window.ruili
+  const [searchParams] = useSearchParams()
+  const [commands, setCommands] = useState<RendererCmd[]>([])
+
+  // 标签页状态：初始一个空白流程
+  const [tabs, setTabs] = useState<EditorTab[]>(() => [makeTab(buildInitialFlow())])
+  const [activeTabId, setActiveTabId] = useState<string>(() => '')
+  // 哪个标签正在运行（主进程单 RunManager，一次只跑一个）
+  const runningTabRef = useRef<string | null>(null)
+  const [running, setRunning] = useState(false)
+  const [paused, setPaused] = useState(false)
+  const [lines, setLines] = useState<LogLine[]>([])
+  const [rightTab, setRightTab] = useState<'params' | 'vars' | 'ai'>('params')
+  const [status, setStatus] = useState('空闲')
+  // 标签重命名编辑态
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameText, setRenameText] = useState('')
+
+  const logRef = useRef<HTMLDivElement>(null)
+  const loadedFlowRef = useRef<string | null>(null)
+  const tabsRef = useRef<EditorTab[]>(tabs)
+  tabsRef.current = tabs
+  const activeTabIdRef = useRef(activeTabId)
+  activeTabIdRef.current = activeTabId
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 初始化 activeTabId
+  useEffect(() => {
+    setActiveTabId((cur) => cur || tabs[0].tabId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const activeTab = tabs.find((t) => t.tabId === activeTabId) ?? tabs[0]
+
+  /** 不可变地更新某个标签页 */
+  const patchTab = useCallback((tabId: string, patch: Partial<EditorTab>) => {
+    setTabs((prev) => prev.map((t) => (t.tabId === tabId ? { ...t, ...patch } : t)))
+  }, [])
+
+  // 拉取指令目录
+  useEffect(() => {
+    if (!ruili?.registry) return
+    void ruili.registry.list().then((list) => setCommands(list))
+  }, [ruili])
+
+  // 从应用视图带 ?flowId=xxx 进入：加载该流程为一个新标签并激活
+  useEffect(() => {
+    const fid = searchParams.get('flowId')
+    if (!fid || !ruili?.flow || loadedFlowRef.current === fid) return
+    loadedFlowRef.current = fid
+    void ruili.flow.load(fid).then((res) => {
+      if (!res.ok) {
+        setStatus(`加载失败：${res.error}`)
+        return
+      }
+      const hit = tabsRef.current.find((t) => t.flowId === fid)
+      if (hit) {
+        setActiveTabId(hit.tabId)
+        return
+      }
+      const t = makeTab(res.flow, fid)
+      t.savedAt = now()
+      setTabs((prev) => [...prev, t])
+      setActiveTabId(t.tabId)
+      // 从应用卡片「运行」进入：加载完自动跑
+      if (searchParams.get('autorun') === '1') {
+        setTimeout(() => {
+          runningTabRef.current = t.tabId
+          void ruili.run.start(res.flow, fid)
+        }, 300)
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, ruili])
+
+  // 订阅运行事件：事件归到 runningTabId 对应的标签
+  useEffect(() => {
+    if (!ruili?.run) return
+    const off = ruili.run.onEvent((e: RunWireEvent) => {
+      const rid = runningTabRef.current
+      const patchRunning = (p: Partial<EditorTab>) =>
+        setTabs((prev) => prev.map((t) => (t.tabId === rid ? { ...t, ...p } : t)))
+      switch (e.type) {
+        case 'flow-start':
+          setRunning(true)
+          setPaused(false)
+          setLines([])
+          setStatus(`运行中：${e.flowName}`)
+          push('sys', `▶ 流程开始：${e.flowName}`)
+          break
+        case 'step-start':
+          patchRunning({ runningStepId: e.stepId })
+          push('sys', `  → ${e.stepId}（${e.cmdId}）`)
+          break
+        case 'step-end': {
+          const rid2 = runningTabRef.current
+          setTabs((prev) =>
+            prev.map((t) => {
+              if (t.tabId !== rid2 || !t.runningStepId) return t
+              const done = new Set(t.doneIds).add(t.runningStepId)
+              return { ...t, runningStepId: null, doneIds: done }
+            })
+          )
+          break
+        }
+        case 'log':
+          push(e.level, e.message)
+          break
+        case 'paused':
+          setPaused(true)
+          push('sys', `⏸ 命中断点，暂停在 ${e.stepId}（点继续恢复）`)
+          break
+        case 'resumed':
+          setPaused(false)
+          push('sys', `▶ 从 ${e.stepId} 继续`)
+          break
+        case 'flow-end':
+          setRunning(false)
+          setPaused(false)
+          runningTabRef.current = null
+          patchRunning({ runningStepId: null })
+          setStatus(
+            `结束：${e.result.status}（${e.result.stepsExecuted} 步，${e.result.durationMs}ms）`
+          )
+          push('sys', `⏹ 流程结束 status=${e.result.status}`)
+          break
+      }
+    })
+    return off
+  }, [ruili])
+
+  useEffect(() => {
+    logRef.current?.scrollTo({ top: logRef.current.scrollHeight })
+  }, [lines])
+
+  function push(level: LogLevel | 'sys', message: string): void {
+    setLines((prev) => [...prev, { time: now(), level, message }])
+  }
+
+  /** 提交一次可撤销的变更（写回当前激活标签） */
+  function commit(next: FlowDoc): void {
+    const t = activeTab
+    const past = [...t.past, t.flow]
+    if (past.length > 60) past.shift()
+    patchTab(t.tabId, { flow: next, past, future: [], dirty: true })
+  }
+
+  function undo(): void {
+    const t = activeTab
+    const prev = t.past[t.past.length - 1]
+    if (!prev) return
+    patchTab(t.tabId, {
+      flow: prev,
+      past: t.past.slice(0, -1),
+      future: [...t.future, t.flow],
+      dirty: true
+    })
+  }
+  function redo(): void {
+    const t = activeTab
+    const next = t.future[t.future.length - 1]
+    if (!next) return
+    patchTab(t.tabId, {
+      flow: next,
+      future: t.future.slice(0, -1),
+      past: [...t.past, t.flow],
+      dirty: true
+    })
+  }
+
+  function addStep(cmdId: string): void {
+    const cmd = commands.find((c) => c.id === cmdId)
+    if (!cmd) return
+    const step = makeStep(cmd)
+    step.id = nextStepId(activeTab.flow.steps)
+    commit({
+      ...activeTab.flow,
+      steps: insertAfter(activeTab.flow.steps, activeTab.selectedId, step)
+    })
+    patchTab(activeTab.tabId, { selectedId: step.id })
+  }
+
+  function updateParam(stepId: string, key: string, value: unknown): void {
+    const path = findStepPath(activeTab.flow.steps, stepId)
+    if (!path) return
+    const params = { ...path.step.params, [key]: value }
+    commit({
+      ...activeTab.flow,
+      steps: patchStep(activeTab.flow.steps, stepId, { params })
+    })
+  }
+
+  function deleteStep(id: string): void {
+    commit({ ...activeTab.flow, steps: removeStep(activeTab.flow.steps, id) })
+    if (activeTab.selectedId === id) patchTab(activeTab.tabId, { selectedId: null })
+  }
+  function duplicate(id: string): void {
+    commit({ ...activeTab.flow, steps: duplicateStep(activeTab.flow.steps, id) })
+  }
+  function toggleBreakpoint(id: string): void {
+    const path = findStepPath(activeTab.flow.steps, id)
+    if (!path) return
+    commit({
+      ...activeTab.flow,
+      steps: patchStep(activeTab.flow.steps, id, { breakpoint: !path.step.breakpoint })
+    })
+  }
+  function toggleDisabled(id: string): void {
+    const path = findStepPath(activeTab.flow.steps, id)
+    if (!path) return
+    commit({
+      ...activeTab.flow,
+      steps: patchStep(activeTab.flow.steps, id, { disabled: !path.step.disabled })
+    })
+  }
+
+  /** 拖拽重排（同父内） */
+  function move(fromId: string, toId: string, position: 'before' | 'after'): void {
+    commit({ ...activeTab.flow, steps: moveStep(activeTab.flow.steps, fromId, toId, position) })
+  }
+
+  /** 保存指定标签（新建或按 flowId 更新） */
+  async function saveTab(tabId: string): Promise<void> {
+    if (!ruili?.flow) return
+    const t = tabsRef.current.find((x) => x.tabId === tabId)
+    if (!t) return
+    const res = await ruili.flow.save(t.flow, t.flowId ?? undefined)
+    if (!res.ok) {
+      setStatus(`保存失败：${res.error}`)
+      return
+    }
+    const stamp = now()
+    patchTab(tabId, { flowId: res.id, dirty: false, savedAt: stamp })
+    setStatus(`已保存 ${stamp}`)
+  }
+
+  /** 保存当前激活标签 */
+  async function save(): Promise<void> {
+    await saveTab(activeTabIdRef.current)
+  }
+
+  // 自动保存：当前标签变脏后停 3s 落盘（§5 第 8 条"已自动保存"）
+  useEffect(() => {
+    if (!activeTab?.dirty) return
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(() => {
+      void saveTab(activeTabIdRef.current)
+    }, 3000)
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab?.dirty, activeTab?.flow])
+
+  async function run(): Promise<void> {
+    if (!ruili?.run) return
+    runningTabRef.current = activeTab.tabId
+    await ruili.run.start(activeTab.flow, activeTab.flowId ?? undefined)
+  }
+  async function runM1(): Promise<void> {
+    if (!ruili?.run) return
+    runningTabRef.current = activeTab.tabId
+    await ruili.run.startM1E2E()
+  }
+
+  /** 单步：暂停中则走一步；未启动则以单步模式启动当前流程 */
+  function step(): void {
+    if (!ruili?.run) return
+    if (running && paused) {
+      ruili.run.step()
+    } else if (!running) {
+      runningTabRef.current = activeTab.tabId
+      ruili.run.step()
+      void ruili.run.start(activeTab.flow, activeTab.flowId ?? undefined)
+    }
+  }
+
+  /** AI 生成成功：把 FlowDoc 打开为新标签 */
+  function acceptAiFlow(flow: FlowDoc): void {
+    const t = makeTab(flow)
+    t.dirty = true // 未落盘，等用户编辑或自动保存
+    setTabs((prev) => [...prev, t])
+    setActiveTabId(t.tabId)
+    setRightTab('params')
+  }
+
+  /** 提交标签重命名 */
+  function commitRename(): void {
+    if (!renamingId) return
+    const name = renameText.trim()
+    const t = tabsRef.current.find((x) => x.tabId === renamingId)
+    if (name && t) {
+      patchTab(renamingId, { flow: { ...t.flow, name }, dirty: true })
+    }
+    setRenamingId(null)
+  }
+
+  /** 新建标签 */
+  function newTab(): void {
+    const t = makeTab(buildInitialFlow())
+    t.flow = { ...t.flow, name: `未命名流程 ${tabs.length + 1}` }
+    setTabs((prev) => [...prev, t])
+    setActiveTabId(t.tabId)
+  }
+
+  /** 关闭标签：运行中先 stop；最后一个不可关；有未保存提示 */
+  function closeTab(tabId: string): void {
+    if (tabs.length <= 1) return
+    const t = tabs.find((x) => x.tabId === tabId)
+    if (!t) return
+    if (t.dirty) {
+      const ok = window.confirm(`「${t.flow.name}」有未保存的更改，确定关闭吗？`)
+      if (!ok) return
+    }
+    // 关闭正在运行的标签：先中止
+    if (runningTabRef.current === tabId) {
+      ruili?.run.stop()
+    }
+    setTabs((prev) => {
+      const next = prev.filter((x) => x.tabId !== tabId)
+      if (activeTabId === tabId && next.length > 0) {
+        setActiveTabId(next[next.length - 1].tabId)
+      }
+      return next
+    })
+  }
+
+  const cmdMap = useMemo(() => new Map(commands.map((c) => [c.id, c])), [commands])
+  const selectedStep = activeTab.selectedId
+    ? findStepPath(activeTab.flow.steps, activeTab.selectedId)?.step ?? null
+    : null
+  const canUndo = activeTab.past.length > 0
+  const canRedo = activeTab.future.length > 0
+  const flow = activeTab.flow
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#F7F8FA' }}>
+      {/* 流程标签页（§5 第9条：多开/切换/关闭/新建；关闭运行中先中止） */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'stretch',
+          background: '#fff',
+          borderBottom: '1px solid #E5E6EB',
+          padding: '0 8px',
+          overflowX: 'auto'
+        }}
+      >
+        {tabs.map((t) => {
+          const active = t.tabId === activeTab.tabId
+          const renaming = renamingId === t.tabId
+          return (
+            <div
+              key={t.tabId}
+              onClick={() => setActiveTabId(t.tabId)}
+              onDoubleClick={() => {
+                setRenamingId(t.tabId)
+                setRenameText(t.flow.name)
+              }}
+              title="双击重命名"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 10px',
+                fontSize: 12,
+                cursor: 'pointer',
+                borderBottom: active ? '2px solid #7C5CFC' : '2px solid transparent',
+                color: active ? '#1F2329' : '#8A8F99',
+                fontWeight: active ? 600 : 400,
+                background: active ? '#F1EDFF' : 'transparent',
+                borderRadius: '6px 6px 0 0',
+                whiteSpace: 'nowrap',
+                maxWidth: 180
+              }}
+            >
+              {t.dirty ? (
+                <span title="有未保存的更改" style={{ color: '#E64340', fontSize: 12 }}>●</span>
+              ) : null}
+              {renaming ? (
+                <input
+                  autoFocus
+                  value={renameText}
+                  onChange={(e) => setRenameText(e.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitRename()
+                    if (e.key === 'Escape') setRenamingId(null)
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    width: 90,
+                    height: 20,
+                    border: '1px solid #7C5CFC',
+                    borderRadius: 4,
+                    fontSize: 12,
+                    padding: '0 4px',
+                    outline: 'none'
+                  }}
+                />
+              ) : (
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.flow.name}</span>
+              )}
+              {tabs.length > 1 ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    closeTab(t.tabId)
+                  }}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: '#B0B6BF',
+                    fontSize: 12,
+                    lineHeight: 1,
+                    padding: 2
+                  }}
+                  aria-label={`关闭 ${t.flow.name}`}
+                >
+                  ✕
+                </button>
+              ) : null}
+            </div>
+          )
+        })}
+        <button
+          onClick={newTab}
+          style={{
+            alignSelf: 'center',
+            marginLeft: 4,
+            border: '1px dashed #D8DADD',
+            background: '#fff',
+            color: '#51565D',
+            borderRadius: 6,
+            height: 24,
+            padding: '0 10px',
+            fontSize: 12,
+            cursor: 'pointer'
+          }}
+          aria-label="新建流程标签"
+        >
+          + 新建
+        </button>
+      </div>
+
+      {/* 工具栏 */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 12px',
+          background: '#fff',
+          borderBottom: '1px solid #E5E6EB'
+        }}
+      >
+        <button
+          onClick={() => void save()}
+          style={{ ...btn, background: '#E64340', color: '#fff', border: 'none' }}
+          title="保存当前流程到本地"
+        >
+          保存
+        </button>
+        <button
+          onClick={() => void run()}
+          disabled={running}
+          style={{ ...btn, background: running ? '#B0B6BF' : '#1DBF73', color: '#fff', border: 'none' }}
+        >
+          {running ? '运行中…' : '运行'}
+        </button>
+        <button
+          onClick={step}
+          disabled={running && !paused}
+          title="单步执行下一步（step-over）"
+          style={{ ...btn, background: paused ? '#7C5CFC' : '#fff', color: paused ? '#fff' : '#51565D', border: paused ? 'none' : '1px solid #D8DADD' }}
+        >
+          单步
+        </button>
+        {paused ? (
+          <button onClick={() => ruili?.run.resume()} style={{ ...btn, background: '#7C5CFC', color: '#fff', border: 'none' }}>
+            继续
+          </button>
+        ) : null}
+        {running ? (
+          <button onClick={() => ruili?.run.stop()} style={{ ...btn, background: '#FDECEC', color: '#E64340' }}>
+            停止
+          </button>
+        ) : null}
+        <button onClick={undo} disabled={!canUndo} style={btn} title="撤销">
+          ↺ 撤销
+        </button>
+        <button onClick={redo} disabled={!canRedo} style={btn} title="重做">
+          ↻ 重做
+        </button>
+        <span style={{ width: 1, height: 20, background: '#E5E6EB' }} />
+        <button onClick={() => void runM1()} disabled={running} style={{ ...btn, background: '#2F80ED', color: '#fff', border: 'none' }}>
+          M1 端到端
+        </button>
+        <span style={{ marginLeft: 'auto' }}>
+          {/* §5 第8条：顶部常显未保存/已保存状态 */}
+          {activeTab.dirty ? (
+            <span style={{ color: '#E64340', fontSize: 12 }}>● 未保存的更改</span>
+          ) : activeTab.savedAt ? (
+            <span style={{ color: '#1DBF73', fontSize: 12 }}>✓ 已保存 {activeTab.savedAt}</span>
+          ) : (
+            <span style={{ color: '#B0B6BF', fontSize: 12 }}>尚未保存</span>
+          )}
+        </span>
+        <span style={{ color: '#B0B6BF', fontSize: 11 }}>{countSteps(flow.steps)} 步</span>
+        <span style={{ color: '#51565D', fontSize: 12 }}>{status}</span>
+      </div>
+
+      {/* 三栏主体 */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <CmdLibrary commands={commands} onAdd={addStep} disabled={running} />
+
+        {/* 中间步骤区 */}
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          <div
+            style={{
+              margin: 12,
+              border: '2px solid #7C5CFC',
+              borderRadius: 8,
+              background: '#F8F7FC',
+              minHeight: 200
+            }}
+          >
+            <StepList
+              steps={flow.steps}
+              depth={0}
+              cmdMap={cmdMap}
+              selectedId={activeTab.selectedId}
+              runningStepId={activeTab.runningStepId}
+              doneStepIds={activeTab.doneIds}
+              onSelect={(id) => patchTab(activeTab.tabId, { selectedId: id })}
+              onDelete={deleteStep}
+              onDuplicate={duplicate}
+              onToggleBreakpoint={toggleBreakpoint}
+              onToggleDisabled={toggleDisabled}
+              onMove={move}
+            />
+          </div>
+        </div>
+
+        {/* 右侧面板 */}
+        <div
+          style={{
+            width: 280,
+            borderLeft: '1px solid #E5E6EB',
+            background: '#fff',
+            display: 'flex',
+            flexDirection: 'column',
+            flexShrink: 0
+          }}
+        >
+          <div style={{ display: 'flex', borderBottom: '1px solid #E5E6EB' }}>
+            {(['params', 'vars', 'ai'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setRightTab(t)}
+                style={{
+                  flex: 1,
+                  height: 34,
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  color: rightTab === t ? '#7C5CFC' : '#8A8F99',
+                  fontWeight: rightTab === t ? 600 : 400,
+                  borderBottom: rightTab === t ? '2px solid #7C5CFC' : '2px solid transparent'
+                }}
+              >
+                {t === 'params' ? '参数' : t === 'vars' ? '变量' : 'AI'}
+              </button>
+            ))}
+          </div>
+          <div style={{ flex: 1, overflow: 'auto' }}>
+            {rightTab === 'params' ? (
+              <ParamPanel
+                step={selectedStep}
+                cmd={selectedStep ? cmdMap.get(selectedStep.cmdId) : undefined}
+                onChangeParam={updateParam}
+                onDelete={deleteStep}
+              />
+            ) : rightTab === 'vars' ? (
+              <VarPanel vars={flow.vars} onChange={(vars) => commit({ ...flow, vars })} />
+            ) : (
+              <AiPanel onAccept={acceptAiFlow} />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 底部日志 */}
+      <div
+        ref={logRef}
+        style={{
+          height: 180,
+          overflow: 'auto',
+          background: '#fff',
+          borderTop: '1px solid #E5E6EB',
+          padding: 10,
+          fontFamily: 'Consolas, "Cascadia Code", monospace',
+          fontSize: 12,
+          lineHeight: 1.7
+        }}
+      >
+        {lines.length === 0 ? (
+          <div style={{ color: '#B0B6BF' }}>暂无日志</div>
+        ) : (
+          lines.map((l, i) => (
+            <div key={i}>
+              <span style={{ color: '#B0B6BF' }}>{l.time}</span>{' '}
+              <span style={{ color: LEVEL_COLOR[l.level] }}>[{l.level}]</span>{' '}
+              <span style={{ color: '#1F2329' }}>{l.message}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+const btn: React.CSSProperties = {
+  height: 28,
+  padding: '0 14px',
+  border: '1px solid #D8DADD',
+  borderRadius: 6,
+  background: '#fff',
+  color: '#1F2329',
+  fontSize: 12,
+  cursor: 'pointer'
+}

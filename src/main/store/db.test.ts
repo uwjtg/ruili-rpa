@@ -1,0 +1,112 @@
+/**
+ * SQLite 存储单测（M2 切片 2）。
+ * 用内存库（:memory:）跑 flow:save/list/load/delete 全链路，不依赖 Electron。
+ */
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import {
+  closeDb,
+  deleteFlow,
+  listFlows,
+  loadFlow,
+  openDb,
+  saveFlow
+} from './db'
+import type { FlowDoc } from '../../shared/ast'
+
+function makeFlow(name: string, stepCount = 2): FlowDoc {
+  const steps = Array.from({ length: stepCount }, (_, i) => ({
+    id: `s${i + 1}`,
+    cmdId: 'logMessage',
+    params: { message: `${name}-${i + 1}`, level: 'info' }
+  }))
+  return { version: 1, name, vars: [], steps }
+}
+
+describe('SQLite 流程持久化', () => {
+  beforeEach(() => openDb(':memory:'))
+  afterEach(() => closeDb())
+
+  it('保存新建流程后能按 id 加载回来（深等）', () => {
+    const flow = makeFlow('我的比价流程', 3)
+    const saved = saveFlow(flow)
+    expect(saved.ok).toBe(true)
+    if (!saved.ok) return
+
+    const loaded = loadFlow(saved.id)
+    expect(loaded.ok).toBe(true)
+    if (!loaded.ok) return
+    expect(loaded.flow).toEqual(flow)
+    expect(loaded.flow.name).toBe('我的比价流程')
+    expect(loaded.flow.steps).toHaveLength(3)
+  })
+
+  it('列表按最近编辑倒序，且带步骤数', () => {
+    const a = saveFlow(makeFlow('流程A', 1))
+    const b = saveFlow(makeFlow('流程B', 5))
+    expect(a.ok && b.ok).toBe(true)
+    if (!a.ok || !b.ok) return
+
+    const list = listFlows()
+    expect(list.ok).toBe(true)
+    if (!list.ok) return
+    expect(list.items.length).toBe(2)
+    // 后保存的 B 排在前
+    expect(list.items[0].name).toBe('流程B')
+    expect(list.items[0].stepCount).toBe(5)
+    expect(list.items[1].stepCount).toBe(1)
+  })
+
+  it('按 id 再次保存为更新（同名同 id，不产生新行）', () => {
+    const flow = makeFlow('待改名', 2)
+    const r1 = saveFlow(flow)
+    expect(r1.ok).toBe(true)
+    if (!r1.ok) return
+    const updated: FlowDoc = { ...flow, name: '已改名', steps: flow.steps.slice(0, 1) }
+    const r2 = saveFlow(updated, r1.id)
+    expect(r2.ok).toBe(true)
+    if (!r2.ok) return
+    expect(r2.id).toBe(r1.id)
+
+    const list = listFlows()
+    expect(list.ok && list.items.length === 1).toBe(true)
+    const loaded = loadFlow(r1.id)
+    expect(loaded.ok && loaded.flow.name === '已改名').toBe(true)
+  })
+
+  it('删除流程后列表与加载都为空/报错', () => {
+    const flow = makeFlow('临时', 2)
+    const r = saveFlow(flow)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(deleteFlow(r.id)).toEqual({ ok: true })
+    const list = listFlows()
+    expect(list).toEqual({ ok: true, items: [] })
+    const gone = loadFlow(r.id)
+    expect(gone.ok).toBe(false)
+  })
+
+  it('加载不存在的 id 返回错误而非抛异常', () => {
+    const r = loadFlow('no-such-id')
+    expect(r.ok).toBe(false)
+  })
+
+  it('嵌套 children 步骤数统计正确', () => {
+    const flow: FlowDoc = {
+      version: 1,
+      name: '嵌套',
+      vars: [],
+      steps: [
+        { id: 's1', cmdId: 'logMessage', params: {}, children: [
+          { id: 's1-1', cmdId: 'delay', params: {} },
+          { id: 's1-2', cmdId: 'logMessage', params: {} }
+        ] },
+        { id: 's2', cmdId: 'logMessage', params: {} }
+      ]
+    }
+    const r = saveFlow(flow)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const list = listFlows()
+    expect(list.ok && list.items[0].stepCount).toBe(4)
+  })
+})

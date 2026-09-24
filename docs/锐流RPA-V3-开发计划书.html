@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>锐流 RPA V3 · 开发计划书</title>
+<style>
+  :root{
+    --ink:#111114; --ink-2:#4b4b52; --ink-3:#8a8a92;
+    --paper:#fafafa; --paper-2:#f2f2f3;
+    --line:#e3e3e6; --line-strong:#c9c9cf;
+    --accent:#E64340; --accent-soft:#fdeeed;
+    --sans:"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"Cascadia Code",Consolas,"SFMono-Regular",Menlo,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased;}
+  .page{max-width:1180px;margin:0 auto;padding:0 48px;}
+  .measure{max-width:70ch;}
+  p{max-width:70ch;}
+  a{color:inherit;text-decoration:none;}
+
+  /* ---------- cover ---------- */
+  .cover{padding:88px 0 56px;border-bottom:1px solid var(--line-strong);}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--ink-3);text-transform:uppercase;display:flex;align-items:center;gap:14px;}
+  .kicker::before{content:"";display:inline-block;width:34px;height:2px;background:var(--accent);}
+  .cover h1{font-size:56px;font-weight:600;letter-spacing:-0.02em;line-height:1.08;margin:26px 0 6px;}
+  .cover h1 .r{color:var(--accent);}
+  .cover .sub{font-size:19px;color:var(--ink-2);font-weight:400;letter-spacing:.01em;margin-bottom:34px;}
+  .meta-row{display:flex;flex-wrap:wrap;gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .meta-row div{padding:12px 28px 12px 0;margin-right:28px;font-family:var(--mono);font-size:12px;color:var(--ink-2);}
+  .meta-row b{display:block;font-weight:400;font-size:10.5px;letter-spacing:.08em;color:var(--ink-3);text-transform:uppercase;margin-bottom:3px;font-family:var(--mono);}
+  .lede{margin-top:34px;font-size:15.5px;max-width:76ch;}
+  .lede strong{font-weight:550;}
+
+  /* ---------- toc ---------- */
+  .toc{padding:40px 0 8px;border-bottom:1px solid var(--line-strong);}
+  .toc h2{font-size:12px;font-weight:600;letter-spacing:.1em;color:var(--ink-3);text-transform:uppercase;margin-bottom:18px;font-family:var(--mono);}
+  .toc ol{list-style:none;columns:2;column-gap:64px;}
+  .toc li{break-inside:avoid;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px;display:flex;gap:12px;align-items:baseline;}
+  .toc li span.no{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);min-width:26px;}
+  .toc li a:hover{color:var(--accent);}
+
+  /* ---------- sections ---------- */
+  section{padding:58px 0 10px;}
+  .sec-head{display:flex;align-items:baseline;gap:18px;border-bottom:1px solid var(--line-strong);padding-bottom:14px;margin-bottom:26px;}
+  .sec-head .no{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:.04em;}
+  .sec-head h2{font-size:26px;font-weight:600;letter-spacing:-0.015em;}
+  .sec-head .en{margin-left:auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--ink-3);text-transform:uppercase;}
+  h3{font-size:16px;font-weight:600;margin:34px 0 12px;letter-spacing:-0.01em;}
+  h3 .h-no{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-right:10px;font-weight:400;}
+  p+p{margin-top:12px;}
+  ul.body-list{max-width:74ch;margin:10px 0 0;padding-left:0;list-style:none;}
+  ul.body-list li{padding:5px 0 5px 20px;position:relative;}
+  ul.body-list li::before{content:"";position:absolute;left:2px;top:14px;width:7px;height:1px;background:var(--ink-3);}
+  .note{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:14px 2px;margin:22px 0;font-size:13px;color:var(--ink-2);max-width:78ch;}
+  .note b{color:var(--ink);font-weight:550;}
+  .mark{background:var(--accent-soft);color:#a52a28;padding:0 4px;font-weight:550;}
+
+  /* ---------- tables ---------- */
+  .tbl-wrap{margin:18px 0 8px;}
+  table{width:100%;border-collapse:collapse;font-size:12.8px;line-height:1.55;}
+  caption{caption-side:top;text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding-bottom:8px;}
+  th{font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);text-align:left;padding:8px 12px 8px 0;border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line-strong);white-space:nowrap;}
+  td{padding:9px 12px 9px 0;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-2);}
+  td.k{color:var(--ink);font-weight:550;}
+  .mono,.num{font-family:var(--mono);font-size:12px;}
+  .ok{color:#0E7A46;font-weight:550;}
+  .warn{color:#9a5b0b;font-weight:550;}
+  .bad{color:var(--accent);font-weight:550;}
+  .pill{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;border:1px solid var(--line-strong);padding:1px 7px;border-radius:2px;color:var(--ink-2);white-space:nowrap;}
+  .pill.rec{border-color:var(--accent);color:var(--accent);}
+
+  /* ---------- figures ---------- */
+  figure{margin:26px 0 8px;}
+  figcaption{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding-top:10px;}
+  pre.ascii{font-family:var(--mono);font-size:11.6px;line-height:1.5;color:var(--ink-2);background:var(--paper-2);border:1px solid var(--line);padding:20px 22px;overflow-x:auto;border-radius:2px;}
+  svg text{font-family:var(--mono);}
+
+  /* ---------- colophon ---------- */
+  .colophon{margin-top:64px;border-top:1px solid var(--line-strong);padding:22px 0 72px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.03em;}
+  @media (max-width:820px){
+    .page{padding:0 20px;}
+    .cover h1{font-size:38px;}
+    .toc ol{columns:1;}
+    .meta-row div{padding-right:16px;margin-right:16px;}
+  }
+  @media print{
+    body{background:#fff;}
+    section{padding-top:40px;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ============ COVER ============ -->
+  <header class="cover">
+    <div class="kicker">Engineering Plan · 开发计划书 · 内部资料</div>
+    <h1>锐流 <span class="r">RPA</span> V3<br>对标影刀 · 开发计划</h1>
+    <div class="sub">Windows 桌面自动化客户端 — 自研薄编排层 + 开源能力库矩阵</div>
+    <div class="meta-row">
+      <div><b>版本</b>V1.0</div>
+      <div><b>日期</b>2026-09-22</div>
+      <div><b>输入</b>V3 开发交接包（设计定稿）</div>
+      <div><b>平台</b>Windows 10/11 x64</div>
+      <div><b>状态</b>V1.1 · 6 项决策已拍板（2026-09-22）</div>
+    </div>
+    <p class="lede"><strong>结论：项目可行。</strong>UI 已定稿；影刀的核心能力域（网页自动化、桌面自动化、Excel、流程编排、调度触发）全部有成熟开源组件可复用，真正要从零写的只有流程 AST 解释器、指令插件框架和 UI 真实化改造三块薄层，均为常规工程。开发模式为<strong>完全 AI 智能体开发 + 人工验收</strong>，预计 <strong>8-14 周</strong>达到影刀日常可用水平（MVP ≈ M3 结束）。100% 功能一致无法做到也没有必要——已知差距共 10 项，逐条给出解决方案（§6）。</p>
+  </header>
+
+  <!-- ============ TOC ============ -->
+  <nav class="toc">
+    <h2>目录 / Contents</h2>
+    <ol>
+      <li><span class="no">§0</span><a href="#s0">摘要：结论先行</a></li>
+      <li><span class="no">§1</span><a href="#s1">目标与范围</a></li>
+      <li><span class="no">§2</span><a href="#s2">现状盘点：交接包给了什么</a></li>
+      <li><span class="no">§3</span><a href="#s3">对标基线与一致度目标</a></li>
+      <li><span class="no">§4</span><a href="#s4">开源选型矩阵与许可证红线</a></li>
+      <li><span class="no">§5</span><a href="#s5">总体架构</a></li>
+      <li><span class="no">§6</span><a href="#s6">无法完全一致的功能及解决方案</a></li>
+      <li><span class="no">§7</span><a href="#s7">里程碑与排期</a></li>
+      <li><span class="no">§8</span><a href="#s8">团队配置</a></li>
+      <li><span class="no">§9</span><a href="#s9">风险登记册</a></li>
+      <li><span class="no">§10</span><a href="#s10">法律合规红线</a></li>
+      <li><span class="no">§11</span><a href="#s11">待确认决策点</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============ 0 摘要 ============ -->
+  <section id="s0">
+    <div class="sec-head"><span class="no">§0</span><h2>摘要：结论先行</h2><span class="en">Executive Summary</span></div>
+    <ul class="body-list">
+      <li><span class="k">可行性</span> — 影刀核心能力域全部有成熟开源组件复用；自研薄层仅三块：AST 解释器（约 2-3 千行）、指令插件框架、V3 UI 真实数据化。</li>
+      <li><span class="k">一致性策略</span> — 以「高频场景 80% 覆盖、单条指令体验一致」为 V1 目标，而非指令总数一致（影刀 800+ 条为多年积累）。</li>
+      <li><span class="k">最大风险</span> — ① 元素选择器稳定性（影刀核心壁垒）；② 开源许可证合规（M0 强制审计）；③ 桌面自动化兼容性（WPS / 老软件 / UAC / DPI）。</li>
+      <li><span class="k">建议路线</span> — Electron 壳（沿用 V3 设计）+ Node 执行引擎 + Playwright（网页）+ Python sidecar（图像 / OCR / 复杂桌面）+ SQLite（本地存储）。</li>
+    </ul>
+  </section>
+
+  <!-- ============ 1 目标与范围 ============ -->
+  <section id="s1">
+    <div class="sec-head"><span class="no">§1</span><h2>目标与范围</h2><span class="en">Scope</span></div>
+    <p>开发一款 Windows 桌面端 RPA 客户端，功能对标影刀 RPA；UI 按 V3 设计定稿实现；优先复用开源组件、避免重复造轮子。</p>
+    <div class="tbl-wrap">
+      <table>
+        <caption>表 1-1 · 范围界定</caption>
+        <thead><tr><th style="width:50%">V1 范围内</th><th>V1 范围外（进 V2 / V3）</th></tr></thead>
+        <tbody>
+          <tr><td class="k">7 视图客户端</td><td>企业云端控制台（V2）</td></tr>
+          <tr><td class="k">可视化流程编辑器（AST、参数面板、变量、元素库、断点调试、撤销重做）</td><td>Android 自动化（远期）</td></tr>
+          <tr><td class="k">指令执行引擎 + 指令库 150+ 条（9 大分类）</td><td>macOS 端</td></tr>
+          <tr><td class="k">元素拾取（浏览器 + 桌面）、智能录制、数据抓取向导 V1</td><td>云端模板市场后端</td></tr>
+          <tr><td class="k">计划任务（cron / 间隔）、热键触发、文件监听触发</td><td>团队协作与权限体系</td></tr>
+          <tr><td class="k">本机机器人（托盘 / 静默、执行记录、日志落盘）</td><td rowspan="1">—</td></tr>
+          <tr><td class="k">AI 助手 + AI 类指令（大模型对话 / OCR / 文档提取）</td><td>—</td></tr>
+          <tr><td class="k">本地持久化（SQLite）、安装包与自动更新</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 2 现状盘点 ============ -->
+  <section id="s2">
+    <div class="sec-head"><span class="no">§2</span><h2>现状盘点：交接包给了什么、缺什么</h2><span class="en">Inventory</span></div>
+    <div class="tbl-wrap">
+      <table>
+        <caption>表 2-1 · V3 交接包资产盘点</caption>
+        <thead><tr><th style="width:18%">层</th><th style="width:44%">现状</th><th>评价</th></tr></thead>
+        <tbody>
+          <tr><td class="k">设计系统</td><td>CSS token 全套（色彩 / 字体 / 密度 / 组件规格）</td><td>可直接迁移为代码 Design Token</td></tr>
+          <tr><td class="k">7 视图 UI</td><td>高保真可交互原型，交互全部可点</td><td>需 React / Vue 组件化 + 接真实数据</td></tr>
+          <tr><td class="k">流程编辑器</td><td>添加指令 / 参数编辑 / 变量高亮 / 断点 / 禁用 / 复制 / 拖拽排序 / 撤销重做 / 多标签页 / 日志——全部已实现（前端模拟）</td><td>交互规格 = 验收口径，只需把「模拟」换成「真实」</td></tr>
+          <tr><td class="k">指令目录</td><td><span class="mono">CMDS</span> 结构：分类→指令→参数 schema→摘要函数，9 分类 36 项（占位）</td><td class="k">关键资产：直接演进为指令插件 schema，UI 与引擎共用</td></tr>
+          <tr><td class="k">执行引擎</td><td>无（原型为 480ms 定时器模拟动画）</td><td><span class="bad">主要工作量所在</span></td></tr>
+          <tr><td class="k">持久化</td><td>无（内存态，刷新即失）</td><td>SQLite</td></tr>
+          <tr><td class="k">拾取 / 录制 / 抓取</td><td>占位按钮</td><td><span class="bad">主要工作量所在</span></td></tr>
+          <tr><td class="k">调度 / 机器人</td><td>演示数据</td><td>croner + 托盘运行器</td></tr>
+          <tr><td class="k">合规基础</td><td>文档已确认未使用影刀商标 / logo / 品牌资产，品牌名为占位</td><td><span class="ok">基础良好，继续保持</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note"><b>一句话结论：</b>外壳全有、内脏全无。开发工作 = 造内脏 + 把模拟数据换成真实现。</p>
+  </section>
+
+  <!-- ============ 3 对标基线 ============ -->
+  <section id="s3">
+    <div class="sec-head"><span class="no">§3</span><h2>对标基线：影刀功能全景与一致度目标</h2><span class="en">Parity Matrix</span></div>
+    <p>「一致」的定义：同类操作在锐流中有同等体验的对应物，不要求逐字逐参数相同。</p>
+    <div class="tbl-wrap">
+      <table>
+        <caption>表 3-1 · 模块级一致度目标</caption>
+        <thead><tr><th style="width:15%">模块</th><th style="width:30%">影刀现状</th><th style="width:35%">锐流 V1 方案</th><th>一致度目标</th></tr></thead>
+        <tbody>
+          <tr><td class="k">指令库</td><td>约 800-1000 条指令、20+ 分类</td><td>150-180 条覆盖高频 80% 场景 + 自定义指令 / 脚本节点兜底</td><td>指令数不一致；单条体验一致</td></tr>
+          <tr><td class="k">网页自动化</td><td>Chrome/Edge 元素级自动化、数据抓取向导</td><td>Playwright（CDP 连接真实浏览器）+ 自研抓取向导</td><td class="num">90%</td></tr>
+          <tr><td class="k">桌面软件自动化</td><td>UIA/MSAA 元素级 + 键鼠模拟</td><td>Python sidecar（pywinauto / uiautomation）+ nut-js 键鼠</td><td class="num">80%</td></tr>
+          <tr><td class="k">Excel / 表格</td><td>全套读写、公式、透视表、WPS 兼容</td><td>exceljs 读写 + COM 模式（驱动真实 Office/WPS）双轨</td><td class="num">85%</td></tr>
+          <tr><td class="k">图像 / OCR</td><td>找图点击、OCR 文字识别、验证码</td><td>OpenCV 模板匹配 + RapidOCR；验证码见 §6.7</td><td class="num">85%<span class="mono">（验证码除外）</span></td></tr>
+          <tr><td class="k">流程编辑器</td><td>拖拽、调试、变量、元素库、录制</td><td>按 V3 原型全量真实化</td><td class="num">90%</td></tr>
+          <tr><td class="k">调试</td><td>断点、单步、变量监视、日志</td><td>同（原型交互已定稿，引擎侧实现）</td><td class="num">95%</td></tr>
+          <tr><td class="k">魔法指令</td><td>自然语言→流程，内嵌大模型</td><td>LLM function-calling 生成 AST</td><td class="num">70%（依赖模型）</td></tr>
+          <tr><td class="k">调度 / 触发器</td><td>定时、热键、文件 / 邮件监听、错过补跑</td><td>croner + uiohook + chokidar + 补跑队列</td><td class="num">90%</td></tr>
+          <tr><td class="k">机器人</td><td>本机运行器、托盘、静默、执行记录</td><td>同（与设计器共用引擎，无头模式）</td><td class="num">90%</td></tr>
+          <tr><td class="k">企业控制台</td><td>云端机器人集群、权限、审计</td><td>V1 不做；V2 自建 Web 控制台</td><td class="num">0%（明确差距）</td></tr>
+          <tr><td class="k">市场 / 学院</td><td>模板市场、指令市场、教程</td><td>内置官方模板 30+、本地导入导出</td><td>部分一致</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 4 开源选型 ============ -->
+  <section id="s4">
+    <div class="sec-head"><span class="no">§4</span><h2>开源选型矩阵与许可证红线</h2><span class="en">Open-Source Stack</span></div>
+
+    <h3><span class="h-no">4.1</span>能力域 × 开源组件</h3>
+    <div class="tbl-wrap">
+      <table>
+        <caption>表 4-1 · 选型矩阵（许可证以 M0 审计复核为准）</caption>
+        <thead><tr><th style="width:13%">能力域</th><th style="width:22%">影刀对应功能</th><th style="width:24%">选型</th><th style="width:12%">许可证</th><th>用法与备注</th></tr></thead>
+        <tbody>
+          <tr><td class="k">应用壳</td><td>客户端窗体 / 托盘 / 更新</td><td class="mono">Electron + electron-builder / updater</td><td class="mono">MIT</td><td>V3 原型直接迁移；托盘 / 自启 / 自动更新内置</td></tr>
+          <tr><td class="k">网页自动化</td><td>打开网页 / 点击 / 输入 / 提取 / 等待 / 下载上传</td><td class="mono">Playwright</td><td class="mono">Apache-2.0</td><td><span class="mono">connectOverCDP</span> 附加真实 Chrome/Edge（对用户无感）；auto-waiting 天然覆盖等待类指令</td></tr>
+          <tr><td class="k">浏览器拾取</td><td>捕获元素、悬浮高亮</td><td class="mono">CDP + 自研注入脚本</td><td>自研</td><td>选择器生成与 Playwright locator 语法对齐</td></tr>
+          <tr><td class="k">桌面元素 / 窗口</td><td>桌面软件自动化</td><td class="mono">pywinauto / uiautomation（sidecar）</td><td class="mono">BSD-3 / Unlicense</td><td>UIA 后端；Node 侧 UIA 生态弱，故走 Python sidecar；<span class="mono">uiautomation</span> 许可证 M0 复核</td></tr>
+          <tr><td class="k">键鼠模拟</td><td>点击 / 移动 / 滚轮 / 输入 / 快捷键</td><td class="mono">nut-js（开源核心）+ uiohook-napi</td><td class="mono">MIT</td><td>nut-js Pro 组件收费，只取开源核心；SendInput 底层</td></tr>
+          <tr><td class="k">Excel</td><td>读写区域 / 公式 / 格式</td><td class="mono">exceljs 主轨 + COM 高保真轨</td><td class="mono">MIT / —</td><td>后台批处理走 exceljs；公式重算 / 透视表 / 宏走 COM（Office | WPS 本体）</td></tr>
+          <tr><td class="k">Word / PPT / PDF</td><td>文档自动化</td><td class="mono">docx · pptxgenjs · pdf-lib · pdfium</td><td class="mono">MIT / Apache-2.0</td><td><span class="bad">避开 PyMuPDF（AGPL）</span>；PDF 文本提取用 pdfium</td></tr>
+          <tr><td class="k">OCR</td><td>OCR 文字识别</td><td class="mono">RapidOCR（PaddleOCR 模型）+ Windows 自带 OCR 兜底</td><td class="mono">Apache-2.0</td><td>装进 sidecar；中文识别效果好、离线可用</td></tr>
+          <tr><td class="k">找图 / 图像</td><td>找图点击、截图比对</td><td class="mono">opencv-python（sidecar 内）</td><td class="mono">Apache-2.0</td><td>模板匹配 + 多尺度；<span class="bad">避开 Emgu.CV（GPL / 商业双授权）</span></td></tr>
+          <tr><td class="k">流程引擎</td><td>指令编排执行</td><td>自研 AST 解释器（薄层）</td><td>自研</td><td>树形遍历 + 异步执行 + 取消令牌；不用已过时的 Windows Workflow Foundation</td></tr>
+          <tr><td class="k">调度</td><td>定时计划</td><td class="mono">croner</td><td class="mono">MIT</td><td>cron 解析 + 时区；睡眠唤醒后对时补跑</td></tr>
+          <tr><td class="k">触发器</td><td>热键 / 文件监听 / 邮件触发</td><td class="mono">uiohook-napi · chokidar · imapflow</td><td class="mono">MIT</td><td>邮件触发 = IMAP IDLE</td></tr>
+          <tr><td class="k">邮件</td><td>收发邮件</td><td class="mono">nodemailer（SMTP）+ imapflow（IMAP）</td><td class="mono">MIT</td><td>Exchange/EWS 后续按需</td></tr>
+          <tr><td class="k">数据库</td><td>MySQL / SQLServer / SQLite / PG</td><td class="mono">mysql2 · mssql · pg · better-sqlite3</td><td class="mono">MIT</td><td>统一连接池封装</td></tr>
+          <tr><td class="k">本地存储</td><td>应用 / 流程 / 日志 / 元素库</td><td class="mono">better-sqlite3 + Electron safeStorage</td><td class="mono">MIT</td><td>凭据经 DPAPI 加密落盘</td></tr>
+          <tr><td class="k">AI 指令 / 魔法指令</td><td>大模型对话 / 提取 / NL→流程</td><td>OpenAI 兼容协议适配层</td><td>自研薄层</td><td>function-calling：指令 schema 作为 tools，产出 JSON AST；可接智谱 / DeepSeek / Ollama</td></tr>
+          <tr><td class="k">消息通知</td><td>钉钉 / 企微 / 飞书</td><td>各官方 webhook HTTP API</td><td>—</td><td>自封装指令</td></tr>
+          <tr><td class="k">参考读物</td><td>—</td><td class="mono">OpenRPA（MPL-2.0）· Robot Framework + RPA Framework（Apache-2.0）· TagUI（MIT）· taskt（MIT，需复核）</td><td>—</td><td>只读源码学设计，不集成进主程序</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3><span class="h-no">4.2</span>为什么不整体二开现成开源 RPA</h3>
+    <ul class="body-list">
+      <li><span class="k">OpenRPA（MPL-2.0）</span>— 功能全，但基于 Windows Workflow Foundation + .NET 老栈，设计器交互与 V3 原型差异大；MPL 文件级开源义务会污染核心代码；指令体系面向欧美场景。仅作参考读物。</li>
+      <li><span class="k">taskt（MIT）</span>— .NET Framework 老栈、社区活跃度低，只适合当参考。</li>
+      <li><span class="k">n8n / Node-RED</span>— 编排引擎优秀，但 n8n 是 Sustainable Use License（不可直接商用改造）；Node-RED 节点模型面向服务端集成而非 RPA 元素操作。</li>
+    </ul>
+    <p class="note"><b>结论：</b>「V3 原型 + 自研薄引擎 + 开源能力库」的组合，比「二开某开源 RPA 再改 UI」总成本更低、可控性更强。</p>
+
+    <h3><span class="h-no">4.3</span>技术路线对比（决策用）</h3>
+    <div class="tbl-wrap">
+      <table>
+        <caption>表 4-2 · 三条路线</caption>
+        <thead><tr><th style="width:34%">路线</th><th style="width:30%">优点</th><th style="width:22%">缺点</th><th>判断</th></tr></thead>
+        <tbody>
+          <tr><td class="k">A. Electron + Node 引擎 + Python sidecar</td><td>自动化生态最全；UI 迁移最快；sidecar 隔离 Python 依赖</td><td>安装包约 +40MB；双进程通信</td><td><span class="pill rec">推荐</span></td></tr>
+          <tr><td class="k">B. Electron + .NET sidecar（FlaUI）</td><td>桌面自动化更强、单语言后端</td><td>图像 / OCR 生态弱于 Python</td><td>备选</td></tr>
+          <tr><td class="k">C. Tauri + Rust</td><td>安装包最小</td><td>自动化库生态薄，Playwright / pywinauto 均无法直接用</td><td>工期 +30%，不推荐 V1</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3><span class="h-no">4.4</span>许可证红线（M0 强制审计）</h3>
+    <div class="tbl-wrap">
+      <table>
+        <caption>表 4-3 · 禁用 / 慎用清单</caption>
+        <thead><tr><th style="width:20%">组件</th><th style="width:34%">原因</th><th>替代</th></tr></thead>
+        <tbody>
+          <tr><td class="k mono">EPPlus 5+</td><td>Polyform Noncommercial（禁商用）</td><td class="mono">exceljs / NPOI（Apache-2.0）</td></tr>
+          <tr><td class="k mono">PyMuPDF</td><td>AGPL（传染）</td><td class="mono">pdfium / pdf-lib</td></tr>
+          <tr><td class="k mono">Emgu.CV</td><td>GPL + 商业双授权</td><td class="mono">opencv-python（sidecar 进程隔离）</td></tr>
+          <tr><td class="k mono">n8n 源码</td><td>Sustainable Use License</td><td>只做架构参考，不抄代码</td></tr>
+          <tr><td class="k mono">AutoIt</td><td>免费但非开源，分发受限</td><td class="mono">nut-js / SendInput</td></tr>
+          <tr><td class="k mono">AutoHotkey</td><td>GPL-2.0</td><td>仅可作为外部进程调用方案保留，代码不进主程序</td></tr>
+          <tr><td class="k mono">影刀客户端</td><td>商业软件</td><td>只做行为对标，不反编译、不抄资源（§10）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>通用义务：MIT / Apache-2.0 组件保留版权与许可证声明（安装包内置 <span class="mono">THIRD-PARTY-NOTICES</span>）；MPL 组件若借鉴需文件级隔离；AGPL / GPL 一律不进主程序。</p>
+  </section>
+
+  <!-- ============ 5 架构 ============ -->
+  <section id="s5">
+    <div class="sec-head"><span class="no">§5</span><h2>总体架构</h2><span class="en">Architecture</span></div>
+
+    <figure>
+      <svg viewBox="0 0 1080 470" width="100%" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="锐流 RPA 进程架构图">
+        <style>
+          .bx{fill:#fafafa;stroke:#c9c9cf;stroke-width:1;}
+          .bx2{fill:#f2f2f3;stroke:#c9c9cf;stroke-width:1;}
+          .acc{stroke:#E64340;}
+          .t{font-size:14px;fill:#111114;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;font-weight:600;}
+          .d{font-size:11px;fill:#4b4b52;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;}
+          .m{font-size:10.5px;fill:#8a8a92;font-family:Consolas,monospace;letter-spacing:.05em;}
+          .ln{stroke:#8a8a92;stroke-width:1;fill:none;}
+        </style>
+        <rect x="10" y="10" width="1060" height="450" class="bx" fill="#fafafa"/>
+        <text x="30" y="42" class="m">RUiliU CLIENT · ELECTRON (WINDOWS)</text>
+
+        <!-- Renderer -->
+        <rect x="40" y="60" width="480" height="86" class="bx"/>
+        <text x="60" y="88" class="t">Renderer · React + V3 设计 token</text>
+        <text x="60" y="112" class="d">7 视图 · 流程编辑器 · 参数面板 · 变量 / 元素库 · 日志面板</text>
+        <text x="60" y="132" class="m">AST JSON ↔ UI（CMDS schema 共用）</text>
+
+        <!-- Main -->
+        <rect x="560" y="60" width="480" height="86" class="bx"/>
+        <text x="580" y="88" class="t">Main · 窗口 / 托盘 / 调度 / 触发</text>
+        <text x="580" y="112" class="d">croner 定时 · uiohook 热键 · chokidar 文件监听 · 自动更新</text>
+        <text x="580" y="132" class="m">IPC: 指令目录 / 流程 JSON / 日志流 / 运行控制</text>
+
+        <line x1="520" y1="103" x2="560" y2="103" class="ln"/>
+        <line x1="300" y1="146" x2="300" y2="180" class="ln"/>
+
+        <!-- Engine -->
+        <rect x="40" y="180" width="1000" height="120" class="bx2"/>
+        <text x="60" y="208" class="t">Engine Worker · 自研 AST 解释器 → 指令注册表（插件式，UI 与引擎共用 schema）</text>
+        <text x="60" y="232" class="d">异步执行 · 取消令牌 · 超时控制 · 块校验（闭合 / 空分支 / 变量未定义）· 逐步日志推流</text>
+        <rect x="60" y="248" width="228" height="40" class="bx"/><text x="76" y="264" class="d" font-weight="600">web</text><text x="76" y="280" class="m">Playwright (CDP→真实浏览器)</text>
+        <rect x="304" y="248" width="228" height="40" class="bx"/><text x="320" y="264" class="d" font-weight="600">office</text><text x="320" y="280" class="m">exceljs / docx / pdf-lib / COM</text>
+        <rect x="548" y="248" width="228" height="40" class="bx"/><text x="564" y="264" class="d" font-weight="600">desktop</text><text x="564" y="280" class="m">nut-js 键鼠 + sidecar UIA</text>
+        <rect x="792" y="248" width="228" height="40" class="bx"/><text x="808" y="264" class="d" font-weight="600">ai / notify</text><text x="808" y="280" class="m">LLM 适配层 / webhook</text>
+
+        <line x1="300" y1="300" x2="300" y2="334" class="ln"/>
+
+        <!-- Sidecar -->
+        <rect x="40" y="334" width="640" height="66" class="bx"/>
+        <text x="60" y="360" class="t">Python Sidecar（随安装包发布 · HTTP/stdio）</text>
+        <text x="60" y="384" class="d">opencv-python 找图 · RapidOCR 文字识别 · pywinauto 桌面 UIA</text>
+
+        <!-- Storage -->
+        <rect x="720" y="334" width="320" height="66" class="bx acc"/>
+        <text x="740" y="360" class="t">本地存储</text>
+        <text x="740" y="384" class="d">SQLite（流程 / 日志 / 元素库）+ DPAPI 加密凭据</text>
+
+        <line x1="680" y1="367" x2="720" y2="367" class="ln"/>
+
+        <text x="40" y="440" class="m">机器人模式 = 同一引擎无头拉起（托盘 / 静默 / 计划唤醒），执行同一份流程 JSON —— 设计器与运行器分离</text>
+      </svg>
+      <figcaption>图 5-1 · 进程模型：设计器与机器人共用引擎</figcaption>
+    </figure>
+
+    <h3><span class="h-no">5.1</span>流程 DSL（JSON AST）</h3>
+    <p>按交接文档 §6 建议，修正原型的 indent 展平表达，改为树形结构；执行前校验块闭合、空分支、变量未定义警告、循环深度上限。</p>
+    <pre class="ascii">{
+  "version": 1,
+  "name": "商品比价",
+  "vars": [{ "name": "priceList", "type": "list", "value": [] }],
+  "steps": [
+    { "id": "s1", "cmdId": "openUrl", "params": { "url": "https://…" } },
+    { "id": "s2", "cmdId": "loop", "params": { "listVar": "priceList", "itemVar": "item" },
+      "children": [
+        { "id": "s2-1", "cmdId": "if", "params": { }, "children": [ ], "else": [ ] }
+      ] }
+  ]
+}</pre>
+
+    <h3><span class="h-no">5.2</span>指令插件 schema（UI 与引擎共用，演进自原型 CMDS）</h3>
+    <pre class="ascii">interface CmdSchema {
+  id: string;  name: string;  group: string;  icon: string;
+  params: ParamField[];               // k / l / t / v / opts + 校验规则
+  summary: (p) => string;             // 步骤摘要（原型已实现，沿用）
+  hasEnd?: boolean;                   // 循环 / 分支块尾标记
+  runner: async (ctx, p) => any;      // ctx: 变量表 / 日志 / 取消令牌 / 进度
+}</pre>
+    <p class="note"><b>指令库即插件注册表：</b>新增指令 = 注册一个 schema，UI（左侧库、参数面板、摘要）与引擎（runner）自动获得该指令。自定义指令暴露「执行 Python 片段」「执行 JS 片段」两个兜底节点 + <span class="mono">.json</span> 流程包导入导出。</p>
+  </section>
+
+  <!-- ============ 6 差距 ============ -->
+  <section id="s6">
+    <div class="sec-head"><span class="no">§6</span><h2>无法完全一致的功能及解决方案</h2><span class="en">Gap Analysis</span></div>
+    <p>以下 10 项是与影刀存在客观差距的地方。每项说明原因、给出解决方案与用户感知差异——这是本计划书的核心章节。</p>
+    <div class="tbl-wrap">
+      <table>
+        <caption>表 6-1 · 差距清单与对策</caption>
+        <thead><tr><th style="width:4%">#</th><th style="width:17%">影刀的功能</th><th style="width:22%">为什么做不到完全一致</th><th style="width:37%">解决方案</th><th>用户感知差异</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">6.1</td><td class="k">800+ 条指令总量</td><td>多年积累，一次性对齐不现实</td><td>指令插件框架让扩指令成本极低；V1 做 150-180 条高频指令；提供「执行 Python / JS 片段」兜底节点；<span class="mono">.json</span> 流程包导入导出</td><td>少数低频场景用脚本节点替代；高频场景无感</td></tr>
+          <tr><td class="mono">6.2</td><td class="k">元素选择器稳定性（动态页面自愈、疑难控件）</td><td>核心壁垒，含大量长尾兼容性修补，无法短期复制</td><td>三层策略：① Playwright auto-waiting 起步；② 选择器回退链（id→name→aria→css→xpath→可见文本→相对位置锚点），录制时冗余存特征，回放失败按链重试；③ 桌面疑难控件保留图像 / 坐标兜底。「选择器自愈」列为长期迭代项（双周按失败案例补特征）</td><td>简单页面无感；复杂页面初期失败率高于影刀，随迭代收敛</td></tr>
+          <tr><td class="mono">6.3</td><td class="k">魔法指令（NL→流程）效果</td><td>影刀内置模型经私有调优与流程语料训练</td><td>接 OpenAI 兼容大模型（智谱 / DeepSeek 等可配）：function-calling 传入指令 schema，生成 JSON AST → 编辑器确认后运行；AI 面板兼做报错解释与流程问答</td><td>生成成功率取决于模型与场景；生成的流程「可查看可修改」，比黑盒更透明</td></tr>
+          <tr><td class="mono">6.4</td><td class="k">智能录制 / 数据抓取向导成熟度</td><td>相似元素识别与去噪经多年打磨</td><td>V1：浏览器内操作录制（CDP 事件→指令序列）+ 抓取向导（DOM 兄弟节点聚类→相似元素列表→字段标注）；桌面录制降级为「键鼠录制 + 手动拾取」</td><td>桌面录制体验弱于影刀；浏览器抓取可达到可用水平</td></tr>
+          <tr><td class="mono">6.5</td><td class="k">企业控制台（云端集群、权限、审计）</td><td>影刀企业版是 SaaS 服务，非客户端功能</td><td>V1 明确不做，用「流程包导出 + 共享目录」过渡；V2 自建轻量 Web 控制台（React + NestJS + PostgreSQL + WebSocket 心跳 / 下发）</td><td>企业集中管控场景 V1 缺失；单机 / 小团队无感</td></tr>
+          <tr><td class="mono">6.6</td><td class="k">模板市场 / 指令市场生态</td><td>需云端后端 + 社区运营</td><td>内置官方模板 30-50 个随包分发；<span class="mono">.json</span> 流程包一键导入导出；社区市场随 V2 控制台上线</td><td>模板数量少于影刀；不阻塞使用</td></tr>
+          <tr><td class="mono">6.7</td><td class="k">验证码 / 滑块等对抗场景</td><td>影刀部分对接第三方打码平台；对抗性场景有合规风险</td><td>接打码平台 API 的适配指令（用户自备账号）；对外声明仅模拟人工操作、不绕过技术保护措施；滑块轨迹模拟可做，成功率不承诺</td><td>此类场景成功率天然波动，影刀亦然</td></tr>
+          <tr><td class="mono">6.8</td><td class="k">Android 手机自动化（群控）</td><td>影刀手机端是独立产品线</td><td>V3 远期：adb + uiautomator2（MIT）+ scrcpy（Apache-2.0），技术可行，排期在 PC 端成熟后</td><td>V1 / V2 无手机端</td></tr>
+          <tr><td class="mono">6.9</td><td class="k">Office / WPS 深度兼容（公式重算、宏）</td><td>依赖真实 Office / WPS 进程行为的长期测试积累</td><td>双轨策略：后台批处理用 exceljs；需公式重算 / 透视表 / 宏的场景走 COM 驱动真实 Office / WPS；建立 WPS + Office 双环境回归用例集</td><td>边缘 Excel 特性（宏、加载项）以 COM 模式覆盖</td></tr>
+          <tr><td class="mono">6.10</td><td class="k">品牌迁移成本（影刀用户迁来）</td><td>指令命名、快捷键习惯不同</td><td>① 指令命名对齐影刀常用习惯（不抄文案）；② 提供迁移说明文档；③ 教程视图内置上手课程</td><td>需半天上手时间</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 7 里程碑 ============ -->
+  <section id="s7">
+    <div class="sec-head"><span class="no">§7</span><h2>里程碑与排期</h2><span class="en">Milestones</span></div>
+    <p>开发模式（V1.1 修订）：<strong>完全由 AI 编码智能体开发</strong>（按《锐流RPA-V3-M0-任务拆解.md》任务包逐个派单）+ 用户验收。下表「周期」为任务包体量的人工口径标注；AI 开发模式下编码不是瓶颈，实际日历周期预计 <strong>8-14 周</strong>，取决于验收与集成联调节奏。</p>
+
+    <figure>
+      <svg viewBox="0 0 1080 218" width="100%" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="里程碑甘特图">
+        <style>.gt{font-size:11px;fill:#4b4b52;font-family:Consolas,monospace;}.gl{font-size:12px;fill:#111114;font-family:'Segoe UI','Microsoft YaHei',sans-serif;font-weight:600;}</style>
+        <!-- week grid: 24 weeks, x from 200 to 1060 => 35.83/wk -->
+        <g stroke="#e3e3e6" stroke-width="1">
+          <line x1="200" y1="14" x2="200" y2="196"/><line x1="271.7" y1="14" x2="271.7" y2="196"/><line x1="343.3" y1="14" x2="343.3" y2="196"/><line x1="415" y1="14" x2="415" y2="196"/><line x1="486.7" y1="14" x2="486.7" y2="196"/><line x1="558.3" y1="14" x2="558.3" y2="196"/><line x1="630" y1="14" x2="630" y2="196"/><line x1="701.7" y1="14" x2="701.7" y2="196"/><line x1="773.3" y1="14" x2="773.3" y2="196"/><line x1="845" y1="14" x2="845" y2="196"/><line x1="916.7" y1="14" x2="916.7" y2="196"/><line x1="988.3" y1="14" x2="988.3" y2="196"/><line x1="1060" y1="14" x2="1060" y2="196"/>
+        </g>
+        <g class="gt" text-anchor="middle">
+          <text x="235" y="212">W2</text><text x="379" y="212">W6</text><text x="522" y="212">W10</text><text x="666" y="212">W14</text><text x="809" y="212">W18</text><text x="952" y="212">W22</text>
+        </g>
+        <!-- bars: each milestone -->
+        <text x="10" y="40" class="gl">M0 验证</text><rect x="200" y="28" width="71.7" height="18" fill="#4b4b52"/>
+        <text x="10" y="68" class="gl">M1 引擎 MVP</text><rect x="271.7" y="56" width="143.3" height="18" fill="#4b4b52"/>
+        <text x="10" y="96" class="gl">M2 编辑器真实化</text><rect x="415" y="84" width="179.2" height="18" fill="#4b4b52"/>
+        <text x="10" y="124" class="gl">M3 拾取·录制</text><rect x="594.2" y="112" width="179.2" height="18" fill="#4b4b52"/>
+        <text x="10" y="152" class="gl">M4 调度·发布</text><rect x="773.3" y="140" width="143.3" height="18" fill="#4b4b52"/>
+        <text x="10" y="180" class="gl">M5 指令+AI</text><rect x="916.7" y="168" width="143.3" height="18" fill="#4b4b52"/>
+        <!-- MVP marker at end of M3 (week ~13) -->
+        <line x1="737.5" y1="14" x2="737.5" y2="196" stroke="#E64340" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="737.5" y="10" text-anchor="middle" font-size="10.5" fill="#E64340" font-family="Consolas,monospace" letter-spacing=".05em">MVP ≈ W13 (3 个月)</text>
+      </svg>
+      <figcaption>图 7-1 · 里程碑关键路径（人工口径任务量；AI 开发模式下日历周期约 8-14 周，M6 已取消）</figcaption>
+    </figure>
+
+    <div class="tbl-wrap">
+      <table>
+        <caption>表 7-1 · 里程碑交付物与验收标准</caption>
+        <thead><tr><th style="width:13%">里程碑</th><th style="width:9%">周期</th><th style="width:45%">交付物</th><th>验收标准</th></tr></thead>
+        <tbody>
+          <tr><td class="k">M0 技术验证与合规审计</td><td class="mono">2 周</td><td>Electron 壳 + 原型组件化迁移方案；AST 解释器 POC；Playwright→真实浏览器 CDP 附加 POC；exceljs 读写 POC；RapidOCR / 找图 sidecar POC；许可证审计报告</td><td>网页元素操作、Excel 读写、OCR 三条关键链路真实跑通</td></tr>
+          <tr><td class="k">M1 引擎 MVP</td><td class="mono">4 周</td><td>AST 解释器正式版、指令注册表、原型 36 条指令真实执行、变量系统、取消 / 超时、IPC 日志流</td><td>「打开网页→抓取→写 Excel」完整流程在设计器内真实运行、日志实时流式显示</td></tr>
+          <tr><td class="k">M2 编辑器真实化</td><td class="mono">5 周</td><td>7 视图组件化 + SQLite 持久化、参数面板 schema 化、变量 / 元素库、撤销重做（不可变快照）、断点 / 单步调试真实化</td><td>交接文档 §5 的 11 条编辑器交互全部以真实数据验收</td></tr>
+          <tr><td class="k">M3 拾取·录制·抓取</td><td class="mono">5 周</td><td>CDP 元素拾取器（悬浮高亮 / 选择器生成 / 校验）、桌面拾取（UIA）、浏览器录制器、数据抓取向导 V1、元素库管理</td><td>拾取→回放完整链路可用；10 个典型目标站抓取成功率 ≥ 80%</td></tr>
+          <tr><td class="k">M4 调度·机器人·发布</td><td class="mono">4 周</td><td>计划任务（cron / 间隔 / 补跑）、热键 / 文件触发、托盘静默运行器、执行记录、NSIS 安装包 + 自动更新</td><td>无 UI 场景计划任务 7×24 可靠执行；安装包双击可用</td></tr>
+          <tr><td class="k">M5 指令扩充 + AI</td><td class="mono">4 周</td><td>指令库扩至 150-180 条（邮件 / 数据库 / Word / PDF / 消息通知 / 图像）；AI 魔法指令；AI 报错解释；官方模板 30+</td><td>电商比价、报表汇总、邮件分发等 10 个端到端场景全部通过</td></tr>
+          <tr><td class="k">M6 企业控制台</td><td class="mono">—</td><td><span class="bad">已取消</span>（V1.1 决策②：自用模式，无集中管控需求）</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note"><b>关键路径：</b>引擎（M1）→ 编辑器真实化（M2）→ 拾取（M3）。M3 是技术风险最高段，选择器回退链的设计须在 M0 定稿。</p>
+  </section>
+
+  <!-- ============ 8 团队 ============ -->
+  <section id="s8">
+    <div class="sec-head"><span class="no">§8</span><h2>开发模式：AI 智能体开发</h2><span class="en">Dev Model</span></div>
+    <p>本项目不设人类编码团队，全部编码由 AI 编码智能体完成；人类角色是产品决策、验收测试与集成把关。</p>
+    <div class="tbl-wrap">
+      <table>
+        <caption>表 8-1 · 角色配置（V1.1）</caption>
+        <thead><tr><th style="width:18%">角色</th><th style="width:26%">承担方</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td class="k">编码实现</td><td>AI 编码智能体（多会话并行）</td><td>按任务包实现代码 + 单元测试 + 自检报告</td></tr>
+          <tr><td class="k">产品 / 架构决策</td><td>用户</td><td>拍板决策点、评审设计文档、控制范围</td></tr>
+          <tr><td class="k">验收测试</td><td>智能体 + 用户</td><td>智能体跑自动化用例（vitest / pytest）；用户做端到端冒烟（真实浏览器 / Office / WPS / 记事本）</td></tr>
+          <tr><td class="k">设计</td><td>已定稿（V3 原型）</td><td>图标按 V3 规范由智能体自绘 SVG 补齐</td></tr>
+          <tr><td class="k">LLM 调用</td><td>配置化 Provider（决策⑤）</td><td>按任务选模型：魔法指令用强模型，报错解释 / 摘要用便宜模型</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note"><b>任务包规范：</b>每个任务包含【目标 / 输入 / 产出物 / 技术要点 / 验收标准 / 注意事项】，智能体完成时必须输出「变更文件清单 + 测试运行结果 + 自检清单 + 遗留问题」；一个任务包一个 git 分支，验收通过后合入 main。详见《锐流RPA-V3-M0-任务拆解.md》。</p>
+  </section>
+
+  <!-- ============ 9 风险 ============ -->
+  <section id="s9">
+    <div class="sec-head"><span class="no">§9</span><h2>风险登记册</h2><span class="en">Risk Register</span></div>
+    <div class="tbl-wrap">
+      <table>
+        <caption>表 9-1 · 风险与对策</caption>
+        <thead><tr><th style="width:34%">风险</th><th style="width:9%">概率</th><th style="width:9%">影响</th><th>对策</th></tr></thead>
+        <tbody>
+          <tr><td class="k">元素选择器在真实网站失败率高</td><td class="bad">高</td><td class="bad">高</td><td>M3 设 10 站基准用例集；回退链 + 特征冗余；失败案例双周迭代机制</td></tr>
+          <tr><td class="k">开源许可证踩雷</td><td class="warn">中</td><td class="bad">高</td><td>M0 强制审计（§4.4 清单为起点）；THIRD-PARTY-NOTICES 随包发布；CI 加 license 检查</td></tr>
+          <tr><td class="k">WPS / Office COM 行为差异</td><td class="warn">中</td><td class="warn">中</td><td>双环境虚拟机回归用例；COM 模式作为可选而非默认</td></tr>
+          <tr><td class="k">杀软误报（Electron + 自动化行为）</td><td class="warn">中</td><td class="warn">中</td><td>代码签名证书；提交主流杀软白名单申请</td></tr>
+          <tr><td class="k">LLM 成本与稳定性</td><td class="warn">中</td><td class="ok">低</td><td>AI 功能全部可关；支持本地模型（Ollama）兜底</td></tr>
+          <tr><td class="k">Python sidecar 体积 / 兼容</td><td class="ok">低</td><td class="warn">中</td><td>内嵌精简 Python（embeddable 包）；失败时图像 / OCR 指令降级为 Windows 自带 OCR</td></tr>
+          <tr><td class="k">Windows UAC / DPI / 多屏</td><td class="warn">中</td><td class="warn">中</td><td>兼容性 checklist；高 DPI 感知清单化测试</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 10 合规 ============ -->
+  <section id="s10">
+    <div class="sec-head"><span class="no">§10</span><h2>法律合规红线</h2><span class="en">Compliance</span></div>
+    <ul class="body-list">
+      <li><span class="k">不反编译、不逆向影刀客户端。</span>只做黑盒行为对标（界面范式、功能集）；V3 交接文档已确认视觉与代码全部自有，继续保持。</li>
+      <li><span class="k">不使用影刀商标、logo、文案、截图</span>作任何宣传素材。</li>
+      <li><span class="k">开源许可证义务</span>：全部组件履行声明义务（附 THIRD-PARTY-NOTICES）；AGPL / GPL 组件不进主程序（仅作为用户机器上独立进程被调用的工具，需法务确认后放行）。</li>
+      <li><span class="k">数据安全</span>：用户凭据与敏感变量用 DPAPI 加密存储，日志默认脱敏。</li>
+      <li><span class="k">产品内嵌《合规使用声明》</span>：模拟人工操作、不绕过技术保护措施，用户对目标网站条款自负其责。</li>
+    </ul>
+  </section>
+
+  <!-- ============ 11 决策点 ============ -->
+  <section id="s11">
+    <div class="sec-head"><span class="no">§11</span><h2>决策记录</h2><span class="en">Decision Log · 2026-09-22</span></div>
+    <div class="tbl-wrap">
+      <table>
+        <caption>表 11-1 · 6 项决策已拍板（V1.1）</caption>
+        <thead><tr><th style="width:5%">#</th><th style="width:20%">决策点</th><th style="width:22%">拍板结果</th><th>落实与影响</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">1</td><td class="k">壳技术栈</td><td><span class="pill rec">Electron</span></td><td>路线 A 确认；Tauri 出局</td></tr>
+          <tr><td class="mono">2</td><td class="k">商业模式</td><td class="k">自用</td><td>无企业版权益体系：M6 控制台取消；市场运营 / 迁移指南 / 种子用户计划取消；代码签名与杀软白名单降级为可选；许可证合规仍保持</td></tr>
+          <tr><td class="mono">3</td><td class="k">对标范围</td><td class="k">只做 PC 端</td><td>Android 自动化（§6.8）无限期搁置</td></tr>
+          <tr><td class="mono">4</td><td class="k">Python sidecar</td><td class="k">可接受</td><td>+40MB 无碍；M0-T6 落实 POC</td></tr>
+          <tr><td class="mono">5</td><td class="k">LLM 接入</td><td class="k">接口输入方式、方便切换</td><td>Provider 配置化：baseURL / apiKey（DPAPI 加密）/ 模型名 / 协议（默认 OpenAI 兼容，支持智谱 / DeepSeek / 通义 / Kimi / Ollama 本地）；设置界面进 M2；M0-T8 先做 POC</td></tr>
+          <tr><td class="mono">6</td><td class="k">开发模式</td><td class="k">完全 AI 智能体开发</td><td>§8 改写为智能体开发模式；任务包规范与 M0 拆解见《锐流RPA-V3-M0-任务拆解.md》</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note"><b>下一步：</b>执行《锐流RPA-V3-M0-任务拆解.md》（T0 → T1/T2/T4/T5/T6/T8 可并行 → T3 → T7 → T9/T10 穿插）。</p>
+  </section>
+
+  <footer class="colophon">
+    <div>锐流 RPA V3 · 开发计划书 V1.0 · 2026-09-22</div>
+    <div>与《锐流RPA-开发交接文档.md》配合使用：本文档管「做什么、用什么、什么顺序」，交接文档管「界面长什么样、交互怎么验收」</div>
+  </footer>
+
+</div>
+</body>
+</html>

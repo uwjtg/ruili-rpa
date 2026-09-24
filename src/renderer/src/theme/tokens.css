@@ -1,0 +1,79 @@
+/* ============================================================
+   锐流 RPA · 设计 Token（迁移自 V3 可交互原型 :root + 交接文档 §3）
+   版本：V3 设计定稿 · 2026-09-24 迁移
+   使用纪律：红色只做品牌与主操作；紫色只在编辑器强调；
+   绿色专属"运行"与成功态；语义色只表达结果状态。
+   ============================================================ */
+:root {
+  /* ---- 品牌色 ---- */
+  --red: #e64340;
+  --red-hover: #cf3a37;
+  --red-soft: #fdecec;
+
+  /* ---- 编辑器强调（紫色） ---- */
+  --purple: #7c5cfc;
+  --purple-2: #a855f7;
+  --purple-soft: #f1edff;
+  --purple-line: #c9b8ff;
+
+  /* ---- 运行/成功（绿色） ---- */
+  --green: #1dbf73;
+  --green-hover: #17a864;
+
+  /* ---- 链接/信息（蓝色） ---- */
+  --blue: #2f80ed;
+  --blue-soft: #e8f0fe;
+
+  /* ---- 公告/渐变（橙色） ---- */
+  --orange: #f26b4e;
+
+  /* ---- 中性色 ---- */
+  --bg: #f2f3f5;
+  --canvas: #f7f8fa;
+  --panel: #ffffff;
+  --gray: #f2f3f5;
+  --border: #e5e6eb;
+  --border-2: #d8dadd;
+
+  /* ---- 四级文字 ---- */
+  --text: #1f2329;
+  --text-2: #51565d;
+  --text-3: #8a8f99;
+  --text-4: #b0b6bf;
+
+  /* ---- 语义色（徽章/日志级别） ---- */
+  --success: #0e9f5d;
+  --success-soft: #e7f8f0;
+  --warning: #c46211;
+  --warning-soft: #fff4e6;
+  --error: #e64340;
+  --error-soft: #fdecec;
+
+  /* ---- 形状与密度 ---- */
+  --radius: 6px; /* 按钮/输入 */
+  --radius-lg: 8px; /* 卡片/面板 */
+  --radius-xl: 10px; /* 弹窗 */
+  --radius-pill: 99px; /* 胶囊 */
+  --control-h: 30px;
+  --control-h-sm: 26px;
+
+  /* ---- 阴影（仅悬停与浮层使用 md，其余用 1px 边框） ---- */
+  --shadow-sm: 0 1px 2px rgba(31, 35, 41, 0.05);
+  --shadow-md:
+    0 4px 14px -2px rgba(31, 35, 41, 0.1),
+    0 2px 4px -2px rgba(31, 35, 41, 0.06);
+
+  /* ---- 字体 ---- */
+  --font:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+  --mono: 'Cascadia Code', 'SF Mono', Consolas, monospace;
+
+  /* ---- 字阶 ---- */
+  --fs-title: 19px; /* 页面标题 18-19/600 */
+  --fs-section: 15px; /* 区块标题 14-15/600 */
+  --fs-body: 13px; /* 正文与控件 */
+  --fs-aux: 12px; /* 辅助 */
+  --fs-meta: 11px; /* 元信息 */
+  --fs-badge: 10.5px; /* 徽章 10-11 */
+}

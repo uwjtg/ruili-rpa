@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title></title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #111110;
+    --bg-subtle: #191918;
+    --surface: #1e1e1d;
+    --surface-raised: #252524;
+    --border: rgba(255,255,255,0.06);
+    --border-hover: rgba(255,255,255,0.12);
+    --accent: #9D85FF;
+    --accent-dim: rgba(124,92,252,0.16);
+    --text: #e8e6e3;
+    --text-secondary: rgba(232,230,227,0.6);
+    --text-tertiary: rgba(232,230,227,0.32);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.25);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.3);
+    --shadow-drag: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1.5px var(--accent);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    --font-mono: "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    --note-bg: #221d33;
+    --note-border: rgba(124,92,252,0.28);
+    --transition-fast: 120ms cubic-bezier(0.25, 0.1, 0.25, 1);
+    --transition-normal: 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    font-family: var(--font-sans);
+    color: var(--text);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 512px 512px;
+    mix-blend-mode: overlay;
+  }
+
+  .canvas-viewport { position: fixed; inset: 0; overflow: hidden; cursor: grab; --grid-color: rgba(255,255,255,0.04); }
+  .canvas-viewport.panning { cursor: grabbing; }
+  .canvas-world { position: absolute; left: 0; top: 0; width: 20000px; height: 20000px; transform-origin: 0 0; will-change: transform; }
+
+  .canvas-el { position: absolute; cursor: grab; transition: box-shadow var(--transition-normal), transform var(--transition-fast); }
+  .canvas-el:hover { z-index: 10; }
+  .canvas-el.dragging { cursor: grabbing; z-index: 999; box-shadow: var(--shadow-drag) !important; transform: scale(1.01); transition: none; }
+
+  .section-header { position: absolute; pointer-events: none; display: flex; align-items: center; gap: 16px; white-space: nowrap; }
+  .section-header .section-num { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; color: var(--accent); opacity: 0.8; }
+  .section-header .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; color: var(--text-tertiary); }
+  .section-header .section-line { flex: none; width: 48px; height: 1px; background: linear-gradient(90deg, var(--accent) 0%, transparent 100%); opacity: 0.3; }
+
+  .canvas-title { position: absolute; pointer-events: none; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; color: var(--text); }
+  .canvas-text { position: absolute; line-height: 1.7; letter-spacing: 0.005em; color: var(--text-secondary); min-width: 200px; max-width: 620px; white-space: pre-wrap; word-break: break-word; }
+
+  .canvas-tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 100px; font-size: 12px; font-weight: 500; color: var(--text-secondary); background: var(--surface); border: 1px solid var(--border); white-space: nowrap; }
+  .canvas-tag:hover { border-color: var(--border-hover); background: var(--surface-raised); }
+  .canvas-tag .tag-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+  .context-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; min-width: 220px; }
+  .context-card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-md); }
+  .context-card .card-head { padding: 16px 20px 12px; display: flex; align-items: center; gap: 10px; }
+  .context-card .card-head .head-indicator { width: 3px; height: 16px; border-radius: 2px; background: var(--accent); flex-shrink: 0; }
+  .context-card .card-head h3 { font-size: 13px; font-weight: 600; color: var(--text); }
+  .context-card .card-content { padding: 0 20px 20px; font-size: 13px; line-height: 1.7; color: var(--text-secondary); }
+  .context-card .card-content ul { list-style: none; }
+  .context-card .card-content li { padding: 4px 0 4px 12px; position: relative; }
+  .context-card .card-content li::before { content: ''; position: absolute; left: 0; top: 11px; width: 4px; height: 4px; border-radius: 50%; background: var(--text-tertiary); }
+
+  .ds-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .ds-card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-md); }
+  .ds-card .ds-head { padding: 16px 20px 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: var(--text-tertiary); }
+  .ds-card .ds-body { padding: 0 20px 20px; }
+
+  .swatch-item { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  .swatch-circle { width: 44px; height: 44px; border-radius: 50%; box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.08); }
+  .swatch-name { font-size: 10px; font-weight: 500; color: var(--text-secondary); text-align: center; }
+  .swatch-hex { font-family: var(--font-mono); font-size: 9px; color: var(--text-tertiary); text-align: center; }
+  .swatch-row { display: flex; flex-wrap: wrap; gap: 14px; }
+
+  .type-sample-row { display: flex; align-items: baseline; gap: 18px; margin-bottom: 14px; }
+  .type-sample-meta { font-family: var(--font-mono); font-size: 9px; color: var(--text-tertiary); min-width: 52px; flex-shrink: 0; }
+  .type-sample-text { color: var(--text); line-height: 1.3; }
+
+  .canvas-note { background: var(--note-bg); border: 1px solid var(--note-border); border-radius: var(--radius-md); padding: 15px 17px; min-width: 210px; max-width: 320px; box-shadow: var(--shadow-sm); }
+  .canvas-note .note-tag { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; color: var(--accent); opacity: 0.85; margin-bottom: 7px; }
+  .canvas-note .note-body { font-size: 12.5px; line-height: 1.65; color: var(--text-secondary); }
+
+  .design-page { background: #fff; border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-lg); }
+  .design-page .page-content { width: 100%; height: 100%; overflow: hidden; }
+  .page-label { position: absolute; bottom: -32px; left: 0; font-size: 11px; font-weight: 500; color: var(--text-tertiary); white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+  .page-label .label-num { font-family: var(--font-mono); font-size: 10px; color: var(--accent); opacity: 0.6; }
+
+  .canvas-diagram { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
+  .canvas-diagram .diagram-content { width: 100%; height: 100%; padding: 18px 22px; }
+
+  .zoom-controls { position: fixed; bottom: 24px; right: 24px; display: flex; align-items: center; gap: 1px; z-index: 100; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-md); }
+  .zoom-btn { width: 36px; height: 36px; background: transparent; border: none; color: var(--text-secondary); font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .zoom-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+  .zoom-label { min-width: 50px; height: 36px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+  .coord-indicator { position: fixed; bottom: 28px; left: 24px; font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); z-index: 100; padding: 4px 10px; background: rgba(17,17,16,0.85); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+  .kbd-hint { position: fixed; top: 20px; right: 24px; z-index: 100; font-size: 10px; color: var(--text-tertiary); display: flex; gap: 12px; opacity: 0; transition: opacity 0.4s ease; pointer-events: none; }
+  .canvas-viewport:hover ~ .kbd-hint { opacity: 1; }
+  .kbd-hint kbd { font-family: var(--font-mono); padding: 2px 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<div class="canvas-viewport" id="viewport">
+  <div class="canvas-world" id="world"></div>
+</div>
+
+<div class="zoom-controls">
+  <button class="zoom-btn" id="zoomOut" aria-label="">&#8722;</button>
+  <div class="zoom-label" id="zoomLabel">100%</div>
+  <button class="zoom-btn" id="zoomIn" aria-label="">+</button>
+  <button class="zoom-btn" id="zoomReset" aria-label="">&#8962;</button>
+</div>
+
+<div class="coord-indicator" id="coordIndicator">0, 0</div>
+<div class="kbd-hint" id="kbdHint"></div>
+
+<script>
+(() => {
+  const UI_STRINGS = {
+    docTitle: '锐流 RPA · 设计交付画布 V2',
+    zoom: { zoomIn: '放大', zoomOut: '缩小', reset: '重置视图' },
+    kbdHints: [['滚轮', '平移'], ['Ctrl+滚轮', '缩放'], ['Ctrl+Z', '撤销']],
+  };
+  document.title = UI_STRINGS.docTitle;
+  document.getElementById('zoomIn').setAttribute('aria-label', UI_STRINGS.zoom.zoomIn);
+  document.getElementById('zoomOut').setAttribute('aria-label', UI_STRINGS.zoom.zoomOut);
+  document.getElementById('zoomReset').setAttribute('aria-label', UI_STRINGS.zoom.reset);
+  document.getElementById('kbdHint').innerHTML = UI_STRINGS.kbdHints
+    .map(function(kv){ return '<span><kbd>' + kv[0] + '</kbd> ' + kv[1] + '</span>'; }).join('');
+
+  const viewport = document.getElementById('viewport');
+  const world = document.getElementById('world');
+  const zoomLabel = document.getElementById('zoomLabel');
+  const coordIndicator = document.getElementById('coordIndicator');
+
+  let panX = 0, panY = 0, zoom = 1;
+  const MIN_ZOOM = 0.05, MAX_ZOOM = 8;
+
+  function updateTransform() {
+    world.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+    zoomLabel.textContent = Math.round(zoom * 100) + '%';
+    updateGrid();
+  }
+  function updateGrid() {
+    const g = 40 * zoom;
+    const ox = panX % g, oy = panY % g;
+    viewport.style.backgroundImage = 'radial-gradient(circle, var(--grid-color) 0.8px, transparent 0.8px)';
+    viewport.style.backgroundSize = g + 'px ' + g + 'px';
+    viewport.style.backgroundPosition = ox + 'px ' + oy + 'px';
+  }
+
+  let isPanning = false, panSX, panSY;
+  viewport.addEventListener('pointerdown', function(e) {
+    if (e.target === viewport || e.target === world) {
+      isPanning = true; panSX = e.clientX - panX; panSY = e.clientY - panY;
+      viewport.classList.add('panning'); viewport.setPointerCapture(e.pointerId); e.preventDefault();
+    }
+  });
+  viewport.addEventListener('pointermove', function(e) {
+    if (!isPanning) return;
+    panX = e.clientX - panSX; panY = e.clientY - panSY; updateTransform();
+  });
+  viewport.addEventListener('pointerup', function() { isPanning = false; viewport.classList.remove('panning'); });
+
+  viewport.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    const rect = viewport.getBoundingClientRect();
+    if (e.ctrlKey || e.metaKey) {
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      const wx = (mx - panX) / zoom, wy = (my - panY) / zoom;
+      const factor = e.deltaY > 0 ? 0.95 : 1.05;
+      zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor));
+      panX = mx - wx * zoom; panY = my - wy * zoom;
+    } else {
+      const hasX = Math.abs(e.deltaX) > 0.5;
+      if (hasX || Math.abs(e.deltaX) > Math.abs(e.deltaY) * 0.3) {
+        panX -= e.deltaX; panY -= e.deltaY;
+      } else {
+        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+        const wx = (mx - panX) / zoom, wy = (my - panY) / zoom;
+        const factor = e.deltaY > 0 ? 0.95 : 1.05;
+        zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor));
+        panX = mx - wx * zoom; panY = my - wy * zoom;
+      }
+    }
+    updateTransform();
+  }, { passive: false });
+
+  function zoomAt(factor) {
+    const r = viewport.getBoundingClientRect();
+    const cx = r.width / 2, cy = r.height / 2;
+    const wx = (cx - panX) / zoom, wy = (cy - panY) / zoom;
+    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor));
+    panX = cx - wx * zoom; panY = cy - wy * zoom; updateTransform();
+  }
+  document.getElementById('zoomIn').onclick = function(){ zoomAt(1.25); };
+  document.getElementById('zoomOut').onclick = function(){ zoomAt(0.8); };
+  document.getElementById('zoomReset').onclick = function(){ zoom = 1; panX = 0; panY = 0; updateTransform(); };
+
+  viewport.addEventListener('pointermove', function(e) {
+    if (isPanning) return;
+    const r = viewport.getBoundingClientRect();
+    coordIndicator.textContent = Math.round((e.clientX - r.left - panX) / zoom) + ', ' + Math.round((e.clientY - r.top - panY) / zoom);
+  });
+
+  let lastPinchDist = null, lastPinchCenter = null;
+  viewport.addEventListener('touchstart', function(e) {
+    if (e.touches.length === 2) {
+      const t0 = e.touches[0], t1 = e.touches[1];
+      lastPinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      lastPinchCenter = { x: (t0.clientX + t1.clientX) / 2, y: (t0.clientY + t1.clientY) / 2 };
+      e.preventDefault();
+    }
+  }, { passive: false });
+  viewport.addEventListener('touchmove', function(e) {
+    if (e.touches.length !== 2) return;
+    e.preventDefault();
+    const t0 = e.touches[0], t1 = e.touches[1];
+    const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+    const center = { x: (t0.clientX + t1.clientX) / 2, y: (t0.clientY + t1.clientY) / 2 };
+    if (lastPinchDist > 0) {
+      const r = viewport.getBoundingClientRect();
+      const mx = center.x - r.left, my = center.y - r.top;
+      const wx = (mx - panX) / zoom, wy = (my - panY) / zoom;
+      zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * Math.pow(dist / lastPinchDist, 0.6)));
+      panX = mx - wx * zoom; panY = my - wy * zoom;
+    }
+    if (lastPinchCenter) { panX += center.x - lastPinchCenter.x; panY += center.y - lastPinchCenter.y; }
+    lastPinchDist = dist; lastPinchCenter = center;
+    updateTransform();
+  }, { passive: false });
+  viewport.addEventListener('touchend', function(e) {
+    if (e.touches.length < 2) { lastPinchDist = null; lastPinchCenter = null; }
+  });
+
+  const undoStack = [];
+  function saveUndo() {
+    const s = [];
+    world.querySelectorAll('.canvas-el').forEach(function(el){ s.push({ id: el.id, left: el.style.left, top: el.style.top }); });
+    undoStack.push({ panX: panX, panY: panY, zoom: zoom, assets: s });
+    if (undoStack.length > 60) undoStack.shift();
+  }
+  function undo() {
+    if (!undoStack.length) return;
+    const st = undoStack.pop();
+    panX = st.panX; panY = st.panY; zoom = st.zoom;
+    st.assets.forEach(function(a){ const el = document.getElementById(a.id); if (el) { el.style.left = a.left; el.style.top = a.top; } });
+    updateTransform();
+  }
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+  });
+
+  function makeDraggable(el) {
+    let dragging = false, sx, sy, ox, oy;
+    el.addEventListener('pointerdown', function(e) {
+      if (e.button !== 0) return;
+      dragging = true; el.classList.add('dragging'); saveUndo();
+      sx = e.clientX; sy = e.clientY;
+      ox = parseFloat(el.style.left); oy = parseFloat(el.style.top);
+      el.setPointerCapture(e.pointerId); e.stopPropagation();
+    });
+    el.addEventListener('pointermove', function(e) {
+      if (!dragging) return;
+      el.style.left = (ox + (e.clientX - sx) / zoom) + 'px';
+      el.style.top = (oy + (e.clientY - sy) / zoom) + 'px';
+    });
+    el.addEventListener('pointerup', function() { if (dragging) { dragging = false; el.classList.remove('dragging'); } });
+  }
+
+  let _id = 0;
+  function uid(prefix) { return (prefix || 'el') + '-' + (++_id); }
+
+  function addSection(rowY, label) {
+    const parts = label.split(' ');
+    const num = parts[0] || '';
+    const rest = parts.slice(1).join(' ');
+    const el = document.createElement('div');
+    el.className = 'section-header';
+    el.style.left = '60px'; el.style.top = rowY + 'px';
+    el.innerHTML = '<span class="section-line"></span><span class="section-num">' + num + '</span><span class="section-label">' + rest + '</span>';
+    world.appendChild(el);
+    return rowY;
+  }
+  function addTitle(x, y, text, options) {
+    options = options || {};
+    const el = document.createElement('div');
+    el.className = 'canvas-title'; el.id = uid('title');
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    el.style.fontSize = (options.fontSize || 48) + 'px';
+    if (options.fontWeight) el.style.fontWeight = options.fontWeight;
+    if (options.color) el.style.color = options.color;
+    if (options.maxWidth) el.style.maxWidth = options.maxWidth + 'px';
+    el.textContent = text;
+    world.appendChild(el);
+    return el;
+  }
+  function addText(x, y, text, options) {
+    options = options || {};
+    const el = document.createElement('div');
+    el.className = 'canvas-text canvas-el'; el.id = uid('text');
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    el.style.fontSize = (options.fontSize || 14) + 'px';
+    if (options.color) el.style.color = options.color;
+    if (options.maxWidth) el.style.maxWidth = options.maxWidth + 'px';
+    el.textContent = text;
+    world.appendChild(el); makeDraggable(el);
+    return el;
+  }
+  function addTag(x, y, label, options) {
+    options = options || {};
+    const el = document.createElement('div');
+    el.className = 'canvas-el'; el.id = uid('tag');
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    const dotColor = options.color || 'var(--accent)';
+    el.innerHTML = '<div class="canvas-tag"><span class="tag-dot" style="background:' + dotColor + '"></span>' + label + '</div>';
+    world.appendChild(el); makeDraggable(el);
+    return el;
+  }
+  function addContextCard(x, y, w, h, title, content) {
+    const el = document.createElement('div');
+    el.className = 'canvas-el'; el.id = uid('ctx');
+    el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.width = w + 'px';
+    if (h) el.style.height = h + 'px';
+    el.innerHTML = '<div class="context-card" style="width:100%;' + (h ? 'height:100%' : '') + '"><div class="card-head"><div class="head-indicator"></div><h3>' + title + '</h3></div><div class="card-content">' + content + '</div></div>';
+    world.appendChild(el); makeDraggable(el);
+    return el;
+  }
+  function addDesignSystemCard(x, y, w, h, type, data) {
+    const el = document.createElement('div');
+    el.className = 'canvas-el'; el.id = uid('ds');
+    el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.width = w + 'px';
+    if (h) el.style.height = h + 'px';
+    const body = (typeof data.html === 'string') ? data.html : '';
+    el.innerHTML = '<div class="ds-card" style="width:100%;' + (h ? 'height:100%' : '') + '"><div class="ds-head">' + (data.title || type) + '</div><div class="ds-body">' + body + '</div></div>';
+    world.appendChild(el); makeDraggable(el);
+    return el;
+  }
+  function addPage(x, y, w, h, label, htmlContent) {
+    const el = document.createElement('div');
+    el.className = 'canvas-el'; el.id = uid('page');
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    el.style.width = w + 'px'; el.style.height = (h + 40) + 'px';
+    el.innerHTML = '<div class="design-page" style="width:' + w + 'px;height:' + h + 'px;"><div class="page-content">' + htmlContent + '</div></div><div class="page-label"><span class="label-num">' + label.num + '</span>' + label.text + '</div>';
+    world.appendChild(el); makeDraggable(el);
+    return el;
+  }
+  function addNote(x, y, tag, text) {
+    const el = document.createElement('div');
+    el.className = 'canvas-el'; el.id = uid('note');
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    el.innerHTML = '<div class="canvas-note"><div class="note-tag">' + tag + '</div><div class="note-body">' + text + '</div></div>';
+    world.appendChild(el); makeDraggable(el);
+    return el;
+  }
+  function addDiagram(x, y, w, h, htmlContent) {
+    const el = document.createElement('div');
+    el.className = 'canvas-el'; el.id = uid('diagram');
+    el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.width = w + 'px'; el.style.height = h + 'px';
+    el.innerHTML = '<div class="canvas-diagram" style="width:100%;height:100%;"><div class="diagram-content">' + htmlContent + '</div></div>';
+    world.appendChild(el); makeDraggable(el);
+    return el;
+  }
+  function below(el, gap) { if (gap === undefined) gap = 20; return parseFloat(el.style.top) + el.offsetHeight + gap; }
+  function rightOf(el, gap) { if (gap === undefined) gap = 20; return parseFloat(el.style.left) + el.offsetWidth + gap; }
+  function maxY(els, gap) { if (gap === undefined) gap = 20; return Math.max.apply(null, els.map(function(e){ return parseFloat(e.style.top) + e.offsetHeight; })) + gap; }
+
+  /* ============ 场景(V2 · 对齐影刀视觉规格) ============ */
+
+  const RP_CSS = ".rp{width:100%;height:100%;background:#F2F3F5;display:flex;flex-direction:column;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;color:#1F2329;font-size:12px;overflow:hidden}.rp *{box-sizing:border-box;margin:0;padding:0}.rp-top{height:42px;background:#fff;border-bottom:1px solid #E5E6EB;display:flex;align-items:center;gap:7px;padding:0 12px;flex-shrink:0}.rp-logo{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 32% 30%,#F26B5E,#E64340);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}.rp-name{font-size:12px;font-weight:600}.rp-navi{display:flex;align-self:stretch;align-items:center;margin-left:8px}.rp-ni{padding:0 10px;font-size:11px;color:#51565D;position:relative;height:42px;display:flex;align-items:center}.rp-ni.on{color:#1F2329;font-weight:600}.rp-ni.on::after{content:'';position:absolute;left:50%;transform:translateX(-50%);bottom:0;width:20px;height:3px;background:#E64340;border-radius:2px}.rp-right{margin-left:auto;display:flex;align-items:center;gap:7px}.rp-pill{display:inline-flex;align-items:center;height:22px;padding:0 11px;border-radius:14px;background:#E64340;color:#fff;font-size:10px}.rp-wins{color:#8A8F99;font-size:10px;letter-spacing:2px}.rp-main{flex:1;display:flex;min-height:0}.rp-body{flex:1;min-width:0;padding:14px 16px;overflow:hidden}.rp-card{background:#fff;border:1px solid #E5E6EB;border-radius:8px}.rp-btn{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:6px;border:1px solid #D8DADD;background:#fff;color:#51565D;font-size:10.5px}.rp-btn.pri{background:#E64340;border-color:#E64340;color:#fff}.rp-btn.run{background:#1DBF73;border-color:#1DBF73;color:#fff}.rp-inp{height:24px;border:1px solid #D8DADD;border-radius:6px;background:#fff;color:#B0B6BF;font-size:10.5px;display:flex;align-items:center;padding:0 8px;gap:5px}.rp-inp i{width:8px;height:8px;border:1.5px solid #B0B6BF;border-radius:50%;display:inline-block}.rp-badge{display:inline-flex;align-items:center;height:17px;padding:0 6px;border-radius:99px;font-size:9.5px;font-weight:500}.rp-b-ok{background:#E7F8F0;color:#0E9F5D;border:1px solid #B8EBD2}.rp-b-er{background:#FDECEC;color:#E64340;border:1px solid #F6C6C5}.rp-b-in{background:#E8F0FE;color:#2F80ED;border:1px solid #C5DCF8}.rp-b-pl{background:#F2F3F5;color:#8A8F99;border:1px solid #E5E6EB}.rp-sw{width:28px;height:16px;border-radius:99px;background:#D8DADD;position:relative;flex-shrink:0}.rp-sw::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff}.rp-sw.on{background:#E64340}.rp-sw.on::after{left:14px}.rp-sec{font-size:12.5px;font-weight:600;margin-bottom:9px}.rp-icblk{width:32px;height:32px;border-radius:8px;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}";
+
+  const RAIL = ['首页','应用','编辑器','触发器','机器人','市场','教程'];
+  function topHTML(active) {
+    return '<div class="rp-top"><div class="rp-logo">锐</div><div class="rp-name">锐流RPA</div>'
+      + '<div class="rp-navi">' + RAIL.map(function(t){ return '<div class="rp-ni' + (t===active ? ' on' : '') + '">' + t + '</div>'; }).join('') + '</div>'
+      + '<div class="rp-right"><span class="rp-pill">邀请同事</span><span class="rp-wins">─ □ ×</span></div></div>';
+  }
+  function statHTML(label, num, unit) {
+    return '<div class="rp-card" style="padding:11px 13px"><div style="font-size:10.5px;color:#8A8F99">' + label + '</div><div style="font-size:20px;font-weight:600;margin-top:4px">' + num + '<span style="font-size:10.5px;font-weight:500;color:#8A8F99;margin-left:2px">' + unit + '</span></div></div>';
+  }
+  function appHTML(name, color, meta, desc, folder) {
+    return '<div class="rp-card" style="padding:11px"><div style="display:flex;gap:8px;align-items:center;margin-bottom:7px"><div class="rp-icblk" style="background:' + color + '">' + name.slice(0,1) + '</div><div style="min-width:0"><div style="font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + name + '</div><div style="font-size:9.5px;color:#B0B6BF;margin-top:2px">' + meta + '</div></div></div><div style="font-size:10.5px;color:#8A8F99;line-height:1.5;height:30px;overflow:hidden;margin-bottom:7px">' + desc + '</div><div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #E5E6EB;padding-top:7px"><span style="font-size:9.5px;color:#B0B6BF">' + folder + '</span><span style="display:flex;gap:5px"><span class="rp-btn" style="height:20px;padding:0 7px;font-size:9.5px">运行</span><span class="rp-btn pri" style="height:20px;padding:0 7px;font-size:9.5px">编辑</span></span></div></div>';
+  }
+  const APPS = [
+    ['电商比价监控','#E64340','18 个步骤 · 2 分钟前','每日抓取指定商城商品价格,低于目标价自动邮件提醒','电商运营'],
+    ['月度报表汇总','#7C5CFC','32 个步骤 · 昨天','合并 6 个业务系统导出表,生成月度经营分析报表','财务'],
+    ['招聘信息采集','#0E9384','24 个步骤 · 3 天前','定时采集招聘网站岗位信息,去重后写入数据表格','数据采集'],
+    ['发票识别归档','#DD6B20','12 个步骤 · 上周五','OCR 识别发票关键字段,按月份自动归档并登记台账','财务'],
+  ];
+
+  function homePage() {
+    const quick = [['新建应用','#E64340'],['指令市场','#7C5CFC'],['调度中心','#0E9384'],['机器人管理','#2F80ED']];
+    const chart = '<svg width="100%" height="86" viewBox="0 0 560 86" preserveAspectRatio="none"><defs><linearGradient id="cf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2F80ED" stop-opacity=".25"/><stop offset="1" stop-color="#2F80ED" stop-opacity="0"/></linearGradient></defs><path d="M14 76 L100 68 L186 56 L272 48 L358 32 L444 20 L546 10 L546 86 L14 86 Z" fill="url(#cf)"/><path d="M14 76 L100 68 L186 56 L272 48 L358 32 L444 20 L546 10" fill="none" stroke="#2F80ED" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="546" cy="10" r="3.5" fill="#2F80ED" stroke="#fff" stroke-width="1.6"/></svg>';
+    return '<style>' + RP_CSS + '</style><div class="rp">' + topHTML('首页')
+      + '<div class="rp-main"><div style="flex:1;min-width:0;padding:13px 15px">'
+      + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">' + quick.map(function(q){ return '<div class="rp-card" style="padding:10px 11px;display:flex;align-items:center;gap:8px"><div class="rp-icblk" style="width:28px;height:28px;background:' + q[1] + ';border-radius:7px"><span style="display:block;width:11px;height:11px;border:2px solid currentColor;border-radius:3px"></span></div><div><div style="font-size:11px;font-weight:600">' + q[0] + '</div></div><span style="margin-left:auto;color:#B0B6BF;font-size:10px">›</span></div>'; }).join('') + '</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">'
+      + statHTML('我的应用','6','个') + statHTML('累计运行时长','368','小时') + statHTML('运行次数','1,284','次') + statHTML('已节省人力','46','天')
+      + '</div>'
+      + '<div class="rp-card" style="padding:12px 14px"><div style="display:flex;align-items:center;font-size:11.5px;font-weight:600">应用累计运行时长<span style="margin-left:auto;display:flex;gap:4px"><span class="rp-badge rp-b-pl">近一周</span><span class="rp-badge rp-b-pl">近一月</span><span class="rp-badge rp-b-in">近一年</span></span></div><div style="margin-top:8px">' + chart + '</div><div style="display:flex;justify-content:space-between;font-size:9px;color:#B0B6BF"><span>09-16</span><span>09-17</span><span>09-18</span><span>09-19</span><span>09-20</span><span>09-21</span><span>09-22</span></div></div>'
+      + '</div>'
+      + '<div style="width:230px;flex-shrink:0;padding:13px 13px 13px 0;display:flex;flex-direction:column;gap:9px">'
+      + '<div class="rp-card" style="padding:11px 12px"><div style="font-size:11.5px;font-weight:600;margin-bottom:6px">企业概览</div>'
+      + '<div style="font-size:10px;color:#8A8F99;line-height:2.1"><div style="display:flex;justify-content:space-between"><span>版本</span><b style="color:#1F2329">社区版 5.2.1</b></div><div style="display:flex;justify-content:space-between"><span>账号</span><b style="color:#1F2329">演示用户</b></div><div style="display:flex;justify-content:space-between"><span>在线机器人</span><b style="color:#1F2329">2 / 3</b></div><div style="display:flex;justify-content:space-between"><span>增值服务</span><span style="color:#2F80ED">充值 / 购买</span></div></div></div>'
+      + '<div class="rp-card" style="padding:11px 12px"><div style="font-size:11.5px;font-weight:600;margin-bottom:6px">成员动态</div>'
+      + '<div style="font-size:10px;color:#8A8F99;line-height:2.2"><div style="display:flex;gap:6px"><span style="color:#B0B6BF;flex-shrink:0">19 分钟前</span><span>张伟 编辑了「电商比价监控」</span></div><div style="display:flex;gap:6px"><span style="color:#B0B6BF;flex-shrink:0">42 分钟前</span><span>林悦 运行了「招聘信息采集」</span></div><div style="display:flex;gap:6px"><span style="color:#B0B6BF;flex-shrink:0">1 小时前</span><span>王芳 新建了「发票识别归档」</span></div></div></div>'
+      + '</div></div></div>';
+  }
+
+  function appsPage() {
+    const chips = ['全部','电商运营','财务','数据采集','办公'].map(function(c,i){ return '<span class="rp-badge ' + (i===0?'rp-b-in':'rp-b-pl') + '" style="height:22px;padding:0 11px">' + c + '</span>'; }).join(' ');
+    const rows = [['电商比价监控','#E64340','18','2 分钟前','电商运营'],['月度报表汇总','#7C5CFC','32','昨天','财务'],['招聘信息采集','#0E9384','24','3 天前','数据采集'],['发票识别归档','#DD6B20','12','上周五','财务'],['日报邮件群发','#C432A5','9','上周三','办公'],['ERP 库存同步','#1D7A45','41','2 周前','电商运营']];
+    return '<style>' + RP_CSS + '</style><div class="rp">' + topHTML('应用')
+      + '<div class="rp-main"><div style="flex:1;min-width:0;padding:13px 15px">'
+      + '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:11px"><div><div style="font-size:15px;font-weight:600">我的应用</div><div style="font-size:10px;color:#8A8F99;margin-top:3px">共 6 个应用 · 按最近编辑排序</div></div><div style="display:flex;gap:7px"><span class="rp-inp" style="width:130px"><i></i>搜索应用</span><span class="rp-btn pri">+ 新建应用</span></div></div>'
+      + '<div style="margin-bottom:10px">' + chips + '</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">' + rows.map(function(r){ return appHTML(r[0], r[1], r[2] + ' 个步骤 · ' + r[3], '应用流程说明文本占位,两行内截断显示', r[4]); }).join('') + '</div>'
+      + '</div></div></div>';
+  }
+
+  function editorPage() {
+    const step = function(n, color, name, sum, indent, dis) {
+      return '<div style="display:flex;align-items:center;gap:9px;min-height:44px;padding:6px 9px;border-radius:6px;' + (indent ? 'margin-left:26px;' : '') + (dis ? 'opacity:.55;' : '') + (n===5 ? 'background:#fff;box-shadow:0 0 0 2px #7C5CFC;' : '') + '">'
+        + '<span style="color:#B0B6BF;font-size:10.5px;width:13px;text-align:right;flex-shrink:0">' + n + '</span>'
+        + '<span style="width:24px;height:24px;border-radius:6px;background:' + color + '26;color:' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="width:8px;height:8px;border-radius:2px;background:currentColor"></span></span>'
+        + '<div style="flex:1;min-width:0"><div style="font-size:11.5px;font-weight:600">' + name + '</div><div style="font-size:10px;color:#8A8F99;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + sum + '</div></div></div>';
+    };
+    const marker = function(label, indent) {
+      return '<div style="display:flex;align-items:center;gap:7px;min-height:32px;padding:4px 9px 4px 11px;color:#8A8F99;font-size:10.5px;' + (indent ? 'margin-left:26px;' : '') + '"><span style="width:20px;height:20px;border-radius:5px;background:#EDEAFD;color:#7C5CFC;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="display:block;width:2px;height:9px;background:currentColor;border-radius:1px"></span></span>' + label + '</div>';
+    };
+    const libGroup = function(t, color, items) {
+      return '<div style="margin-bottom:7px"><div style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#51565D;padding:3px 2px"><span style="width:6px;height:6px;border-radius:2px;background:' + color + '"></span>' + t + '</div>' + items.map(function(i){ return '<div style="display:flex;align-items:center;gap:6px;height:22px;padding:0 6px;margin-left:8px;border-left:2px solid #E5E6EB;color:#51565D;font-size:10px"><span style="width:7px;height:7px;border-radius:2px;background:' + color + '"></span>' + i + '</div>'; }).join('') + '</div>';
+    };
+    const toolBtn = function(t, cls) { return '<span class="' + (cls ? 'rp-btn ' + cls : 'rp-btn') + '" style="height:23px;background:' + (cls ? undefined : '#F2F3F5') + ';border-color:' + (cls ? undefined : '#F2F3F5') + '">' + t + '</span>'; };
+    return '<style>' + RP_CSS + '</style><div class="rp">' + topHTML('编辑器')
+      + '<div style="display:flex;align-items:center;gap:7px;height:26px;background:linear-gradient(90deg,#F26B4E,#F2974E);color:#fff;font-size:10px;padding:0 12px;flex-shrink:0"><span>锐流 AI 指令全新上线,支持自然语言生成流程</span><span style="text-decoration:underline">立即体验</span></div>'
+      + '<div style="display:flex;align-items:center;gap:2px;height:30px;background:#F2F3F5;border-bottom:1px solid #E5E6EB;padding:0 8px;flex-shrink:0"><span style="display:flex;align-items:center;gap:6px;height:24px;padding:0 9px;background:#fff;border-radius:6px 6px 0 0;font-size:10.5px;font-weight:600">主流程 · 电商比价监控</span><span style="display:flex;align-items:center;height:24px;padding:0 9px;font-size:10.5px;color:#8A8F99">月度报表汇总</span><span style="color:#8A8F99;font-size:11px;padding:0 4px">+</span></div>'
+      + '<div style="display:flex;align-items:center;gap:4px;background:#fff;border-bottom:1px solid #E5E6EB;padding:4px 9px;flex-shrink:0">'
+      + '<span class="rp-btn" style="height:22px;width:24px;justify-content:center;background:#F2F3F5;border-color:#F2F3F5">↶</span><span class="rp-btn" style="height:22px;width:24px;justify-content:center;background:#F2F3F5;border-color:#F2F3F5">↷</span><span class="rp-btn" style="height:22px;background:#F2F3F5;border-color:#F2F3F5">保存</span>'
+      + '<span style="width:1px;height:14px;background:#E5E6EB;margin:0 4px"></span>'
+      + '<span class="rp-btn" style="height:22px;background:#F2F3F5;border-color:#F2F3F5">智能录制</span><span class="rp-btn" style="height:22px;background:#F2F3F5;border-color:#F2F3F5">数据抓取</span><span class="rp-btn" style="height:22px;background:#F2F3F5;border-color:#F2F3F5">浏览器</span>'
+      + '<span style="flex:1"></span>'
+      + '<span class="rp-btn" style="height:22px;background:#F2F3F5;border-color:#F2F3F5">调试</span><span class="rp-btn" style="height:22px;background:#FDECEC;border-color:#FDECEC;color:#E64340">停止</span><span class="rp-btn run" style="height:22px"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg> 运行</span>'
+      + '<span style="font-size:9.5px;color:#B0B6BF;margin-left:6px">已自动保存 · 刚刚</span></div>'
+      + '<div class="rp-main" style="align-items:stretch">'
+      + '<div style="width:172px;background:#fff;border-right:1px solid #E5E6EB;padding:8px 7px;flex-shrink:0"><span class="rp-inp" style="width:100%;height:22px;font-size:10px;margin-bottom:7px"><i></i>搜索指令</span>'
+      + libGroup('流程控制', '#7C5CFC', ['循环','条件分支','延时等待'])
+      + libGroup('网页自动化', '#0E9384', ['打开网页','点击元素','获取相似元素列表'])
+      + libGroup('Excel', '#1D7A45', ['打开 Excel','读取区域'])
+      + libGroup('系统', '#5D6B7E', ['输出日志','弹窗提示'])
+      + '</div>'
+      + '<div style="flex:1;min-width:0;padding:11px 13px;background:#F7F8FA;overflow:hidden"><div style="background:#F8F7FC;border:2px solid #7C5CFC;border-radius:8px;padding:7px 7px 4px">'
+      + step(1, '#0E9384', '打开网页', 'https://mall.example.com/search?q=无线耳机', 0)
+      + step(2, '#0E9384', '等待元素出现', '「商品列表容器」 · 最长 10s', 0)
+      + step(3, '#0E9384', '获取相似元素列表', '「商品卡片」列表 → <b style="color:#2F80ED;background:#E8F0FE;padding:0 2px;border-radius:2px;font-weight:500">priceList</b>', 0)
+      + step(4, '#7C5CFC', '循环', '遍历 <b style="color:#2F80ED;background:#E8F0FE;padding:0 2px;border-radius:2px;font-weight:500">priceList</b> · 当前项 item', 0)
+      + step(5, '#0E9384', '获取元素文本', '「商品价格」 → itemPrice', 1)
+      + step(6, '#7C5CFC', '条件分支', '若 itemPrice &lt; targetPrice', 1)
+      + step(7, '#5D6B7E', '输出日志', '发现低价商品,价格:{item.price}', 2)
+      + step(8, '#2F80ED', '发送邮件', '发送至 buyer@company.com', 2, 1)
+      + marker('分支结束', 1)
+      + marker('循环结束', 0)
+      + step(9, '#1D7A45', '写入区域', '写入 D:\\数据\\比价结果.xlsx A1', 0)
+      + step(10, '#5D6B7E', '弹窗提示', '本次比价已完成', 0)
+      + '<div style="display:flex;align-items:center;justify-content:center;gap:5px;height:30px;color:#8A8F99;font-size:10px">+ 点击搜索或选择常用指令添加到流程</div>'
+      + '</div></div>'
+      + '<div style="width:196px;background:#fff;border-left:1px solid #E5E6EB;flex-shrink:0;display:flex;flex-direction:column">'
+      + '<div style="display:flex;border-bottom:1px solid #E5E6EB"><span style="flex:1;text-align:center;padding:7px 0;font-size:10.5px;color:#7C5CFC;font-weight:600;border-bottom:2px solid #7C5CFC">AI 助手</span><span style="flex:1;text-align:center;padding:7px 0;font-size:10.5px;color:#8A8F99">参数</span><span style="flex:1;text-align:center;padding:7px 0;font-size:10.5px;color:#8A8F99">变量</span></div>'
+      + '<div style="flex:1;padding:9px 10px;display:flex;flex-direction:column;gap:7px">'
+      + '<div style="align-self:flex-start;max-width:92%;background:#F2F3F5;border-radius:10px;border-top-left-radius:4px;padding:7px 9px;font-size:9.5px;line-height:1.6;color:#51565D">你好,我是锐流 AI。可以帮你生成指令参数、解释报错、推荐方案。</div>'
+      + '<div style="align-self:flex-end;max-width:88%;background:linear-gradient(135deg,#7C5CFC,#A855F7);color:#fff;border-radius:10px;border-top-right-radius:4px;padding:7px 9px;font-size:9.5px;line-height:1.6">帮我监控商品价格,降价了发邮件提醒</div>'
+      + '<div style="align-self:flex-start;max-width:92%;background:#F2F3F5;border-radius:10px;border-top-left-radius:4px;padding:7px 9px;font-size:9.5px;line-height:1.6;color:#51565D">已生成 3 步骨架并应用到画布,可直接运行查看。<span style="display:inline-block;font-size:8.5px;color:#7C5CFC;background:#EDEAFD;border-radius:3px;padding:1px 4px;margin-top:4px">已应用 3 条指令</span></div>'
+      + '<div style="margin-top:auto;display:flex;gap:5px"><span class="rp-inp" style="flex:1;height:26px">输入问题…</span><span style="width:26px;height:26px;border-radius:6px;background:#7C5CFC;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3.5 3 10.8l6.8 2.4L12.2 20z"/></svg></span></div>'
+      + '</div></div>'
+      + '</div>'
+      + '<div style="background:#fff;border-top:1px solid #E5E6EB;height:88px;flex-shrink:0"><div style="display:flex;align-items:center;gap:3px;height:27px;padding:0 10px;border-bottom:1px solid #E5E6EB"><span style="height:18px;padding:0 8px;font-size:10px;background:#F2F3F5;border-radius:4px;font-weight:500;display:flex;align-items:center">运行日志</span><span style="height:18px;padding:0 8px;font-size:10px;color:#8A8F99;display:flex;align-items:center">输出</span><span style="height:18px;padding:0 8px;font-size:10px;color:#8A8F99;display:flex;align-items:center">警告 / 错误</span><span style="margin-left:auto;font-size:9.5px;color:#B0B6BF">清空 · 折叠</span></div>'
+      + '<div style="padding:6px 11px;font-family:Consolas,monospace;font-size:9.5px;line-height:1.85;color:#51565D">'
+      + '<div><span style="color:#B0B6BF">15:58:02</span> <span style="color:#8A8F99">[信息]</span> ── 流程「电商比价监控」开始运行 ──</div>'
+      + '<div><span style="color:#B0B6BF">15:58:03</span> <span style="color:#1DBF73">[成功]</span> 步骤 1 打开网页 · 页面加载完成</div>'
+      + '<div><span style="color:#B0B6BF">15:58:04</span> <span style="color:#8A8F99">[信息]</span> 捕获 36 个「商品卡片」 → priceList</div>'
+      + '</div></div>'
+      + '</div>';
+  }
+
+  function tasksPage() {
+    const row = function(t) {
+      return '<div class="rp-card" style="padding:11px 14px;display:flex;align-items:center;gap:11px;margin-bottom:8px"><div style="width:30px;height:30px;border-radius:50%;background:#E8F0FE;color:#2F80ED;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="display:block;width:11px;height:11px;border:2px solid currentColor;border-radius:50%"></span></div><div style="flex:1;min-width:0"><div style="font-size:11.5px;font-weight:600">' + t[0] + '</div><div style="font-size:9.5px;color:#8A8F99;margin-top:2px">' + t[1] + ' · ' + t[5] + ' · 最近:' + t[4] + '</div></div><div style="text-align:right;font-size:9px;color:#B0B6BF;line-height:1.6">' + t[3] + '<br><span class="rp-badge ' + t[6] + '" style="margin-top:2px">' + t[5] + '</span></div><span class="rp-sw' + (t[7] ? ' on' : '') + '"></span></div>';
+    };
+    const rows = [
+      ['每天 09:00 执行【电商比价监控】','电商比价监控','每天 09:00','下次:明天 09:00','成功 · 3.2 分钟','本机机器人','rp-b-ok',1],
+      ['每 30 分钟执行【招聘信息采集】','招聘信息采集','每 30 分钟','下次:今天 16:30','成功 · 48 秒','云端机器人 01','rp-b-ok',1],
+      ['每月 1 日 08:30 执行【月度报表汇总】','月度报表汇总','每月 1 日','下次:10 月 1 日','失败 · 元素未找到','本机机器人','rp-b-er',1],
+      ['每周五 18:00 执行【发票识别归档】','发票识别归档','每周五 18:00','下次:本周五 18:00','已暂停','本机机器人','rp-b-pl',0],
+    ];
+    return '<style>' + RP_CSS + '</style><div class="rp">' + topHTML('触发器')
+      + '<div class="rp-main"><div style="flex:1;min-width:0;padding:13px 15px">'
+      + '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:11px"><div><div style="font-size:15px;font-weight:600">触发器 · 计划任务</div><div style="font-size:10px;color:#8A8F99;margin-top:3px">按时间表自动触发应用,支持每日 / 每周 / 每月 / 高级频率</div></div><span class="rp-btn pri">+ 新建计划任务</span></div>'
+      + rows.map(row).join('')
+      + '<div style="display:flex;gap:7px;margin-top:10px;align-items:center"><span class="rp-badge rp-b-in">下一任务 16:30 · 招聘数据半小时采集</span><span style="font-size:9.5px;color:#B0B6BF">本周已执行 23 次,成功率 95.6%</span></div>'
+      + '</div></div></div>';
+  }
+
+  function robotsPage() {
+    const rob = function(name, sub, badge, cls, info, bg, fg) {
+      return '<div class="rp-card" style="padding:12px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px"><div class="rp-icblk" style="background:' + bg + ';color:' + fg + ';width:34px;height:34px"><span style="display:block;width:13px;height:9px;border:2px solid currentColor;border-radius:3px"></span></div><div style="flex:1;min-width:0"><div style="font-size:11.5px;font-weight:600">' + name + '</div><div style="font-size:9.5px;color:#B0B6BF;margin-top:2px">' + sub + '</div></div><span class="rp-badge ' + cls + '">' + badge + '</span></div><div style="font-size:10.5px;color:#8A8F99;line-height:1.6">' + info + '</div></div>';
+    };
+    return '<style>' + RP_CSS + '</style><div class="rp">' + topHTML('机器人')
+      + '<div class="rp-main"><div style="flex:1;min-width:0;padding:13px 15px">'
+      + '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:11px"><div><div style="font-size:15px;font-weight:600">机器人</div><div style="font-size:10px;color:#8A8F99;margin-top:3px">执行流程的运行载体,支持本机与云端调度</div></div><span class="rp-btn">刷新状态</span></div>'
+      + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px">'
+      + rob('本机机器人','PC-20260912BXNB · Windows','运行中','rp-b-ok','正在执行:电商比价监控 · 第 3 / 18 步','#E7F8F0','#0E9F5D')
+      + rob('云端机器人 01','云端节点 · 华东 2','空闲','rp-b-in','空闲 · 最近心跳 12 秒前','#E8F0FE','#2F80ED')
+      + rob('云端机器人 02','云端节点 · 华东 2','离线','rp-b-pl','离线 · 上次在线 09-18 14:22','#F2F3F5','#8A8F99')
+      + '</div>'
+      + '<div class="rp-sec">最近执行记录</div>'
+      + '<div class="rp-card" style="overflow:hidden"><table style="width:100%;border-collapse:collapse;font-size:10.5px"><thead><tr style="background:#F2F3F5;color:#8A8F99;text-align:left"><th style="padding:7px 12px;font-weight:500">时间</th><th style="padding:7px 12px;font-weight:500">应用</th><th style="padding:7px 12px;font-weight:500">触发方式</th><th style="padding:7px 12px;font-weight:500">结果</th><th style="padding:7px 12px;font-weight:500">耗时</th></tr></thead><tbody>'
+      + [['今天 15:58','电商比价监控','计划任务','成功','rp-b-ok','3 分 12 秒'],['今天 15:30','招聘信息采集','计划任务','成功','rp-b-ok','46 秒'],['今天 14:02','电商比价监控','手动运行','成功','rp-b-ok','3 分 05 秒'],['今天 09:00','月度报表汇总','计划任务','失败','rp-b-er','1 分 22 秒']]
+        .map(function(r){ return '<tr style="border-bottom:1px solid #F2F3F5"><td style="padding:7px 12px;color:#8A8F99;white-space:nowrap">' + r[0] + '</td><td style="padding:7px 12px;font-weight:500">' + r[1] + '</td><td style="padding:7px 12px;color:#51565D">' + r[2] + '</td><td style="padding:7px 12px"><span class="rp-badge ' + r[4] + '">' + r[3] + '</span></td><td style="padding:7px 12px;color:#8A8F99">' + r[5] + '</td></tr>'; }).join('')
+      + '</tbody></table></div>'
+      + '</div></div></div>';
+  }
+
+  function marketPage() {
+    const tpl = function(n, cat, desc, uses) {
+      return '<div class="rp-card" style="padding:11px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:5px"><div style="font-size:11.5px;font-weight:600">' + n + '</div><span class="rp-badge rp-b-pl">' + cat + '</span></div><div style="font-size:10px;color:#8A8F99;line-height:1.55;flex:1">' + desc + '</div><div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:9.5px;color:#B0B6BF">' + uses + ' 次安装</span><span class="rp-btn pri" style="height:20px;font-size:9.5px">使用模板</span></div></div>';
+    };
+    const chips = ['全部','电商','财务','办公','数据','AI'].map(function(c,i){ return '<span class="rp-badge ' + (i===0?'rp-b-in':'rp-b-pl') + '" style="height:22px;padding:0 11px">' + c + '</span>'; }).join(' ');
+    return '<style>' + RP_CSS + '</style><div class="rp">' + topHTML('市场')
+      + '<div class="rp-main"><div style="flex:1;min-width:0;padding:13px 15px">'
+      + '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:10px"><div><div style="font-size:15px;font-weight:600">市场</div><div style="font-size:10px;color:#8A8F99;margin-top:3px">安装社区模板,一键接入成熟自动化场景</div></div><span class="rp-inp" style="width:140px"><i></i>搜索模板</span></div>'
+      + '<div style="margin-bottom:10px">' + chips + '</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">'
+      + tpl('电商平台比价监控','电商','主流商城价格采集,降价自动通知','12.4 万')
+      + tpl('发票 OCR 识别归档','财务','增值税发票字段提取与台账登记','9.8 万')
+      + tpl('招聘信息定时采集','数据','多站点岗位抓取与去重入库','7.1 万')
+      + tpl('Excel 多表合并汇总','办公','指定目录下工作簿批量合并','21.6 万')
+      + tpl('邮件批量个性化群发','办公','通讯录分组 + 模板变量发送','15.3 万')
+      + tpl('大模型文案润色助手','AI','调用大模型批量改写商品文案','3.2 万')
+      + '</div></div></div></div>';
+  }
+
+  function initScene() {
+    addSection(40, '01 · 项目背景');
+
+    const t1 = addTitle(100, 92, '锐流 RPA · 自动化工作台', { fontSize: 52, fontWeight: 700 });
+    const d1 = addText(100, below(t1, 14), '参照影刀客户端真实界面规格(截图识图提取)重做的 V2 高保真原型:品牌红做导航与开关,编辑器紫色描边步骤区,绿色运行按钮,右侧 AI 助手,两行式步骤行与循环结束标记。', { fontSize: 15, maxWidth: 560 });
+
+    const tagsY = below(d1, 16);
+    const tag1 = addTag(100, tagsY, 'V2 · 对齐影刀视觉');
+    const tag2 = addTag(rightOf(tag1, 8), tagsY, '品牌红 #E64340', { color: '#E64340' });
+    const tag3 = addTag(rightOf(tag2, 8), tagsY, '编辑器紫 #7C5CFC', { color: '#7C5CFC' });
+    const tag4 = addTag(rightOf(tag3, 8), tagsY, '运行绿 #1DBF73', { color: '#1DBF73' });
+    addTag(rightOf(tag4, 8), tagsY, '顶部横向导航');
+
+    const flowY = below(tag1, 26);
+    const node = function(t, hot) { return '<span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:10px;border:1px solid ' + (hot ? 'rgba(124,92,252,0.55)' : 'var(--border)') + ';background:' + (hot ? 'var(--accent-dim)' : 'var(--surface)') + ';font-size:12.5px;color:' + (hot ? 'var(--text)' : 'var(--text-secondary)') + ';white-space:nowrap">' + t + '</span>'; };
+    const arrow = '<span style="color:var(--text-tertiary);font-size:14px;padding:0 2px">→</span>';
+    const flow = addDiagram(100, flowY, 1120, 76,
+      '<div style="display:flex;align-items:center;gap:8px;height:100%;overflow:hidden">'
+      + node('新建 / 选择应用', 1) + arrow + node('拖拽指令编排') + arrow + node('配置参数 · 变量') + arrow + node('运行 · 调试') + arrow + node('计划任务 / 机器人执行') + arrow + node('运行日志回看')
+      + '</div>');
+
+    const cardsY = below(flow, 28);
+    const c1 = addContextCard(100, cardsY, 330, null, '给谁用',
+      '<ul><li>电商运营、财务、HR 等业务人员</li><li>不写代码,用拖拽完成自动化</li><li>关注稳定执行与出错可追溯</li></ul>');
+    const c2 = addContextCard(450, cardsY, 330, null, '解决什么问题',
+      '<ul><li>网页采集、报表汇总等重复操作耗时易错</li><li>流程搭一次,计划任务定时执行</li><li>运行日志逐步留痕,失败可定位</li></ul>');
+    const c3 = addContextCard(800, cardsY, 360, null, '视觉对齐说明(V2)',
+      '<ul><li>按影刀客户端真实截图识图规格重做</li><li>顶部横向导航 + 品牌红下划线 / 胶囊按钮</li><li>编辑器紫色步骤区、绿色运行、AI 面板</li><li>品牌名与数据为占位,未使用影刀商标资产</li></ul>');
+
+    const notesY = maxY([c1, c2, c3], 26);
+    const n1 = addNote(100, notesY, '设计哲学', '高密度专业工具感:克制配色、宽松步骤行、状态色只表达运行结果;紫色仅用于编辑器强调。');
+    const n2 = addNote(rightOf(n1, 20), notesY, '交付物', 'V2 双文件:可交互原型(真实可点)+ 本画布;V1 已归档至 archive/。');
+
+    const r2 = maxY([c1, c2, c3, n1, n2], 90);
+    addSection(r2, '02 · 设计系统');
+    const dsY = r2 + 60;
+
+    const sw = function(name, hex) { return '<div class="swatch-item"><div class="swatch-circle" style="background:' + hex + '"></div><div class="swatch-name">' + name + '</div><div class="swatch-hex">' + hex + '</div></div>'; };
+    const colorCard = addDesignSystemCard(100, dsY, 470, null, 'custom', { title: '色板 · COLOR', html:
+      '<div class="swatch-row">'
+      + sw('品牌红', '#E64340') + sw('编辑器紫', '#7C5CFC') + sw('紫-亮', '#A855F7') + sw('紫-浅底', '#F1EDFF')
+      + sw('运行绿', '#1DBF73') + sw('链接蓝', '#2F80ED') + sw('公告橙', '#F26B4E')
+      + '</div><div class="swatch-row" style="margin-top:16px">'
+      + sw('主文本', '#1F2329') + sw('次文本', '#51565D') + sw('弱文本', '#8A8F99')
+      + sw('边框', '#E5E6EB') + sw('背景', '#F2F3F5') + sw('画布', '#F7F8FA')
+      + '</div><div style="margin-top:16px;font-size:11.5px;line-height:1.6;color:var(--text-secondary)">红色负责品牌与导航;紫色只出现在编辑器强调;绿色专属运行;蓝色用于链接与图表。</div>' });
+
+    const typeCard = addDesignSystemCard(590, dsY, 400, null, 'custom', { title: '字体排版 · TYPE', html:
+      '<div class="type-sample-row"><span class="type-sample-meta">H1 · 19px</span><span class="type-sample-text" style="font-size:19px;font-weight:600">下午好,演示用户</span></div>'
+      + '<div class="type-sample-row"><span class="type-sample-meta">H2 · 15px</span><span class="type-sample-text" style="font-size:15px;font-weight:600">流程编辑器</span></div>'
+      + '<div class="type-sample-row"><span class="type-sample-meta">Body · 13px</span><span class="type-sample-text" style="font-size:13px">步骤标题加粗,摘要 11.5px 灰色</span></div>'
+      + '<div class="type-sample-row"><span class="type-sample-meta">Var · 11.5px</span><span class="type-sample-text" style="font-size:11.5px">参数摘要中变量 <span style="background:#E8F0FE;color:#2F80ED;padding:0 3px;border-radius:3px">priceList</span> 浅蓝高亮</span></div>'
+      + '<div class="type-sample-row"><span class="type-sample-meta">Mono · 11px</span><span class="type-sample-text" style="font-family:var(--font-mono);font-size:11px">15:58:03 [成功] 流程运行完成</span></div>'
+      + '<div style="font-size:11.5px;color:var(--text-secondary);line-height:1.6">系统字体栈(PingFang SC / Microsoft YaHei);数字等宽。</div>' });
+
+    const compCard = addDesignSystemCard(1010, dsY, 430, null, 'custom', { title: '组件样例 · COMPONENTS', html:
+      '<div style="background:#fff;border-radius:10px;padding:16px;font-size:11px">'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><span class="rp-btn pri">新建应用</span><span class="rp-btn run">▶ 运行</span><span class="rp-btn">保存</span><span class="rp-pill" style="height:24px;font-size:10.5px">邀请同事</span></div>'
+      + '<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><span class="rp-badge rp-b-ok">成功</span><span class="rp-badge rp-b-er">失败</span><span class="rp-badge rp-b-in">每天 09:00</span><span class="rp-badge rp-b-pl">已暂停</span></div>'
+      + '<div style="display:flex;gap:14px;align-items:center;margin-bottom:12px"><span class="rp-sw on"></span><span class="rp-sw"></span><span style="color:#51565D">红色启用开关(影刀式)</span></div>'
+      + '<div style="display:flex;flex-direction:column;gap:4px">'
+      + '<div style="display:flex;align-items:center;gap:8px;min-height:40px;background:#F8F7FC;border-radius:6px;padding:5px 9px;font-size:10.5px"><span style="color:#B0B6BF;width:13px;text-align:right">5</span><span style="width:24px;height:24px;border-radius:6px;background:#0E938426;color:#0E9384;display:flex;align-items:center;justify-content:center"><span style="width:8px;height:8px;border-radius:2px;background:currentColor"></span></span><div><div style="font-weight:600;font-size:11px">获取元素文本</div><div style="color:#8A8F99;font-size:9.5px">「商品价格」 → <span style="background:#E8F0FE;color:#2F80ED;padding:0 2px;border-radius:2px">itemPrice</span></div></div></div>'
+      + '<div style="border:2px solid #7C5CFC;border-radius:8px;padding:2px"></div>'
+      + '<div style="display:flex;align-items:center;gap:7px;min-height:34px;padding:4px 9px;margin-left:22px;color:#8A8F99;font-size:10px"><span style="width:18px;height:18px;border-radius:5px;background:#EDEAFD;color:#7C5CFC;display:flex;align-items:center;justify-content:center"><span style="display:block;width:2px;height:8px;background:currentColor;border-radius:1px"></span></span>循环结束</div>'
+      + '</div></div>'
+      + '<div style="margin-top:14px;font-size:11.5px;line-height:1.6;color:var(--text-secondary)">步骤行两行式、行高宽松(约 52px);步骤区整体紫色圆角描边;循环/分支以"结束标记行"收口。</div>' });
+
+    const iconCard = addDesignSystemCard(1460, dsY, 300, null, 'custom', { title: '图标 · ICON', html:
+      '<div style="display:flex;gap:13px;flex-wrap:wrap">'
+      + ['首页','应用','编辑器','触发器','机器人','市场'].map(function(t, i) { return '<div style="width:60px;text-align:center"><div style="width:36px;height:36px;margin:0 auto 6px;border-radius:9px;background:#F2F3F5;color:#51565D;display:flex;align-items:center;justify-content:center"><span style="display:block;width:13px;height:13px;border:1.8px solid currentColor;border-radius:4px' + (i===2 ? ';border-color:#7C5CFC' : '') + '"></span></div><div style="font-size:10.5px;color:var(--text-secondary)">' + t + '</div></div>'; }).join('')
+      + '</div>'
+      + '<div style="margin-top:14px;font-size:11.5px;line-height:1.6;color:var(--text-secondary)">1.7px 描边线性 SVG 图标;导航为顶部横向文字 + 红色下划线,不使用左侧竖栏。</div>' });
+
+    const r3 = maxY([colorCard, typeCard, compCard, iconCard], 90);
+    addSection(r3, '03 · 界面设计稿 · 按操作链路排列');
+    const pagesY = r3 + 60;
+    const PW = 1000, PH = 625;
+
+    addPage(100, pagesY, PW, PH, { num: '01', text: '首页 · 工作台' }, homePage());
+    addPage(100 + PW + 70, pagesY, PW, PH, { num: '02', text: '我的应用' }, appsPage());
+    addPage(100 + (PW + 70) * 2, pagesY, 1280, 800, { num: '03', text: '流程编辑器(核心)' }, editorPage());
+    addPage(100 + (PW + 70) * 2 + 1280 + 70, pagesY, PW, PH, { num: '04', text: '触发器 · 计划任务' }, tasksPage());
+    addPage(100 + (PW + 70) * 2 + 1280 + 70 + PW + 70, pagesY, PW, PH, { num: '05', text: '机器人' }, robotsPage());
+    addPage(100 + (PW + 70) * 2 + 1280 + 70 + (PW + 70) * 2, pagesY, PW, PH, { num: '06', text: '市场' }, marketPage());
+
+    const jumpsY = pagesY + 800 + 46;
+    addText(100 + PW + 22, jumpsY, '导航「应用」查看全部', { fontSize: 12, color: 'var(--text-tertiary)' });
+    addText(100 + (PW + 70) + PW + 22, jumpsY, '点击应用卡「编辑」进入编辑器', { fontSize: 12, color: 'var(--text-tertiary)' });
+    addText(100 + (PW + 70) * 2 + 1280 + 22, jumpsY, '保存后到「触发器」建计划', { fontSize: 12, color: 'var(--text-tertiary)' });
+    addText(100 + (PW + 70) * 2 + 1280 + 70 + PW + 22, jumpsY, '任务由在线机器人执行', { fontSize: 12, color: 'var(--text-tertiary)' });
+    addText(100 + (PW + 70) * 2 + 1280 + 70 + (PW + 70) + PW + 22, jumpsY, '市场模板一键安装', { fontSize: 12, color: 'var(--text-tertiary)' });
+
+    addNote(100, jumpsY + 60, '页面链路', '01 → 02 → 03 为主链路;03 运行调试完成后 → 04 挂计划 / 05 看机器人执行;06 安装模板后回到 02。');
+    addNote(rightOf(addNote(460, jumpsY + 60, 'V2 差异', '相对 V1:顶部横向导航替代左侧竖栏;品牌红替代蓝;编辑器紫色步骤区 + 两行式步骤行 + 结束标记;新增 AI 助手面板与橙色公告条。'), 20), jumpsY + 60, '还原范围', '指令库点击/拖拽、参数即时生效、运行逐点亮 + 日志流、断点继续、红色开关、邀请胶囊均已实现。');
+  }
+
+  initScene();
+
+  const r = viewport.getBoundingClientRect();
+  panX = r.width * 0.035;
+  panY = r.height * 0.04;
+  updateTransform();
+})();
+</script>
+</body>
+</html>

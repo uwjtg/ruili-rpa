@@ -1,0 +1,160 @@
+/**
+ * 网页会话抽象（阶段 3 · 真实链路 POC）。
+ *
+ * 设计：
+ *  - `WebSession` 是一个薄接口，引擎指令依赖它而非直接依赖 playwright-core，
+ *    便于在 vitest 里注入假会话（不在 CI 里真起浏览器）。
+ *  - `RealWebSession` 用 playwright-core 的 `launchPersistentContext` 附加到
+ *    真实 Chrome/Edge（独立 userDataDir profile，见计划书 B4：独立 profile 启动，
+ *    目标站需重新登录）。channel 按 msedge → chrome → 系统默认 Chromium 回退。
+ *  - 模块级单例 `defaultSession`；POC 脚本与指令共用同一个浏览器实例。
+ */
+
+import { chromium, type BrowserContext, type Page } from 'playwright-core'
+import { existsSync, mkdirSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+/** 浏览器会话接口（指令只依赖此接口） */
+export interface WebSession {
+  /** 启动浏览器（幂等：已启动则直接返回） */
+  start(): Promise<void>
+  /** 打开 URL（新开一个标签页） */
+  goto(url: string): Promise<void>
+  /** 点击选择器 */
+  click(selector: string): Promise<void>
+  /** 在选择器处输入文本 */
+  fill(selector: string, value: string): Promise<void>
+  /** 读取选择器的可见文本 */
+  getText(selector: string): Promise<string>
+  /** 当前页标题 */
+  getTitle(): Promise<string>
+  /** 等待选择器可见（超时抛错；Playwright auto-waiting 之外的显式等待） */
+  waitFor(selector: string, timeoutMs: number): Promise<void>
+  /** 关闭浏览器 */
+  close(): Promise<void>
+  /** 是否已启动 */
+  isRunning(): boolean
+}
+
+export interface RealWebSessionOptions {
+  /** 浏览器 channel 覆盖；默认按 msedge→chrome→auto 自动探测 */
+  channel?: string
+  /** 独立 profile 目录；默认 <repo>/.runtime/web-profile */
+  userDataDir?: string
+  /** 是否有头（默认无头，CI/POC 稳定） */
+  headless?: boolean
+}
+
+const DEFAULT_PROFILE_DIR = resolve(process.cwd(), '.runtime', 'web-profile')
+
+export class RealWebSession implements WebSession {
+  private context: BrowserContext | null = null
+  private page: Page | null = null
+  private readonly channel?: string
+  private readonly userDataDir: string
+  private readonly headless: boolean
+
+  constructor(opts: RealWebSessionOptions = {}) {
+    this.channel = opts.channel
+    this.userDataDir = opts.userDataDir ?? DEFAULT_PROFILE_DIR
+    this.headless = opts.headless ?? true
+  }
+
+  isRunning(): boolean {
+    return this.context !== null
+  }
+
+  async start(): Promise<void> {
+    if (this.context) return
+    if (!existsSync(this.userDataDir)) mkdirSync(this.userDataDir, { recursive: true })
+
+    const channels = this.channel
+      ? [this.channel]
+      : (['msedge', 'chrome'] as const)
+
+    let lastErr: unknown = null
+    for (const ch of channels) {
+      try {
+        this.context = await chromium.launchPersistentContext(this.userDataDir, {
+          channel: ch,
+          headless: this.headless,
+          args: ['--no-first-run', '--no-default-browser-check']
+        })
+        this.page = this.context.pages()[0] ?? (await this.context.newPage())
+        return
+      } catch (e) {
+        lastErr = e
+      }
+    }
+    // 最后兜底：不带 channel（playwright-core 期望自带 chromium，没有则报错信息清晰）
+    try {
+      this.context = await chromium.launchPersistentContext(this.userDataDir, {
+        headless: this.headless,
+        args: ['--no-first-run', '--no-default-browser-check']
+      })
+      this.page = this.context.pages()[0] ?? (await this.context.newPage())
+      return
+    } catch (e) {
+      throw new Error(
+        `无法启动浏览器（已尝试 ${channels.join('/')} 及默认）：${
+          lastErr instanceof Error ? lastErr.message : String(lastErr)
+        }；最后一次错误：${e instanceof Error ? e.message : String(e)}`
+      )
+    }
+  }
+
+  private requirePage(): Page {
+    if (!this.page || !this.context) {
+      throw new Error('浏览器未启动，请先执行「打开浏览器」')
+    }
+    return this.page
+  }
+
+  async goto(url: string): Promise<void> {
+    await this.start()
+    await this.requirePage().goto(url, { waitUntil: 'domcontentloaded' })
+  }
+
+  async click(selector: string): Promise<void> {
+    await this.requirePage().click(selector)
+  }
+
+  async fill(selector: string, value: string): Promise<void> {
+    await this.requirePage().fill(selector, value)
+  }
+
+  async getText(selector: string): Promise<string> {
+    return (await this.requirePage().locator(selector).first().textContent()) ?? ''
+  }
+
+  async getTitle(): Promise<string> {
+    return await this.requirePage().title()
+  }
+
+  async waitFor(selector: string, timeoutMs: number): Promise<void> {
+    await this.requirePage()
+      .locator(selector)
+      .first()
+      .waitFor({ state: 'visible', timeout: timeoutMs })
+  }
+
+  async close(): Promise<void> {
+    if (this.context) {
+      await this.context.close().catch(() => undefined)
+    }
+    this.context = null
+    this.page = null
+  }
+}
+
+/** 模块级默认会话（POC 脚本与指令共用） */
+let defaultSession: WebSession = new RealWebSession()
+
+export function getWebSession(): WebSession {
+  return defaultSession
+}
+
+/** 测试注入假会话；生产/POC 不传参即用真实会话 */
+export function setWebSessionForTesting(session: WebSession): void {
+  defaultSession = session
+}

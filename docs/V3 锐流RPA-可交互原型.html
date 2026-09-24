@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>锐流 RPA · 自动化工作台</title>
+<script id="auto-designer-preview-contract" type="application/json">{"artifactRole":"prototype","authoringViewport":"desktop","deviceAdaptation":"responsive"}</script>
+<!--
+  V2 · 按影刀客户端真实截图识图规格重做:
+  品牌红 #E64340(logo/导航下划线/邀请/开关) · 编辑器紫 #7C5CFC→#A855F7(步骤区描边/AI气泡/选中态)
+  运行绿 #1DBF73 · 链接蓝 #2F80ED · 顶部横向导航 · 两行式步骤行(变量浅蓝高亮) · 循环结束标记行 · 右侧AI助手
+-->
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --red:#E64340; --red-hover:#CF3A37; --red-soft:#FDECEC;
+    --purple:#7C5CFC; --purple-2:#A855F7; --purple-soft:#F1EDFF; --purple-line:#C9B8FF;
+    --green:#1DBF73; --green-hover:#17A864;
+    --blue:#2F80ED; --blue-soft:#E8F0FE;
+    --orange:#F26B4E;
+    --bg:#F2F3F5; --canvas:#F7F8FA; --panel:#FFFFFF; --gray:#F2F3F5;
+    --border:#E5E6EB; --border-2:#D8DADD;
+    --text:#1F2329; --text-2:#51565D; --text-3:#8A8F99; --text-4:#B0B6BF;
+    --radius:6px; --radius-lg:8px;
+    --shadow-sm:0 1px 2px rgba(31,35,41,.05);
+    --shadow-md:0 4px 14px -2px rgba(31,35,41,.10),0 2px 4px -2px rgba(31,35,41,.06);
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"Cascadia Code","SF Mono",Consolas,monospace;
+  }
+  html,body{height:100%}
+  body{font-family:var(--font);font-size:13px;color:var(--text);background:#DDE1E6;overflow:hidden;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;font-size:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  input,select,textarea{font-family:inherit;font-size:13px;color:var(--text)}
+  svg{display:block;flex-shrink:0}
+  :focus-visible{outline:2px solid var(--purple);outline-offset:2px;border-radius:4px}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#D0D5DD;border-radius:4px}
+  ::-webkit-scrollbar-thumb:hover{background:#B8BEC9}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  .app{display:flex;flex-direction:column;width:100%;height:100vh;max-width:1760px;min-width:320px;margin:0 auto;background:var(--bg);box-shadow:0 0 0 1px var(--border)}
+
+  /* ===== 标题栏 + 顶部横向导航 ===== */
+  .titlebar{display:flex;align-items:center;height:44px;background:var(--panel);border-bottom:1px solid var(--border);padding:0 14px 0 12px;gap:8px;flex-shrink:0}
+  .logo{width:24px;height:24px;border-radius:50%;background:radial-gradient(circle at 32% 30%,#F26B5E,var(--red));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .tb-name{font-weight:600;font-size:13px}
+  .tb-ver{font-size:11px;color:var(--text-3);background:var(--gray);border-radius:99px;padding:2px 8px}
+  .tb-nav{display:flex;align-self:stretch;margin-left:14px}
+  .nav-item{position:relative;padding:0 15px;font-size:13px;color:var(--text-2);display:flex;align-items:center}
+  .nav-item:hover{color:var(--text)}
+  .nav-item.active{color:var(--text);font-weight:500}
+  .nav-item.active::after{content:'';position:absolute;left:50%;transform:translateX(-50%);bottom:0;width:26px;height:3px;background:var(--red);border-radius:2px}
+  .tb-right{margin-left:auto;display:flex;align-items:center;gap:4px}
+  .pill-red{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 14px;border-radius:16px;background:var(--red);color:#fff;font-size:12px;font-weight:500;margin-right:8px}
+  .pill-red:hover{background:var(--red-hover)}
+  .tb-btn{width:30px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--text-3);border-radius:4px;position:relative}
+  .tb-btn:hover{background:var(--gray);color:var(--text)}
+  .tb-btn .reddot{position:absolute;top:5px;right:6px;width:6px;height:6px;border-radius:50%;background:#FF4D4F;border:1px solid #fff}
+  .avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#8E7CFF,#7C5CFC);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;margin:0 6px}
+  .tb-sep{width:1px;height:18px;background:var(--border);margin:0 4px}
+  .tb-btn.close:hover{background:#E5484D;color:#fff}
+
+  .content{flex:1;min-width:0;overflow:hidden;position:relative}
+  .view{display:none;height:100%;overflow:auto;padding:20px 26px}
+  .view.active{display:block}
+  #view-editor.active{display:flex;flex-direction:column;padding:0;overflow:hidden}
+
+  /* ===== 通用控件 ===== */
+  .btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:var(--radius);border:1px solid var(--border-2);background:var(--panel);color:var(--text-2);font-size:13px;font-weight:500;transition:all .12s}
+  .btn:hover{background:var(--gray);color:var(--text)}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--red);border-color:var(--red);color:#fff}
+  .btn.primary:hover{background:var(--red-hover);border-color:var(--red-hover);color:#fff}
+  .btn.primary:disabled{background:#F0A6A4;border-color:#F0A6A4;cursor:not-allowed}
+  .btn.danger{color:var(--red);border-color:#F6C6C5;background:var(--panel)}
+  .btn.danger:hover{background:var(--red-soft)}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .btn.sm{height:26px;padding:0 10px;font-size:12px}
+  .iconbtn{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;color:var(--text-3)}
+  .iconbtn:hover{background:var(--gray);color:var(--text)}
+  .badge{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 8px;border-radius:99px;font-size:11px;font-weight:500}
+  .badge.success{background:#E7F8F0;color:#0E9F5D;border:1px solid #B8EBD2}
+  .badge.error{background:var(--red-soft);color:var(--red);border:1px solid #F6C6C5}
+  .badge.warning{background:#FFF4E6;color:#C46211;border:1px solid #FBD9AC}
+  .badge.info{background:var(--blue-soft);color:var(--blue);border:1px solid #C5DCF8}
+  .badge.plain{background:var(--gray);color:var(--text-3);border:1px solid var(--border)}
+  .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .input{height:30px;padding:0 10px;border:1px solid var(--border-2);border-radius:var(--radius);background:var(--panel);width:100%}
+  .input:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px var(--purple-soft)}
+  .input::placeholder{color:var(--text-4)}
+  .searchbox{position:relative;width:280px}
+  .searchbox svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-4);pointer-events:none}
+  .searchbox .input{padding-left:30px}
+  .page-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+  .page-title{font-size:18px;font-weight:600;letter-spacing:-.01em}
+  .page-sub{font-size:12px;color:var(--text-3)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{height:26px;padding:0 12px;border-radius:99px;border:1px solid var(--border-2);background:var(--panel);color:var(--text-3);font-size:12px;display:inline-flex;align-items:center}
+  .chip:hover{color:var(--text);border-color:var(--text-4)}
+  .chip.active{background:var(--purple-soft);border-color:var(--purple-line);color:var(--purple);font-weight:500}
+  .empty-hint{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:48px 20px;color:var(--text-3);font-size:13px;text-align:center}
+  .empty-hint .eh-icon{width:44px;height:44px;border-radius:12px;background:var(--gray);display:flex;align-items:center;justify-content:center;color:var(--text-3)}
+  .empty-hint b{color:var(--text-2);font-size:14px;font-weight:600}
+  .switch{position:relative;width:34px;height:19px;border-radius:99px;background:var(--border-2);transition:background .15s;flex-shrink:0;display:inline-block}
+  .switch::after{content:'';position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:var(--shadow-sm)}
+  .switch.on{background:var(--red)}
+  .switch.on::after{left:17px}
+
+  /* ===== 首页(企业空间式) ===== */
+  .subtabs{display:flex;gap:2px;background:transparent;border-bottom:1px solid var(--border);margin:-20px -26px 18px;padding:0 26px}
+  .subtab{height:40px;padding:0 4px;margin-right:22px;font-size:13px;color:var(--text-2);position:relative;display:flex;align-items:center}
+  .subtab.active{color:var(--text);font-weight:500}
+  .subtab.active::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--red);border-radius:2px}
+  .home-layout{display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start}
+  .quick-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  .quick-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:13px 14px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:all .12s}
+  .quick-card:hover{border-color:var(--purple-line);box-shadow:var(--shadow-md)}
+  .qc-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+  .qc-t{font-size:13px;font-weight:600}
+  .qc-s{font-size:11px;color:var(--text-3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .qc-arrow{margin-left:auto;color:var(--text-4)}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg)}
+  .panel-head{display:flex;align-items:center;padding:13px 16px 0;font-size:14px;font-weight:600}
+  .panel-head .more{margin-left:auto;display:flex;gap:6px}
+  .seg{height:22px;padding:0 10px;border-radius:4px;font-size:11px;color:var(--text-3)}
+  .seg.active{background:var(--gray);color:var(--text);font-weight:500}
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:13px 15px}
+  .stat .s-label{font-size:12px;color:var(--text-3)}
+  .stat .s-num{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:6px;letter-spacing:-.01em}
+  .stat .s-num small{font-size:12px;font-weight:500;color:var(--text-3);margin-left:3px}
+  .chart-wrap{padding:6px 16px 14px}
+  .member-row{display:flex;gap:10px;padding:9px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--text-2);align-items:center}
+  .member-row .mt{color:var(--text-4);font-size:11px;margin-left:auto;white-space:nowrap}
+  .kv-row{display:flex;justify-content:space-between;padding:9px 16px;border-top:1px solid var(--border);font-size:12px}
+  .kv-row .k{color:var(--text-3)}
+  .kv-row .v{color:var(--text);font-weight:500}
+  .kv-row .v.link{color:var(--blue);font-weight:400;cursor:pointer}
+  .kv-row .v.link:hover{text-decoration:underline}
+
+  .app-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+  .app-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;transition:all .12s}
+  .app-card:hover{border-color:var(--purple-line);box-shadow:var(--shadow-md)}
+  .ac-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .ac-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:600;flex-shrink:0}
+  .ac-name{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ac-meta{font-size:11px;color:var(--text-4);margin-top:2px}
+  .ac-desc{font-size:12px;color:var(--text-3);line-height:1.5;height:36px;overflow:hidden;margin-bottom:10px}
+  .ac-foot{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);padding-top:10px}
+  .ac-steps{font-size:11px;color:var(--text-4)}
+  .ac-actions{display:flex;gap:6px;opacity:0;transition:opacity .12s}
+  .app-card:hover .ac-actions{opacity:1}
+
+  /* ===== 编辑器 ===== */
+  .promo{display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#F26B4E,#F2974E);color:#fff;font-size:12px;padding:0 14px;height:32px;flex-shrink:0}
+  .promo .p-link{text-decoration:underline;font-weight:500;cursor:pointer}
+  .promo .p-x{margin-left:auto;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:4px;color:#fff}
+  .promo .p-x:hover{background:rgba(255,255,255,.2)}
+  .ed-tabs{display:flex;align-items:center;height:38px;background:var(--gray);border-bottom:1px solid var(--border);padding:0 8px;gap:2px;flex-shrink:0;overflow-x:auto}
+  .ed-tab{display:flex;align-items:center;gap:8px;height:30px;padding:0 10px 0 12px;border-radius:var(--radius) var(--radius) 0 0;font-size:12px;color:var(--text-3);white-space:nowrap}
+  .ed-tab:hover{color:var(--text)}
+  .ed-tab.active{background:var(--panel);color:var(--text);font-weight:500;box-shadow:0 -1px 0 var(--border) inset}
+  .ed-tab .x{width:16px;height:16px;display:flex;align-items:center;justify-content:center;border-radius:3px;color:var(--text-4)}
+  .ed-tab .x:hover{background:var(--red-soft);color:var(--red)}
+  .ed-toolbar{display:flex;align-items:center;gap:5px;background:var(--panel);border-bottom:1px solid var(--border);padding:6px 10px;flex-shrink:0;overflow-x:auto}
+  .tbtn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:var(--radius);background:var(--gray);color:var(--text-2);font-size:12px;white-space:nowrap}
+  .tbtn:hover{background:#E8EAEE;color:var(--text)}
+  .tbtn:disabled{opacity:.45;cursor:not-allowed}
+  .tbtn:disabled:hover{background:var(--gray);color:var(--text-2)}
+  .tbtn.run{background:var(--green);color:#fff;font-weight:500;padding:0 16px}
+  .tbtn.run:hover{background:var(--green-hover)}
+  .tbtn.run.running{background:#F0B37E;color:#7A4A0F}
+  .tbtn.stop{color:var(--red);background:var(--red-soft)}
+  .tbtn.stop:hover{background:#F9D7D6}
+  .tsep{width:1px;height:18px;background:var(--border);margin:0 6px;flex-shrink:0}
+  .save-state{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-4);white-space:nowrap;padding-right:4px}
+  .save-state.dirty{color:#C46211}
+  .only-compact{display:none}
+  .ed-main{flex:1;display:flex;min-height:0;position:relative}
+
+  /* 指令库 */
+  .ed-lib{width:224px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+  .lib-head{padding:10px 10px 8px}
+  .lib-title{font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:8px}
+  .lib-search{position:relative}
+  .lib-search svg{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--text-4);pointer-events:none}
+  .lib-search .input{height:28px;font-size:12px;padding-left:28px}
+  .lib-body{flex:1;overflow-y:auto;padding:6px 8px 14px}
+  .lib-group{margin-bottom:2px}
+  .lib-ghead{display:flex;align-items:center;gap:6px;width:100%;height:28px;padding:0 6px;border-radius:var(--radius);color:var(--text-2);font-size:12px;font-weight:500}
+  .lib-ghead:hover{background:var(--gray)}
+  .lib-ghead .cnt{margin-left:auto;font-size:10px;color:var(--text-4);font-variant-numeric:tabular-nums}
+  .lib-ghead .chev{transition:transform .15s;color:var(--text-4)}
+  .lib-group.closed .chev{transform:rotate(-90deg)}
+  .lib-group.closed .lib-items{display:none}
+  .lib-items{padding:2px 0 6px}
+  .cmd-item{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;margin-left:10px;border-radius:var(--radius);color:var(--text-2);cursor:grab}
+  .cmd-item:hover{background:var(--purple-soft);color:var(--purple)}
+  .cmd-item:active{cursor:grabbing}
+  .cmd-item .ci-name{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lib-empty{padding:20px 12px;text-align:center;color:var(--text-3);font-size:12px}
+
+  /* 画布:紫色描边步骤容器 */
+  .ed-canvas{flex:1;min-width:0;overflow-y:auto;background:var(--canvas)}
+  .flow-wrap{max-width:780px;margin:18px auto 40px;padding:0 16px}
+  .flow-box{background:#F8F7FC;border:2px solid var(--purple);border-radius:var(--radius-lg);padding:10px 10px 6px}
+  .step{position:relative;display:flex;align-items:center;gap:10px;min-height:52px;padding:7px 10px;border-radius:var(--radius);cursor:pointer;transition:background .1s,box-shadow .1s}
+  .step:hover{background:rgba(255,255,255,.75)}
+  .step.selected{background:var(--panel);box-shadow:0 0 0 2px var(--purple)}
+  .step.disabled{opacity:.5}
+  .step.disabled .st-summary{text-decoration:line-through}
+  .step.drop-above{box-shadow:0 -2px 0 0 var(--purple)}
+  .step.drop-below{box-shadow:0 2px 0 0 var(--purple)}
+  .step.indented{margin-left:30px}
+  .step.indented::before{content:'';position:absolute;left:-16px;top:-6px;bottom:-6px;border-left:2px solid var(--purple-line)}
+  .st-num{color:var(--text-4);font-size:12px;font-variant-numeric:tabular-nums;width:16px;text-align:right;flex-shrink:0}
+  .st-icon{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .st-main{flex:1;min-width:0}
+  .st-name{font-size:13px;font-weight:600;color:var(--text)}
+  .st-summary{font-size:11.5px;color:var(--text-3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .st-summary .varhl{background:var(--blue-soft);color:var(--blue);padding:0 3px;border-radius:3px;font-weight:500}
+  .st-actions{display:flex;gap:2px;opacity:0;transition:opacity .1s;flex-shrink:0}
+  .step:hover .st-actions,.step.selected .st-actions{opacity:1}
+  .st-act{width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:4px;color:var(--text-3)}
+  .st-act:hover{background:var(--gray);color:var(--text)}
+  .st-act.bp-on{color:var(--red)}
+  .st-act.dis-on{color:#C46211}
+  .st-bp{position:absolute;left:-7px;top:50%;transform:translateY(-50%);width:10px;height:10px;border-radius:50%;background:var(--red);border:2px solid #F8F7FC}
+  .step.running{background:var(--panel);box-shadow:0 0 0 2px var(--purple),0 0 0 6px var(--purple-soft)}
+  .step.finished .st-num{color:var(--green);font-weight:600}
+  .marker{display:flex;align-items:center;gap:8px;min-height:40px;padding:5px 10px 5px 12px;color:var(--text-3);font-size:12px;pointer-events:none}
+  .marker .mk-ic{width:24px;height:24px;border-radius:6px;background:#EDEAFD;color:var(--purple);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .marker.indented{margin-left:30px}
+  .marker.endmain{padding-left:12px}
+  .flow-add{display:flex;align-items:center;justify-content:center;gap:6px;height:38px;margin:2px 4px 4px;border-radius:var(--radius);color:var(--text-3);font-size:12px;cursor:pointer;border:1px dashed transparent}
+  .flow-add:hover{background:rgba(255,255,255,.75);color:var(--purple);border-color:var(--purple-line)}
+  .canvas-empty{max-width:520px;margin:80px auto;text-align:center}
+  .canvas-empty .ce-icon{width:56px;height:56px;border-radius:14px;background:var(--panel);border:2px solid var(--purple-line);display:flex;align-items:center;justify-content:center;color:var(--purple);margin:0 auto 14px}
+  .canvas-empty h3{font-size:15px;font-weight:600;margin-bottom:6px}
+  .canvas-empty p{font-size:12px;color:var(--text-3);line-height:1.6;margin-bottom:16px}
+
+  /* 右侧面板:AI / 参数 / 变量 */
+  .ed-props{width:272px;flex-shrink:0;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+  .props-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+  .ptab{flex:1;height:36px;font-size:12px;color:var(--text-3);border-bottom:2px solid transparent}
+  .ptab:hover{color:var(--text)}
+  .ptab.active{color:var(--purple);border-bottom-color:var(--purple);font-weight:500}
+  .props-body{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0}
+  /* AI 聊天 */
+  .ai-head{display:flex;align-items:center;gap:8px;padding:12px 14px 10px}
+  .ai-orb{width:26px;height:26px;border-radius:50%;background:conic-gradient(from 210deg,#7C5CFC,#A855F7,#F26B4E,#7C5CFC);display:flex;align-items:center;justify-content:center;color:#fff}
+  .ai-title{font-size:13px;font-weight:600}
+  .ai-sub{font-size:10.5px;color:var(--text-4);margin-top:1px}
+  .ai-chat{flex:1;overflow-y:auto;padding:4px 14px 12px;display:flex;flex-direction:column;gap:10px}
+  .bubble{max-width:88%;padding:9px 11px;border-radius:12px;font-size:12px;line-height:1.6;color:var(--text-2)}
+  .bubble.ai{background:var(--gray);border-top-left-radius:4px;align-self:flex-start}
+  .bubble.user{background:linear-gradient(135deg,var(--purple),var(--purple-2));color:#fff;border-top-right-radius:4px;align-self:flex-end}
+  .bubble .b-tag{display:inline-block;font-size:10px;color:var(--purple);background:var(--purple-soft);border-radius:4px;padding:1px 5px;margin-top:6px}
+  .ai-inputrow{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border)}
+  .ai-inputrow .input{height:32px;font-size:12px}
+  .ai-send{width:32px;height:32px;border-radius:var(--radius);background:var(--purple);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .ai-send:hover{background:var(--purple-2)}
+  /* 参数 / 变量 */
+  .prop-scroll{flex:1;overflow-y:auto;padding:14px}
+  .prop-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:40px 10px;color:var(--text-3);font-size:12px;text-align:center}
+  .prop-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:2px}
+  .prop-group{font-size:11px;color:var(--text-4);margin:10px 0 14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:5px;font-weight:500}
+  .field .input,.field select{height:30px}
+  .field select{width:100%;height:30px;padding:0 8px;border:1px solid var(--border-2);border-radius:var(--radius);background:var(--panel)}
+  .var-table{width:100%;border-collapse:collapse;font-size:12px}
+  .var-table th{text-align:left;font-weight:500;color:var(--text-3);font-size:11px;padding:4px 6px;border-bottom:1px solid var(--border)}
+  .var-table td{padding:5px 4px;border-bottom:1px solid var(--border);vertical-align:middle}
+  .var-table .input{height:26px;font-size:12px;padding:0 7px}
+  .var-table select{height:26px;font-size:12px;border:1px solid var(--border-2);border-radius:4px;background:var(--panel);padding:0 4px}
+
+  /* 日志 */
+  .ed-log{flex-shrink:0;background:var(--panel);border-top:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+  .ed-log.collapsed .log-body{display:none}
+  .log-head{display:flex;align-items:center;gap:2px;height:34px;padding:0 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+  .log-tab{height:22px;padding:0 10px;font-size:12px;color:var(--text-3);border-radius:4px}
+  .log-tab:hover{color:var(--text)}
+  .log-tab.active{background:var(--gray);color:var(--text);font-weight:500}
+  .log-tools{margin-left:auto;display:flex;align-items:center;gap:2px}
+  .log-body{overflow-y:auto;padding:8px 12px;font-family:var(--mono);font-size:12px;line-height:1.8;min-height:0;max-height:170px}
+  .log-line{display:flex;gap:10px;white-space:pre-wrap;word-break:break-all}
+  .log-time{color:var(--text-4);flex-shrink:0;font-variant-numeric:tabular-nums}
+  .log-lv{flex-shrink:0;font-weight:600}
+  .log-lv.info{color:var(--text-3)}
+  .log-lv.success{color:var(--green)}
+  .log-lv.warning{color:#C46211}
+  .log-lv.error{color:var(--red)}
+  .log-msg{color:var(--text-2)}
+  .log-empty{color:var(--text-4);padding:14px 0;text-align:center;font-family:var(--font)}
+
+  /* ===== 任务卡 / 机器人 / 市场 / 教程 ===== */
+  .task-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:13px 16px;display:flex;align-items:center;gap:13px;margin-bottom:10px;transition:border-color .12s}
+  .task-card:hover{border-color:var(--purple-line)}
+  .task-card.off{opacity:.62}
+  .task-ic{width:36px;height:36px;border-radius:50%;background:var(--blue-soft);color:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .task-t{font-size:13.5px;font-weight:600}
+  .task-s{font-size:11.5px;color:var(--text-3);margin-top:3px}
+  .task-side{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .task-meta{font-size:11px;color:var(--text-4);text-align:right;line-height:1.6}
+  .robot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px}
+  .robot-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+  .robot-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .robot-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .robot-name{font-size:14px;font-weight:600}
+  .robot-sub{font-size:11px;color:var(--text-4);margin-top:2px}
+  .robot-stat{font-size:12px;color:var(--text-3);line-height:1.7}
+  .mkt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .mkt-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;display:flex;flex-direction:column;gap:10px}
+  .mkt-card:hover{border-color:var(--purple-line);box-shadow:var(--shadow-md)}
+  .mkt-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .mkt-name{font-size:14px;font-weight:600}
+  .mkt-desc{font-size:12px;color:var(--text-3);line-height:1.6;flex:1}
+  .mkt-foot{display:flex;align-items:center;justify-content:space-between}
+  .mkt-uses{font-size:11px;color:var(--text-4)}
+  .edu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+  .edu-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+  .edu-cover{height:96px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:26px;font-weight:700;letter-spacing:.1em}
+  .edu-body{padding:13px 14px}
+  .edu-name{font-size:13.5px;font-weight:600}
+  .edu-desc{font-size:11.5px;color:var(--text-3);margin-top:4px;line-height:1.5;height:34px;overflow:hidden}
+  .edu-foot{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+  .edu-uses{font-size:11px;color:var(--text-4)}
+
+  .table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+  .table th{text-align:left;font-size:12px;font-weight:500;color:var(--text-3);padding:10px 14px;background:var(--gray);border-bottom:1px solid var(--border);white-space:nowrap}
+  .table td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+  .table tr:last-child td{border-bottom:none}
+  .table tr:hover td{background:var(--canvas)}
+
+  /* ===== 模态 / 提示 ===== */
+  .modal-mask{position:fixed;inset:0;background:rgba(31,35,41,.45);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+  .modal-mask.open{display:flex}
+  .modal{width:420px;max-width:100%;background:var(--panel);border-radius:10px;box-shadow:0 20px 60px rgba(31,35,41,.25);padding:22px}
+  .modal h3{font-size:16px;font-weight:600;margin-bottom:4px}
+  .modal .m-sub{font-size:12px;color:var(--text-3);margin-bottom:16px}
+  .m-label{font-size:12px;font-weight:500;color:var(--text-2);margin:14px 0 6px}
+  .color-row{display:flex;gap:8px}
+  .color-dot{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent}
+  .color-dot.sel{border-color:var(--text);box-shadow:0 0 0 2px var(--panel) inset}
+  .m-err{font-size:11px;color:var(--red);margin-top:5px;display:none}
+  .m-err.show{display:block}
+  .m-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+  #toastRoot{position:fixed;top:56px;right:18px;z-index:80;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+  .toast{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);padding:10px 14px;font-size:13px;color:var(--text-2);animation:toastIn .18s ease;max-width:340px}
+  .toast.success{border-color:#B8EBD2}
+  .toast.error{border-color:#F6C6C5}
+  @keyframes toastIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+  .toast.out{opacity:0;transform:translateX(12px);transition:all .2s ease}
+  .scrim{position:absolute;inset:0;background:rgba(31,35,41,.35);z-index:30;display:none}
+  .scrim.show{display:block}
+
+  @media (max-width:1280px){
+    .home-layout{grid-template-columns:1fr}
+    .quick-row{grid-template-columns:repeat(2,1fr)}
+    .ed-lib{width:200px}.ed-props{width:246px}
+  }
+  @media (max-width:1023px){
+    .only-compact{display:inline-flex}
+    .tb-nav .nav-item{padding:0 9px}
+    .ed-lib{position:absolute;left:0;top:0;bottom:0;z-index:40;transform:translateX(-100%);transition:transform .2s ease;box-shadow:var(--shadow-md)}
+    .ed-lib.open{transform:none}
+    .ed-props{position:absolute;right:0;top:0;bottom:0;z-index:40;transform:translateX(100%);transition:transform .2s ease;box-shadow:var(--shadow-md)}
+    .ed-props.open{transform:none}
+  }
+  @media (max-width:767px){
+    .tb-nav .nav-item span{display:none}
+    .tb-nav .nav-item{width:34px;justify-content:center;padding:0}
+    .pill-red span{display:none}
+    .pill-red{width:32px;justify-content:center;padding:0}
+    .view{padding:14px}
+    .stat-row,.quick-row{grid-template-columns:repeat(2,1fr)}
+    .home-hero-flex{flex-direction:column;align-items:flex-start}
+    .searchbox{width:100%}
+    .tb-ver{display:none}
+    .ed-props,.ed-lib{width:min(86vw,300px)}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="titlebar">
+    <div class="logo" aria-hidden="true">锐</div>
+    <span class="tb-name">锐流RPA</span>
+    <span class="tb-ver">社区版 5.2.1</span>
+    <nav class="tb-nav" aria-label="主导航">
+      <button class="nav-item active" data-view="home"><span>首页</span></button>
+      <button class="nav-item" data-view="apps"><span>应用</span></button>
+      <button class="nav-item" data-view="editor"><span>编辑器</span></button>
+      <button class="nav-item" data-view="tasks"><span>触发器</span></button>
+      <button class="nav-item" data-view="robots"><span>机器人</span></button>
+      <button class="nav-item" data-view="market"><span>市场</span></button>
+      <button class="nav-item" data-view="edu"><span>教程</span></button>
+    </nav>
+    <div class="tb-right">
+      <button class="pill-red" data-toast="邀请同事为演示占位"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="3.5"/><path d="M19 8v6M22 11h-6"/></svg><span>邀请同事</span></button>
+      <button class="tb-btn" data-toast="增值服务为演示占位" aria-label="增值服务"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8" width="17" height="12" rx="2"/><path d="M3.5 12h17M12 8v12M8 8c-2 0-3-1.2-3-2.5S6.2 3 7.5 3C9.5 3 12 8 12 8s2.5-5 4.5-5C17.8 3 19 4.2 19 5.5S18 8 16 8"/></svg></button>
+      <button class="tb-btn" data-toast="帮助中心为演示占位" aria-label="帮助"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M9.8 9.5a2.3 2.3 0 1 1 3 2.2c-.6.3-.8.7-.8 1.3v.4"/><circle cx="12" cy="16.6" r=".4" fill="currentColor"/></svg></button>
+      <button class="tb-btn" data-toast="暂无新通知" aria-label="通知"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6.5 2 6.5H4S6 14 6 9z"/><path d="M10 19a2.2 2.2 0 0 0 4 0"/></svg><span class="reddot"></span></button>
+      <div class="avatar" data-toast="账号菜单为演示占位" title="演示账号">演</div>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" data-win="最小化" aria-label="最小化"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+      <button class="tb-btn" data-win="最大化" aria-label="最大化"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="1.5"/></svg></button>
+      <button class="tb-btn close" data-win="关闭" aria-label="关闭"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+  </header>
+
+  <main class="content" id="content">
+
+    <!-- 首页 -->
+    <section class="view active" id="view-home" aria-label="首页">
+      <div class="subtabs">
+        <button class="subtab active">首页</button>
+        <button class="subtab" id="subtabApps">应用管理</button>
+      </div>
+      <div class="home-layout">
+        <div>
+          <div class="quick-row" id="quickRow"></div>
+          <div class="stat-row">
+            <div class="stat"><div class="s-label">我的应用</div><div class="s-num" id="statApps">6<small>个</small></div></div>
+            <div class="stat"><div class="s-label">累计运行时长</div><div class="s-num">368<small>小时</small></div></div>
+            <div class="stat"><div class="s-label">运行次数</div><div class="s-num" id="statRuns2">1,284<small>次</small></div></div>
+            <div class="stat"><div class="s-label">已节省人力</div><div class="s-num">46<small>天</small></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">应用累计运行时长
+              <span class="more"><button class="seg active">近一周</button><button class="seg">近一月</button><button class="seg">近一年</button></span>
+            </div>
+            <div class="chart-wrap">
+              <svg width="100%" height="150" viewBox="0 0 640 150" preserveAspectRatio="none" role="img" aria-label="应用累计运行时长折线图">
+                <defs><linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2F80ED" stop-opacity=".28"/><stop offset="1" stop-color="#2F80ED" stop-opacity="0"/></linearGradient></defs>
+                <g stroke="#EEF0F3"><line x1="0" y1="30" x2="640" y2="30"/><line x1="0" y1="70" x2="640" y2="70"/><line x1="0" y1="110" x2="640" y2="110"/></g>
+                <path d="M20 128 L120 118 L220 100 L320 88 L420 60 L520 38 L620 20 L620 150 L20 150 Z" fill="url(#chartFill)"/>
+                <path d="M20 128 L120 118 L220 100 L320 88 L420 60 L520 38 L620 20" fill="none" stroke="#2F80ED" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="620" cy="20" r="4" fill="#2F80ED" stroke="#fff" stroke-width="2"/>
+              </svg>
+              <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-4);padding:2px 4px 0"><span>09-16</span><span>09-17</span><span>09-18</span><span>09-19</span><span>09-20</span><span>09-21</span><span>09-22</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="panel">
+            <div class="panel-head">企业概览</div>
+            <div style="height:8px"></div>
+            <div class="kv-row" style="border-top:none"><span class="k">版本</span><span class="v">社区版 · 5.2.1</span></div>
+            <div class="kv-row"><span class="k">账号</span><span class="v">演示用户</span></div>
+            <div class="kv-row"><span class="k">在线机器人</span><span class="v">2 / 3</span></div>
+            <div class="kv-row"><span class="k">增值服务余额</span><span class="v link" data-toast="增值服务为演示占位">充值 / 购买</span></div>
+            <div class="kv-row"><span class="k">专属顾问</span><span class="v link" data-toast="演示环境未接入顾问">联系专属顾问</span></div>
+            <div style="height:10px"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">成员动态</div>
+            <div style="height:6px"></div>
+            <div id="memberList"></div>
+            <div style="height:6px"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 应用 -->
+    <section class="view" id="view-apps" aria-label="应用">
+      <div class="page-head">
+        <div><div class="page-title">我的应用</div><div class="page-sub" id="appsCount"></div></div>
+        <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+          <div class="searchbox" style="width:220px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.8-3.8"/></svg><input class="input" id="appSearch" placeholder="搜索应用" aria-label="搜索应用"></div>
+          <button class="btn primary" id="btnNewApp"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>新建应用</button>
+        </div>
+      </div>
+      <div class="chips" id="appChips" style="margin-bottom:16px"></div>
+      <div class="app-grid" id="appGrid"></div>
+    </section>
+
+    <!-- 编辑器 -->
+    <section class="view" id="view-editor" aria-label="流程编辑器">
+      <div class="promo" id="promoBar"><span>锐流 AI 指令全新上线,支持自然语言生成流程</span><span class="p-link" data-toast="AI 指令为演示占位">立即体验</span><button class="p-x" id="promoClose" aria-label="关闭公告"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div class="ed-tabs" id="edTabs"></div>
+      <div class="ed-toolbar">
+        <button class="tbtn" id="btnUndo" title="撤销" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5 3 10l5 5"/><path d="M3 10h11a6 6 0 0 1 6 6v1"/></svg></button>
+        <button class="tbtn" id="btnRedo" title="重做" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m16 5 5 5-5 5"/><path d="M21 10H10a6 6 0 0 0-6 6v1"/></svg></button>
+        <button class="tbtn" id="btnSave" title="保存"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg></button>
+        <div class="tsep"></div>
+        <button class="tbtn" data-toast="智能录制为演示占位"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l7 17 2.2-6.8L21 11z"/></svg>智能录制</button>
+        <button class="tbtn" data-toast="数据抓取为演示占位"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9h17M8 9v10"/></svg>数据抓取</button>
+        <button class="tbtn" data-toast="浏览器工具为演示占位"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M3.8 12h16.4M12 3.8c2.6 2.2 3.9 5 3.9 8.2s-1.3 6-3.9 8.2c-2.6-2.2-3.9-5-3.9-8.2s1.3-6 3.9-8.2z"/></svg>浏览器</button>
+        <button class="tbtn only-compact" id="btnLibDrawer" title="指令库"><span>指令库</span></button>
+        <div class="tsep"></div>
+        <button class="tbtn" id="btnVars">变量</button>
+        <button class="tbtn" id="btnElements">元素库</button>
+        <button class="tbtn" data-toast="全局设置为演示占位">设置</button>
+        <button class="tbtn only-compact" id="btnPropsDrawer" title="面板"><span>面板</span></button>
+        <span style="flex:1"></span>
+        <button class="tbtn" id="btnDebug">调试</button>
+        <button class="tbtn stop" id="btnStop" disabled><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>停止</button>
+        <button class="tbtn run" id="btnRun"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg><span id="btnRunLabel">运行</span></button>
+        <span class="save-state" id="saveState">已自动保存 · 刚刚</span>
+      </div>
+      <div class="ed-main">
+        <div class="scrim" id="drawerScrim"></div>
+        <aside class="ed-lib" id="edLib" aria-label="指令库">
+          <div class="lib-head">
+            <div class="lib-title">指令库</div>
+            <div class="lib-search"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.8-3.8"/></svg><input class="input" id="libSearch" placeholder="搜索指令" aria-label="搜索指令"></div>
+          </div>
+          <div class="lib-body" id="libBody"></div>
+        </aside>
+        <div class="ed-canvas" id="edCanvas">
+          <div class="flow-wrap"><div class="flow-box" id="flowBox"></div></div>
+        </div>
+        <aside class="ed-props" id="edProps" aria-label="助手与参数面板">
+          <div class="props-tabs">
+            <button class="ptab active" data-ptab="ai">AI 助手</button>
+            <button class="ptab" data-ptab="prop">参数</button>
+            <button class="ptab" data-ptab="var">变量</button>
+          </div>
+          <div class="props-body" id="aiBody">
+            <div class="ai-head"><div class="ai-orb"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg></div><div><div class="ai-title">锐流 AI</div><div class="ai-sub">流程搭建 · 报错修复 · 指令推荐</div></div></div>
+            <div class="ai-chat" id="aiChat">
+              <div class="bubble ai">你好,我是锐流 AI。可以帮你:生成指令参数、解释报错原因、推荐自动化方案。试试问我「怎么获取表格行数」。</div>
+              <div class="bubble user">帮我监控商品价格,降价了发邮件提醒</div>
+              <div class="bubble ai">已生成 3 步骨架:打开网页 → 获取相似元素列表 → 循环判断价格并发送邮件。已应用到画布「电商比价监控」,你可以直接运行查看。<span class="b-tag">已应用 3 条指令</span></div>
+            </div>
+            <div class="ai-inputrow"><input class="input" id="aiInput" placeholder="输入问题,例如:怎么提取表格数据" aria-label="AI 输入"><button class="ai-send" id="aiSend" aria-label="发送"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3.5 3 10.8l6.8 2.4L12.2 20z"/></svg></button></div>
+          </div>
+          <div class="props-body" id="propBody" style="display:none"></div>
+          <div class="props-body" id="varBody" style="display:none"></div>
+        </aside>
+      </div>
+      <div class="ed-log" id="edLog">
+        <div class="log-head">
+          <button class="log-tab active" data-ltab="all">运行日志</button>
+          <button class="log-tab" data-ltab="info">输出</button>
+          <button class="log-tab" data-ltab="warn">警告 / 错误</button>
+          <div class="log-tools">
+            <button class="iconbtn" id="btnClearLog" title="清空日志" aria-label="清空日志"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg></button>
+            <button class="iconbtn" id="btnCollapseLog" title="折叠日志" aria-label="折叠日志"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 6-6 6 6"/></svg></button>
+          </div>
+        </div>
+        <div class="log-body" id="logBody"></div>
+      </div>
+    </section>
+
+    <!-- 触发器 -->
+    <section class="view" id="view-tasks" aria-label="触发器">
+      <div class="page-head">
+        <div><div class="page-title">触发器 · 计划任务</div><div class="page-sub">按时间表自动触发应用,支持每日 / 每周 / 每月 / 高级频率</div></div>
+        <button class="btn primary" style="margin-left:auto" data-toast="新建计划任务为演示占位"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>新建计划任务</button>
+      </div>
+      <div id="taskList"></div>
+    </section>
+
+    <!-- 机器人 -->
+    <section class="view" id="view-robots" aria-label="机器人">
+      <div class="page-head">
+        <div><div class="page-title">机器人</div><div class="page-sub">执行流程的运行载体,支持本机与云端调度</div></div>
+        <button class="btn" style="margin-left:auto" id="btnRefreshRobots">刷新状态</button>
+      </div>
+      <div class="robot-grid" id="robotGrid"></div>
+      <div class="page-sub" style="font-weight:600;color:var(--text-2);font-size:13px;margin-bottom:10px">最近执行记录</div>
+      <div id="robotRecords"></div>
+    </section>
+
+    <!-- 市场 -->
+    <section class="view" id="view-market" aria-label="市场">
+      <div class="page-head">
+        <div><div class="page-title">市场</div><div class="page-sub">安装社区模板,一键接入成熟自动化场景</div></div>
+        <div class="searchbox" style="margin-left:auto;width:220px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.8-3.8"/></svg><input class="input" id="marketSearch" placeholder="搜索模板" aria-label="搜索模板"></div>
+      </div>
+      <div class="chips" id="marketChips" style="margin-bottom:16px"></div>
+      <div class="mkt-grid" id="marketGrid"></div>
+    </section>
+
+    <!-- 教程 -->
+    <section class="view" id="view-edu" aria-label="教程">
+      <div class="page-head">
+        <div><div class="page-title">教程 · 锐流学院</div><div class="page-sub">从入门到高阶,闯关式掌握流程自动化</div></div>
+      </div>
+      <div class="edu-grid" id="eduGrid"></div>
+    </section>
+
+  </main>
+</div>
+
+<div class="modal-mask" id="modalMask" role="dialog" aria-modal="true" aria-label="新建应用">
+  <div class="modal">
+    <h3>新建应用</h3>
+    <div class="m-sub">创建后进入流程编辑器,从左侧指令库拖拽指令搭建流程</div>
+    <div class="m-label">应用名称</div>
+    <input class="input" id="appNameInput" placeholder="例如:订单日报自动汇总" maxlength="20" aria-describedby="appNameError">
+    <div class="m-err" id="appNameError" role="alert">请输入应用名称</div>
+    <div class="m-label">图标颜色</div>
+    <div class="color-row" id="colorRow"></div>
+    <div class="m-foot">
+      <button class="btn" id="btnModalCancel">取消</button>
+      <button class="btn primary" id="btnModalCreate">创建应用</button>
+    </div>
+  </div>
+</div>
+<div id="toastRoot" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const escapeHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function icon(name, size, sw){
+  sw = sw || 1.7;
+  const P = {
+    loop:'<path d="M17 3l3 3-3 3"/><path d="M20 6H8a4 4 0 0 0-4 4v1"/><path d="M7 21l-3-3 3-3"/><path d="M4 18h12a4 4 0 0 0 4-4v-1"/>',
+    branch:'<circle cx="6" cy="5" r="2.2"/><circle cx="6" cy="19" r="2.2"/><circle cx="18" cy="12" r="2.2"/><path d="M8.2 5H12a3 3 0 0 1 3 3v1M8.2 19H12a3 3 0 0 0 3-3v-1"/>',
+    clock:'<circle cx="12" cy="12" r="8.2"/><path d="M12 7.5V12l3 2"/>',
+    skip:'<path d="M5 5v14"/><path d="M13 7l5 5-5 5"/><path d="M18 12H9"/>',
+    call:'<path d="M4 12h8"/><path d="m9 8 4 4-4 4"/><rect x="14" y="6" width="6" height="12" rx="1.5"/>',
+    globe:'<circle cx="12" cy="12" r="8.2"/><path d="M3.8 12h16.4M12 3.8c2.6 2.2 3.9 5 3.9 8.2s-1.3 6-3.9 8.2c-2.6-2.2-3.9-5-3.9-8.2s1.3-6 3.9-8.2z"/>',
+    cursor:'<path d="M5 3l7 17 2.2-6.8L21 11z"/>',
+    keyboard:'<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 11h.01M11 11h.01M15 11h.01M7 14h10"/>',
+    text:'<path d="M5 6h14M9 6v13h6V6"/>',
+    list:'<path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none"/>',
+    table:'<rect x="3.5" y="4" width="17" height="16" rx="1.5"/><path d="M3.5 9.5h17M9 9.5V20M15 9.5V20"/>',
+    mouse:'<rect x="8" y="3.5" width="8" height="17" rx="4"/><path d="M12 7v3.5"/>',
+    file:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
+    folder:'<path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+    equals:'<path d="M5 9h14M5 15h14"/>',
+    regex:'<path d="M6 4 18 20"/><path d="M9.5 4.5A2.5 2.5 0 1 1 7 2"/><path d="M17 21.5A2.5 2.5 0 1 1 19.5 24"/>',
+    cloud:'<path d="M7 18a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 8.5 4.2 4.2 0 0 1 16.8 17z"/>',
+    mail:'<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="m4.5 7.5 7.5 6 7.5-6"/>',
+    terminal:'<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="m7 10 2.5 2.5L7 15M12.5 15H17"/>',
+    dialog:'<rect x="3.5" y="5" width="17" height="12" rx="2"/><path d="M8 21l2.5-4M12 11h.01"/>',
+    window:'<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9h17M6.5 6.7h.01M9 6.7h.01"/>',
+    camera:'<path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.5-2.5h5L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.2"/>',
+    scan:'<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M4 12h16"/>',
+    doc:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',
+    chip:'<rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/>',
+    grip:'<circle cx="9" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.2" fill="currentColor" stroke="none"/>',
+    bp:'<circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
+    disable:'<circle cx="12" cy="12" r="8.2"/><path d="M6.5 17.5 17.5 6.5"/>',
+    copy:'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+    trash:'<path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/>',
+    check:'<path d="m5 12.5 5 5L19 7"/>',
+    flagend:'<path d="M6 21V4"/><path d="M6 4h11l-2.5 4L17 12H6"/>',
+    bag:'<path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 8z"/><path d="M8.5 8V6.5a3.5 3.5 0 0 1 7 0V8"/>'
+  };
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="'+sw+'" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(P[name]||P.terminal)+'</svg>';
+}
+const CAT_COLORS = {'流程控制':'#7C5CFC','网页自动化':'#0E9384','Excel':'#1D7A45','鼠标键盘':'#B54708','文件处理':'#7E5CC0','数据处理':'#C432A5','网络':'#0876B5','系统':'#5D6B7E','AI 能力':'#DD6B20'};
+
+const F = (k,l,t,v,opts) => ({k:k,l:l,t:t,v:v,opts:opts});
+const CMDS = [
+  {group:'流程控制', items:[
+    {id:'loop',name:'循环',ic:'loop',fs:function(){return [F('list','遍历对象','text','priceList'),F('itemVar','当前项变量','text','item')];},s:function(p){return '遍历 '+p.list+' · 当前项 '+p.itemVar;},end:'循环结束'},
+    {id:'if',name:'条件分支',ic:'branch',fs:function(){return [F('left','判断条件','text','itemPrice'),F('op','运算符','select','<',['<','>','=','≠','包含']),F('right','比较值','text','targetPrice')];},s:function(p){return '若 '+p.left+' '+p.op+' '+p.right;},end:'分支结束'},
+    {id:'delay',name:'延时等待',ic:'clock',fs:function(){return [F('seconds','等待秒数','number','2')];},s:function(p){return '等待 '+p.seconds+' 秒';}},
+    {id:'break',name:'跳出循环',ic:'skip',fs:function(){return [];},s:function(){return '跳出当前循环';}},
+    {id:'call',name:'调用子流程',ic:'call',fs:function(){return [F('flowName','子流程','select','子流程A',['主流程','子流程A','子流程B'])];},s:function(p){return '调用 '+p.flowName;}},
+  ]},
+  {group:'网页自动化', items:[
+    {id:'openUrl',name:'打开网页',ic:'globe',fs:function(){return [F('url','网址','text','https://www.example.com'),F('browser','浏览器','select','Edge',['Edge','Chrome'])];},s:function(p){return p.url;}},
+    {id:'clickEl',name:'点击元素',ic:'cursor',fs:function(){return [F('target','目标元素','text','页面按钮')];},s:function(p){return '点击「'+p.target+'」';}},
+    {id:'inputText',name:'输入内容',ic:'keyboard',fs:function(){return [F('target','目标元素','text','搜索框'),F('value','输入文本','text','关键词')];},s:function(p){return '向「'+p.target+'」输入 '+p.value;}},
+    {id:'getElText',name:'获取元素文本',ic:'text',fs:function(){return [F('target','目标元素','text','商品价格'),F('output','保存到变量','text','itemPrice')];},s:function(p){return '「'+p.target+'」 → '+p.output;}},
+    {id:'getSimilar',name:'获取相似元素列表',ic:'list',fs:function(){return [F('target','目标元素','text','商品卡片'),F('output','保存到变量','text','priceList')];},s:function(p){return '「'+p.target+'」列表 → '+p.output;}},
+    {id:'waitEl',name:'等待元素出现',ic:'clock',fs:function(){return [F('target','目标元素','text','商品列表'),F('timeout','超时(秒)','number','10')];},s:function(p){return '等待「'+p.target+'」 · 最长 '+p.timeout+'s';}},
+  ]},
+  {group:'Excel', items:[
+    {id:'excelOpen',name:'打开 Excel',ic:'table',fs:function(){return [F('file','文件路径','text','D:\\数据\\比价.xlsx')];},s:function(p){return p.file;}},
+    {id:'excelRead',name:'读取区域',ic:'table',fs:function(){return [F('cell','区域','text','A1:D20'),F('output','保存到变量','text','tableData')];},s:function(p){return p.cell+' → '+p.output;}},
+    {id:'excelWrite',name:'写入区域',ic:'table',fs:function(){return [F('file','文件路径','text','D:\\数据\\比价结果.xlsx'),F('cell','起始单元格','text','A1'),F('data','写入数据','text','resultRows')];},s:function(p){return '写入 '+p.file+' '+p.cell;}},
+    {id:'excelClose',name:'保存并关闭',ic:'table',fs:function(){return [F('file','文件路径','text','D:\\数据\\比价.xlsx')];},s:function(p){return p.file;}},
+  ]},
+  {group:'鼠标键盘', items:[
+    {id:'mouseClick',name:'鼠标点击',ic:'mouse',fs:function(){return [F('x','横坐标','number','100'),F('y','纵坐标','number','200')];},s:function(p){return '('+p.x+', '+p.y+')';}},
+    {id:'keyInput',name:'键盘输入',ic:'keyboard',fs:function(){return [F('value','输入内容','text','你好')];},s:function(p){return '输入「'+p.value+'」';}},
+    {id:'hotkey',name:'按下快捷键',ic:'keyboard',fs:function(){return [F('keys','组合键','select','Ctrl+C',['Ctrl+C','Ctrl+V','Ctrl+S','Ctrl+A'])];},s:function(p){return p.keys;}},
+  ]},
+  {group:'文件处理', items:[
+    {id:'readText',name:'读取文本文件',ic:'file',fs:function(){return [F('file','文件路径','text','D:\\数据\\log.txt'),F('output','保存到变量','text','fileContent')];},s:function(p){return p.file+' → '+p.output;}},
+    {id:'writeText',name:'写入文本文件',ic:'file',fs:function(){return [F('file','文件路径','text','D:\\数据\\result.txt'),F('content','写入内容','text','运行完成')];},s:function(p){return p.file;}},
+    {id:'copyFile',name:'复制文件',ic:'folder',fs:function(){return [F('from','源文件','text','D:\\下载\\报表.xlsx'),F('to','目标目录','text','D:\\备份')];},s:function(p){return p.from+' → '+p.to;}},
+    {id:'moveFile',name:'移动文件',ic:'folder',fs:function(){return [F('from','源文件','text','D:\\下载\\a.pdf'),F('to','目标目录','text','D:\\归档')];},s:function(p){return p.from+' → '+p.to;}},
+  ]},
+  {group:'数据处理', items:[
+    {id:'assign',name:'变量赋值',ic:'equals',fs:function(){return [F('name','变量名','text','count'),F('value','值','text','0')];},s:function(p){return p.name+' = '+p.value;}},
+    {id:'strReplace',name:'字符串替换',ic:'text',fs:function(){return [F('source','来源变量','text','itemTitle'),F('from','替换前','text','旧词'),F('to','替换后','text','新词')];},s:function(p){return '「'+p.from+'」→「'+p.to+'」';}},
+    {id:'listAdd',name:'列表追加',ic:'list',fs:function(){return [F('list','目标列表','text','resultList'),F('value','追加项','text','newItem')];},s:function(p){return p.list+' ← '+p.value;}},
+    {id:'regexExtract',name:'正则提取',ic:'regex',fs:function(){return [F('source','来源变量','text','pageHtml'),F('pattern','正则表达式','text','\\d+\\.?\\d*'),F('output','保存到变量','text','prices')];},s:function(p){return '/'+p.pattern+'/ → '+p.output;}},
+  ]},
+  {group:'网络', items:[
+    {id:'http',name:'HTTP 请求',ic:'cloud',fs:function(){return [F('url','请求地址','text','https://api.example.com/data'),F('method','请求方式','select','GET',['GET','POST'])];},s:function(p){return p.method+' '+p.url;}},
+    {id:'download',name:'下载文件',ic:'cloud',fs:function(){return [F('url','下载地址','text','https://cdn.example.com/x.zip'),F('saveTo','保存到','text','D:\\下载')];},s:function(p){return p.url;}},
+    {id:'sendMail',name:'发送邮件',ic:'mail',fs:function(){return [F('to','收件人','text','buyer@company.com'),F('subject','主题','text','低价商品提醒')];},s:function(p){return '发送至 '+p.to+' · '+p.subject;}},
+  ]},
+  {group:'系统', items:[
+    {id:'log',name:'输出日志',ic:'terminal',fs:function(){return [F('content','日志内容','text','运行到这一步')];},s:function(p){return p.content;}},
+    {id:'msgbox',name:'弹窗提示',ic:'dialog',fs:function(){return [F('content','提示内容','text','任务完成'),F('timeout','显示时长(秒)','number','10')];},s:function(p){return p.content;}},
+    {id:'runApp',name:'运行程序',ic:'window',fs:function(){return [F('path','程序路径','text','C:\\Program Files\\app\\run.exe')];},s:function(p){return p.path;}},
+    {id:'screenshot',name:'截取屏幕',ic:'camera',fs:function(){return [F('saveTo','保存到','text','D:\\截图')];},s:function(p){return '保存至 '+p.saveTo;}},
+  ]},
+  {group:'AI 能力', items:[
+    {id:'ocr',name:'OCR 文字识别',ic:'scan',fs:function(){return [F('img','图片','text','截图1.png'),F('output','保存到变量','text','ocrText')];},s:function(p){return p.img+' → '+p.output;}},
+    {id:'docExtract',name:'智能文档提取',ic:'doc',fs:function(){return [F('file','文档','text','发票.pdf'),F('fields','提取字段','text','金额/日期/税号')];},s:function(p){return p.file+' · '+p.fields;}},
+    {id:'llm',name:'大模型对话',ic:'chip',fs:function(){return [F('prompt','提示词','text','总结这段文本'),F('output','保存到变量','text','aiReply')];},s:function(p){return p.prompt;}},
+  ]},
+];
+const CMD_MAP = {};
+CMDS.forEach(function(g){ g.items.forEach(function(c){ c.group = g.group; CMD_MAP[c.id] = c; }); });
+
+const APP_COLORS = ['#E64340','#7C5CFC','#0E9384','#DD6B20','#C432A5','#1D7A45'];
+const APPS = [
+  {name:'电商比价监控',color:0,steps:18,edited:'2 分钟前',folder:'电商运营',desc:'每日抓取指定商城商品价格,低于目标价自动邮件提醒'},
+  {name:'月度报表汇总',color:1,steps:32,edited:'昨天 17:42',folder:'财务',desc:'合并 6 个业务系统导出表,生成月度经营分析报表'},
+  {name:'招聘信息采集',color:2,steps:24,edited:'3 天前',folder:'数据采集',desc:'定时采集招聘网站岗位信息,去重后写入数据表格'},
+  {name:'发票识别归档',color:3,steps:12,edited:'上周五',folder:'财务',desc:'OCR 识别发票关键字段,按月份自动归档并登记台账'},
+  {name:'日报邮件群发',color:4,steps:9,edited:'上周三',folder:'办公',desc:'读取通讯录分组,定时发送个性化日报邮件'},
+  {name:'ERP 库存同步',color:5,steps:41,edited:'2 周前',folder:'电商运营',desc:'比对 ERP 与店铺后台库存差异并双向同步'},
+];
+const TASKS = [
+  {name:'每天 09:00 执行【电商比价监控】',app:'电商比价监控',next:'下次:明天 09:00',last:['success','成功 · 3.2 分钟'],robot:'本机机器人',on:true},
+  {name:'每 30 分钟执行【招聘信息采集】',app:'招聘信息采集',next:'下次:今天 16:30',last:['success','成功 · 48 秒'],robot:'云端机器人 01',on:true},
+  {name:'每月 1 日 08:30 执行【月度报表汇总】',app:'月度报表汇总',next:'下次:10 月 1 日',last:['error','失败 · 元素未找到'],robot:'本机机器人',on:true},
+  {name:'每周五 18:00 执行【发票识别归档】',app:'发票识别归档',next:'下次:本周五 18:00',last:['plain','已暂停'],robot:'本机机器人',on:false},
+];
+const ROBOTS = [
+  {name:'本机机器人',sub:'PC-20260912BXNB · Windows',status:'run',info:'正在执行:电商比价监控 · 第 3 / 18 步'},
+  {name:'云端机器人 01',sub:'云端节点 · 华东 2',status:'idle',info:'空闲 · 最近心跳 12 秒前'},
+  {name:'云端机器人 02',sub:'云端节点 · 华东 2',status:'off',info:'离线 · 上次在线 09-18 14:22'},
+];
+const RECORDS = [
+  ['今天 15:58','电商比价监控','计划任务',['success','成功'],'3 分 12 秒'],
+  ['今天 15:30','招聘信息采集','计划任务',['success','成功'],'46 秒'],
+  ['今天 14:02','电商比价监控','手动运行',['success','成功'],'3 分 05 秒'],
+  ['今天 09:00','月度报表汇总','计划任务',['error','失败'],'1 分 22 秒'],
+  ['昨天 18:00','发票识别归档','计划任务',['plain','已跳过'],'-'],
+];
+const MARKET = [
+  {name:'电商平台比价监控',cat:'电商',desc:'主流商城价格采集,降价自动通知',uses:'12.4 万'},
+  {name:'发票 OCR 识别归档',cat:'财务',desc:'增值税发票字段提取与台账登记',uses:'9.8 万'},
+  {name:'招聘信息定时采集',cat:'数据',desc:'多站点岗位抓取与去重入库',uses:'7.1 万'},
+  {name:'Excel 多表合并汇总',cat:'办公',desc:'指定目录下工作簿批量合并',uses:'21.6 万'},
+  {name:'邮件批量个性化群发',cat:'办公',desc:'通讯录分组 + 模板变量发送',uses:'15.3 万'},
+  {name:'PDF 批量转 Excel',cat:'办公',desc:'表格型 PDF 结构化提取',uses:'8.9 万'},
+  {name:'大模型文案润色助手',cat:'AI',desc:'调用大模型批量改写商品文案',uses:'3.2 万'},
+];
+const EDU = [
+  {name:'初级课程 · 从零搭建第一个流程',lv:'初级',desc:'认识指令库与画布,完成第一个网页采集流程',uses:'2.1 万',c:'#7C5CFC'},
+  {name:'三大逻辑 · 条件 / 循环 / 异常',lv:'初级',desc:'掌握流程控制三大逻辑的搭配使用',uses:'1.6 万',c:'#0E9384'},
+  {name:'数据表格与 Excel 交互',lv:'中级',desc:'批量读写 Excel,数据表格排序筛选',uses:'1.2 万',c:'#1D7A45'},
+  {name:'元素通用性与流程调试',lv:'中级',desc:'元素拾取技巧、断点调试与日志排查',uses:'9 千',c:'#DD6B20'},
+  {name:'批量数据抓取实战',lv:'高级',desc:'翻页抓取、相似元素与数据落地',uses:'7 千',c:'#C432A5'},
+  {name:'高阶技巧 · 子流程与触发器',lv:'高级',desc:'子流程复用、高级计划与机器人调度',uses:'5 千',c:'#2F80ED'},
+];
+
+let uidSeq = 100;
+function mkStep(cmdId, params, indent, extra){
+  const c = CMD_MAP[cmdId];
+  const fs = c.fs(); const p = {};
+  fs.forEach(function(f){ p[f.k] = f.v; });
+  if(params){ Object.keys(params).forEach(function(k){ p[k] = params[k]; }); }
+  const st = {uid:++uidSeq, cmdId:cmdId, name:c.name, ic:c.ic, params:p, indent:indent||0, disabled:false, bp:false};
+  if(extra){ Object.keys(extra).forEach(function(k){ st[k] = extra[k]; }); }
+  return st;
+}
+function mkEnd(label, indent){ return {uid:++uidSeq, kind:'end', label:label, indent:indent||0}; }
+const FLOWS = [
+  {name:'主流程 · 电商比价监控', steps:[
+    mkStep('openUrl',{url:'https://mall.example.com/search?q=无线耳机'}),
+    mkStep('waitEl',{target:'商品列表容器'}),
+    mkStep('getSimilar',{target:'商品卡片',output:'priceList'}),
+    mkStep('loop',{list:'priceList',itemVar:'item'}),
+    mkStep('getElText',{target:'商品价格',output:'itemPrice'},1),
+    mkStep('if',{left:'itemPrice',op:'<',right:'targetPrice'},1),
+    mkStep('log',{content:'发现低价商品,价格:{item.price}'},2),
+    mkStep('sendMail',{to:'buyer@company.com',subject:'低价商品提醒'},2,{disabled:true}),
+    mkEnd('分支结束',1),
+    mkEnd('循环结束',0),
+    mkStep('excelWrite',{file:'D:\\数据\\比价结果.xlsx',data:'resultRows'}),
+    mkStep('msgbox',{content:'本次比价已完成'}),
+  ]},
+  {name:'月度报表汇总', steps:[
+    mkStep('excelOpen',{file:'D:\\财务\\6月导出.xlsx'}),
+    mkStep('excelRead',{cell:'A1:F200',output:'tableData'}),
+    mkStep('regexExtract',{source:'tableData',pattern:'\\d+\\.?\\d*',output:'amounts'}),
+    mkStep('excelWrite',{file:'D:\\财务\\月度分析.xlsx',data:'summary'}),
+    mkStep('sendMail',{to:'cfo@company.com',subject:'6 月经营分析报表'}),
+  ]},
+];
+let activeFlow = 0, selectedUid = null;
+let vars = [
+  {name:'priceList',type:'列表',value:'[]'},
+  {name:'targetPrice',type:'文本',value:'299'},
+  {name:'itemPrice',type:'文本',value:''},
+  {name:'resultRows',type:'列表',value:'[]'},
+];
+
+function toast(msg, type){
+  type = type || 'info';
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type==='success'?'success':type==='error'?'error':'');
+  const color = type==='success'?'var(--green)':type==='error'?'var(--red)':'var(--text-3)';
+  const ic = type==='success'?icon('check',14,2.4):type==='error'?icon('disable',14,2):icon('terminal',14,2);
+  t.innerHTML = '<span style="color:'+color+'">'+ic+'</span><span>'+escapeHtml(msg)+'</span>';
+  $('#toastRoot').appendChild(t);
+  setTimeout(function(){ t.classList.add('out'); setTimeout(function(){ t.remove(); },220); }, 2400);
+}
+function nowTime(){
+  const d = new Date(); const z = function(n){ return String(n).padStart(2,'0'); };
+  return z(d.getHours())+':'+z(d.getMinutes())+':'+z(d.getSeconds());
+}
+
+/* 视图切换 */
+$$('.nav-item[data-view]').forEach(function(b){ b.addEventListener('click', function(){ switchView(b.dataset.view); }); });
+function switchView(v){
+  $$('.nav-item[data-view]').forEach(function(x){ x.classList.toggle('active', x.dataset.view===v); });
+  $$('.view').forEach(function(x){ x.classList.toggle('active', x.id==='view-'+v); });
+  closeDrawers();
+}
+$$('[data-win]').forEach(function(b){ b.addEventListener('click', function(){ toast(b.dataset.win+'为演示占位,原型中不可操作'); }); });
+$$('[data-toast]').forEach(function(b){ b.addEventListener('click', function(){ toast(b.dataset.toast); }); });
+$('#promoClose').addEventListener('click', function(){ $('#promoBar').remove(); });
+$('#subtabApps').addEventListener('click', function(){ switchView('apps'); });
+
+/* 首页 */
+function renderHome(){
+  const quick = [
+    ['新建应用','从空白或模板开始','#E64340','new'],
+    ['指令市场','安装社区成熟模板','#7C5CFC','market'],
+    ['调度中心','计划任务与触发器','#0E9384','tasks'],
+    ['机器人管理','本机与云端执行器','#2F80ED','robots'],
+  ];
+  $('#quickRow').innerHTML = quick.map(function(q){
+    return '<div class="quick-card" data-go="'+q[3]+'"><div class="qc-icon" style="background:'+q[2]+'">'+icon(q[3]==='new'?'copy':q[3]==='market'?'bag':q[3]==='tasks'?'clock':'window',16,2)+'</div><div style="min-width:0"><div class="qc-t">'+q[0]+'</div><div class="qc-s">'+q[1]+'</div></div><span class="qc-arrow">'+icon('skip',14,2)+'</span></div>';
+  }).join('');
+  $$('#quickRow .quick-card').forEach(function(c){
+    c.addEventListener('click', function(){
+      const go = c.dataset.go;
+      if(go==='new'){ openModal(); } else { switchView(go); }
+    });
+  });
+  const members = [
+    ['19 分钟前','张伟 编辑了应用「电商比价监控」'],
+    ['42 分钟前','林悦 运行了「招聘信息采集」· 成功'],
+    ['1 小时前','王芳 新建了应用「发票识别归档」'],
+    ['3 小时前','系统 完成了计划任务「早间比价巡检」'],
+  ];
+  $('#memberList').innerHTML = members.map(function(m){
+    return '<div class="member-row"><span class="mt">'+m[0]+'</span><span>'+m[1]+'</span></div>';
+  }).reverse().join('');
+}
+
+/* 应用 */
+const FOLDERS = ['全部','电商运营','财务','数据采集','办公'];
+let curFolder = '全部';
+function renderChips(){
+  $('#appChips').innerHTML = FOLDERS.map(function(f){ return '<button class="chip'+(f===curFolder?' active':'')+'" data-folder="'+f+'">'+f+'</button>'; }).join('');
+  $$('#appChips .chip').forEach(function(c){ c.addEventListener('click', function(){ curFolder = c.dataset.folder; renderChips(); renderApps(); }); });
+}
+function appCard(a){
+  const c = APP_COLORS[a.color % APP_COLORS.length];
+  return '<div class="app-card"><div class="ac-top"><div class="ac-icon" style="background:'+c+'">'+escapeHtml(a.name.slice(0,1))+'</div><div style="min-width:0"><div class="ac-name">'+escapeHtml(a.name)+'</div><div class="ac-meta">'+a.steps+' 个步骤 · '+a.edited+'</div></div></div>'
+    + '<div class="ac-desc">'+escapeHtml(a.desc)+'</div>'
+    + '<div class="ac-foot"><span class="ac-steps">'+escapeHtml(a.folder)+'</span><div class="ac-actions"><button class="btn sm" data-run="'+escapeHtml(a.name)+'"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>运行</button><button class="btn sm primary" data-edit="'+escapeHtml(a.name)+'">编辑</button></div></div></div>';
+}
+function renderApps(){
+  const q = ($('#appSearch').value||'').trim().toLowerCase();
+  const list = APPS.filter(function(a){ return (curFolder==='全部'||a.folder===curFolder) && (!q || a.name.toLowerCase().indexOf(q)>=0); });
+  $('#appsCount').textContent = '共 '+list.length+' 个应用 · 按最近编辑排序';
+  $('#appGrid').innerHTML = list.length ? list.map(appCard).join('')
+    : '<div class="empty-hint" style="grid-column:1/-1"><div class="eh-icon">'+icon('folder',20)+'</div><div><b>这里还没有应用</b></div><div>点击右上角「新建应用」开始搭建第一个流程</div></div>';
+  $('#statApps').innerHTML = APPS.length + '<small>个</small>';
+}
+$('#appSearch').addEventListener('input', renderApps);
+document.addEventListener('click', function(e){
+  const run = e.target.closest('[data-run]'); const edit = e.target.closest('[data-edit]');
+  if(!run && !edit) return;
+  const name = (run||edit).dataset.run || edit.dataset.edit;
+  let idx = -1;
+  FLOWS.forEach(function(f,i){ if(f.name.indexOf(name)>=0 && idx<0) idx = i; });
+  if(idx < 0){ FLOWS.push({name:name, steps:[]}); idx = FLOWS.length-1; }
+  activeFlow = idx; selectedUid = null;
+  renderTabs(); renderFlow(); renderProps(); switchView('editor');
+  if(run){ setTimeout(function(){ startRun(false); }, 350); } else { toast('已打开应用「'+name+'」'); }
+});
+
+/* 新建应用模态 */
+let modalColor = 0;
+function renderColorRow(){
+  $('#colorRow').innerHTML = APP_COLORS.map(function(c,i){ return '<div class="color-dot'+(i===modalColor?' sel':'')+'" style="background:'+c+'" data-color="'+i+'" role="button" tabindex="0" aria-label="颜色'+(i+1)+'"></div>'; }).join('');
+  $$('#colorRow .color-dot').forEach(function(d){ d.addEventListener('click', function(){ modalColor = +d.dataset.color; renderColorRow(); }); });
+}
+function openModal(){ $('#modalMask').classList.add('open'); $('#appNameInput').value=''; $('#appNameError').classList.remove('show'); renderColorRow(); setTimeout(function(){ $('#appNameInput').focus(); },50); }
+function closeModal(){ $('#modalMask').classList.remove('open'); }
+$('#btnNewApp').addEventListener('click', openModal);
+$('#btnModalCancel').addEventListener('click', closeModal);
+$('#modalMask').addEventListener('click', function(e){ if(e.target===$('#modalMask')) closeModal(); });
+$('#appNameInput').addEventListener('input', function(){ $('#appNameError').classList.remove('show'); });
+$('#btnModalCreate').addEventListener('click', function(){
+  const name = $('#appNameInput').value.trim();
+  if(!name){ $('#appNameError').classList.add('show'); $('#appNameInput').focus(); return; }
+  APPS.unshift({name:name,color:modalColor,steps:0,edited:'刚刚',folder:curFolder==='全部'?'其他':curFolder,desc:'新建应用,尚未添加流程步骤'});
+  closeModal(); renderApps(); switchView('apps');
+  toast('应用「'+name+'」已创建,点击卡片上的「编辑」开始编排流程','success');
+});
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeModal(); closeDrawers(); } });
+
+/* 指令库 */
+let libQuery = '';
+function renderLib(){
+  const q = libQuery.trim().toLowerCase();
+  let html = '';
+  CMDS.forEach(function(g,gi){
+    const items = g.items.filter(function(c){ return !q || c.name.toLowerCase().indexOf(q)>=0; });
+    if(!items.length) return;
+    html += '<div class="lib-group" data-g="'+gi+'"><button class="lib-ghead" data-toggle="'+gi+'"><svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>'+g.group+'<span class="cnt">'+items.length+'</span></button><div class="lib-items">'
+      + items.map(function(c){ return '<div class="cmd-item" draggable="true" data-cmd="'+c.id+'" role="button" tabindex="0" title="点击或拖拽到画布"><span style="color:'+CAT_COLORS[g.group]+'">'+icon(c.ic,15)+'</span><span class="ci-name">'+c.name+'</span></div>'; }).join('')
+      + '</div></div>';
+  });
+  $('#libBody').innerHTML = html || '<div class="lib-empty">没有匹配「'+escapeHtml(libQuery)+'」的指令<br>试试「网页」「Excel」「循环」</div>';
+  $$('#libBody .lib-ghead').forEach(function(h){ h.addEventListener('click', function(){ h.parentElement.classList.toggle('closed'); }); });
+  $$('#libBody .cmd-item').forEach(function(el){
+    el.addEventListener('click', function(){ addStep(el.dataset.cmd); });
+    el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); addStep(el.dataset.cmd); } });
+    el.addEventListener('dragstart', function(e){ e.dataTransfer.setData('text/x-cmd', el.dataset.cmd); e.dataTransfer.effectAllowed='copy'; });
+  });
+}
+$('#libSearch').addEventListener('input', function(e){ libQuery = e.target.value; renderLib(); });
+
+/* Tabs / 历史 */
+function renderTabs(){
+  $('#edTabs').innerHTML = FLOWS.map(function(f,i){
+    return '<div class="ed-tab'+(i===activeFlow?' active':'')+'" data-tab="'+i+'"><span>'+escapeHtml(f.name)+'</span>'+(FLOWS.length>1?'<button class="x" data-close="'+i+'" aria-label="关闭 '+escapeHtml(f.name)+'"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>':'')+'</div>';
+  }).join('') + '<button class="tbtn" id="tabAdd" title="新建流程" style="height:26px;padding:0 8px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>';
+  $$('#edTabs .ed-tab').forEach(function(t){ t.addEventListener('click', function(e){
+    if(e.target.closest('.x')) return;
+    activeFlow = +t.dataset.tab; selectedUid=null; renderTabs(); renderFlow(); renderProps();
+  }); });
+  $$('#edTabs .x').forEach(function(x){ x.addEventListener('click', function(){
+    if(runState.running) abortRun('流程标签页被关闭');
+    const i = +x.dataset.close;
+    FLOWS.splice(i,1);
+    if(activeFlow >= FLOWS.length) activeFlow = FLOWS.length-1;
+    selectedUid=null; renderTabs(); renderFlow(); renderProps();
+  }); });
+  const add = $('#tabAdd');
+  if(add) add.addEventListener('click', function(){
+    let n=1; while(FLOWS.some(function(f){ return f.name==='新建流程 '+n; })) n++;
+    FLOWS.push({name:'新建流程 '+n, steps:[]});
+    activeFlow = FLOWS.length-1; selectedUid=null; renderTabs(); renderFlow(); renderProps(); markDirty();
+  });
+}
+
+const undoStack = [], redoStack = [];
+function snapshot(){ return JSON.stringify(FLOWS[activeFlow] ? FLOWS[activeFlow].steps : []); }
+function pushHistory(){ undoStack.push({flow:activeFlow, data:snapshot()}); if(undoStack.length>60) undoStack.shift(); redoStack.length=0; updateHistoryBtns(); markDirty(); }
+function markDirty(){ const s=$('#saveState'); s.textContent='有未保存的更改'; s.classList.add('dirty'); }
+function markSaved(){ const s=$('#saveState'); s.textContent='已保存 · 刚刚'; s.classList.remove('dirty'); }
+function updateHistoryBtns(){ $('#btnUndo').disabled = !undoStack.length; $('#btnRedo').disabled = !redoStack.length; }
+$('#btnUndo').addEventListener('click', function(){
+  if(!undoStack.length) return;
+  const st = undoStack.pop();
+  redoStack.push({flow:st.flow, data:snapshot()});
+  if(FLOWS[st.flow]) FLOWS[st.flow].steps = JSON.parse(st.data);
+  selectedUid=null; renderFlow(); renderProps(); updateHistoryBtns(); markDirty();
+});
+$('#btnRedo').addEventListener('click', function(){
+  if(!redoStack.length) return;
+  const st = redoStack.pop();
+  undoStack.push({flow:st.flow, data:snapshot()});
+  if(FLOWS[st.flow]) FLOWS[st.flow].steps = JSON.parse(st.data);
+  selectedUid=null; renderFlow(); renderProps(); updateHistoryBtns(); markDirty();
+});
+$('#btnSave').addEventListener('click', function(){ markSaved(); toast('流程已保存','success'); });
+
+/* 画布渲染 */
+function fmtSummary(text){
+  let out = escapeHtml(text);
+  vars.forEach(function(v){
+    if(!v.name) return;
+    const safe = escapeHtml(v.name);
+    out = out.split(safe).join('<span class="varhl">'+safe+'</span>');
+  });
+  return out;
+}
+function renderFlow(){
+  const f = FLOWS[activeFlow]; const box = $('#flowBox');
+  if(!f){ box.innerHTML=''; return; }
+  if(!f.steps.length){
+    box.innerHTML = '<div class="canvas-empty"><div class="ce-icon">'+icon('list',22)+'</div><h3>从一个指令开始</h3><p>点击或拖拽左侧指令库中的指令到此处<br>例如先用「打开网页」开始一个网页采集流程</p><button class="btn primary" id="emptyAdd">'+icon('cursor',14)+'添加第一条指令</button></div>';
+    const ea = $('#emptyAdd');
+    if(ea) ea.addEventListener('click', function(){ addStep(CMDS[1].items[0].id); });
+    return;
+  }
+  let num = 0;
+  const rows = f.steps.map(function(s){
+    if(s.kind==='end'){
+      return '<div class="marker'+(s.indent?' indented':'')+'" style="pointer-events:none"><span class="mk-ic">'+icon('flagend',13,2.2)+'</span><span>'+escapeHtml(s.label)+'</span></div>';
+    }
+    num++;
+    const c = CMD_MAP[s.cmdId];
+    return '<div class="step'+(s.indent?' indented':'')+(s.uid===selectedUid?' selected':'')+(s.disabled?' disabled':'')+'" data-uid="'+s.uid+'" draggable="true" role="button" tabindex="0" aria-label="步骤 '+num+' '+escapeHtml(s.name)+'">'
+      + (s.bp ? '<span class="st-bp" title="断点"></span>' : '')
+      + '<span class="st-num">'+num+'</span>'
+      + '<span class="st-icon" style="background:'+(CAT_COLORS[c.group]||'#5D6B7E')+'22;color:'+(CAT_COLORS[c.group]||'#5D6B7E')+'">'+icon(s.ic,15)+'</span>'
+      + '<div class="st-main"><div class="st-name">'+escapeHtml(s.name)+'</div><div class="st-summary">'+fmtSummary(c.s(s.params))+(s.disabled?' · 已禁用':'')+'</div></div>'
+      + '<div class="st-actions">'
+      + '<button class="st-act'+(s.bp?' bp-on':'')+'" data-act="bp" title="断点">'+icon('bp',14,2)+'</button>'
+      + '<button class="st-act'+(s.disabled?' dis-on':'')+'" data-act="dis" title="禁用 / 启用">'+icon('disable',14,2)+'</button>'
+      + '<button class="st-act" data-act="copy" title="复制">'+icon('copy',14,2)+'</button>'
+      + '<button class="st-act" data-act="del" title="删除">'+icon('trash',14,2)+'</button>'
+      + '</div></div>';
+  }).join('');
+  box.innerHTML = rows + '<div class="flow-add" id="flowAdd">'+icon('copy',13,2)+'点击搜索或选择常用指令添加到流程</div>';
+  const fa = $('#flowAdd');
+  if(fa) fa.addEventListener('click', function(){ $('#libSearch').focus(); $('#edLib').classList.add('open'); $('#drawerScrim').classList.add('show'); });
+  box.querySelectorAll('.step').forEach(function(row){
+    const uid = +row.dataset.uid;
+    row.addEventListener('click', function(e){
+      const act = e.target.closest('[data-act]');
+      if(act){ e.stopPropagation(); stepAction(act.dataset.act, uid); return; }
+      selectedUid = uid; renderFlow(); renderProps(); showPropTab();
+    });
+    row.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); selectedUid=uid; renderFlow(); renderProps(); showPropTab(); } });
+    row.addEventListener('dragstart', function(e){
+      if(runState.running){ e.preventDefault(); return; }
+      e.dataTransfer.setData('text/x-step', String(uid)); e.dataTransfer.effectAllowed='move';
+    });
+    row.addEventListener('dragover', function(e){
+      if(runState.running) return;
+      const hasPayload = e.dataTransfer.types.indexOf('text/x-cmd')>=0 || e.dataTransfer.types.indexOf('text/x-step')>=0;
+      if(!hasPayload) return;
+      e.preventDefault();
+      const r = row.getBoundingClientRect();
+      const before = e.clientY < r.top + r.height/2;
+      row.classList.toggle('drop-above', before); row.classList.toggle('drop-below', !before);
+    });
+    row.addEventListener('dragleave', function(){ row.classList.remove('drop-above','drop-below'); });
+    row.addEventListener('drop', function(e){
+      e.preventDefault(); row.classList.remove('drop-above','drop-below');
+      const r = row.getBoundingClientRect();
+      const before = e.clientY < r.top + r.height/2;
+      const idx = FLOWS[activeFlow].steps.findIndex(function(s){ return s.uid===uid; });
+      const pos = before ? idx : idx+1;
+      const cmd = e.dataTransfer.getData('text/x-cmd');
+      const suid = e.dataTransfer.getData('text/x-step');
+      if(cmd) addStepAt(cmd, pos);
+      else if(suid) moveStep(+suid, pos);
+    });
+  });
+}
+function defaultParams(cmdId){
+  const c = CMD_MAP[cmdId]; const fs = c.fs(); const p = {};
+  fs.forEach(function(f){ p[f.k] = f.v; }); return p;
+}
+function addStep(cmdId){
+  const f = FLOWS[activeFlow]; if(!f) return;
+  pushHistory();
+  const sel = f.steps.find(function(s){ return s.uid===selectedUid && s.kind!=='end'; });
+  const indent = sel ? sel.indent : 0;
+  let pos = f.steps.length;
+  if(sel) pos = f.steps.findIndex(function(s){ return s.uid===selectedUid; }) + 1;
+  const c = CMD_MAP[cmdId];
+  const st = {uid:++uidSeq, cmdId:cmdId, name:c.name, ic:c.ic, params:defaultParams(cmdId), indent:indent, disabled:false, bp:false};
+  f.steps.splice(pos, 0, st);
+  selectedUid = st.uid; renderFlow(); renderProps(); showPropTab();
+}
+function addStepAt(cmdId, pos){
+  const f = FLOWS[activeFlow]; if(!f) return;
+  pushHistory();
+  const c = CMD_MAP[cmdId];
+  const st = {uid:++uidSeq, cmdId:cmdId, name:c.name, ic:c.ic, params:defaultParams(cmdId), indent:0, disabled:false, bp:false};
+  f.steps.splice(Math.max(0,Math.min(pos,f.steps.length)), 0, st);
+  selectedUid = st.uid; renderFlow(); renderProps(); showPropTab();
+}
+function moveStep(uid, pos){
+  const steps = FLOWS[activeFlow].steps;
+  const from = steps.findIndex(function(s){ return s.uid===uid; });
+  if(from<0) return;
+  pushHistory();
+  const st = steps.splice(from,1)[0];
+  let to = pos; if(from < pos) to = pos-1;
+  steps.splice(Math.max(0,Math.min(to,steps.length)), 0, st);
+  renderFlow();
+}
+function stepAction(act, uid){
+  const steps = FLOWS[activeFlow].steps;
+  const i = steps.findIndex(function(s){ return s.uid===uid; });
+  if(i<0) return;
+  if(act==='del'){ pushHistory(); const n=steps[i].name||steps[i].label; steps.splice(i,1); if(selectedUid===uid) selectedUid=null; renderFlow(); renderProps(); toast('已删除「'+n+'」'); return; }
+  if(act==='copy'){ pushHistory(); const cp = JSON.parse(JSON.stringify(steps[i])); cp.uid=++uidSeq; steps.splice(i+1,0,cp); selectedUid=cp.uid; renderFlow(); renderProps(); return; }
+  if(act==='dis'){ pushHistory(); steps[i].disabled = !steps[i].disabled; renderFlow(); renderProps(); return; }
+  if(act==='bp'){ steps[i].bp = !steps[i].bp; renderFlow(); return; }
+}
+
+/* 右侧面板 */
+function showPropTab(){ $$('.ptab').forEach(function(x){ x.classList.toggle('active', x.dataset.ptab==='prop'); }); $('#aiBody').style.display='none'; $('#propBody').style.display=''; $('#varBody').style.display='none'; }
+$$('.ptab').forEach(function(t){ t.addEventListener('click', function(){
+  $$('.ptab').forEach(function(x){ x.classList.toggle('active', x===t); });
+  $('#aiBody').style.display = t.dataset.ptab==='ai' ? '' : 'none';
+  $('#propBody').style.display = t.dataset.ptab==='prop' ? '' : 'none';
+  $('#varBody').style.display = t.dataset.ptab==='var' ? '' : 'none';
+}); });
+$('#btnVars').addEventListener('click', function(){ $$('.ptab').forEach(function(x){ x.classList.toggle('active', x.dataset.ptab==='var'); }); $('#aiBody').style.display='none'; $('#propBody').style.display='none'; $('#varBody').style.display=''; });
+$('#btnElements').addEventListener('click', function(){ toast('元素库收录了流程中捕获的界面元素,演示中为空'); });
+
+function renderProps(){
+  const body = $('#propBody');
+  const f = FLOWS[activeFlow];
+  const st = f && f.steps.find(function(s){ return s.uid===selectedUid && s.kind!=='end'; });
+  if(!st){
+    body.innerHTML = '<div class="prop-empty"><div class="eh-icon">'+icon('cursor',20)+'</div><div><b>未选中步骤</b></div><div>在画布中点击任意步骤,<br>在此查看和修改它的参数</div></div>';
+    return;
+  }
+  const c = CMD_MAP[st.cmdId];
+  const fields = c.fs().map(function(f2){
+    const val = st.params[f2.k] !== undefined ? st.params[f2.k] : f2.v;
+    let ctl;
+    if(f2.t==='select') ctl = '<select data-pk="'+f2.k+'">'+(f2.opts||[]).map(function(o){ return '<option'+(o===val?' selected':'')+'>'+escapeHtml(o)+'</option>'; }).join('')+'</select>';
+    else if(f2.t==='number') ctl = '<input class="input" type="number" data-pk="'+f2.k+'" value="'+escapeHtml(val)+'">';
+    else ctl = '<input class="input" type="text" data-pk="'+f2.k+'" value="'+escapeHtml(val)+'">';
+    return '<div class="field"><label>'+f2.l+'</label>'+ctl+'</div>';
+  }).join('');
+  body.innerHTML = '<div class="prop-title"><span class="st-icon" style="width:24px;height:24px;background:'+(CAT_COLORS[c.group]||'#5D6B7E')+'22;color:'+(CAT_COLORS[c.group]||'#5D6B7E')+'">'+icon(st.ic,13)+'</span>'+escapeHtml(st.name)+'</div>'
+    + '<div class="prop-group">分类:'+c.group+' · 步骤 '+(f.steps.filter(function(s){return s.kind!=='end';}).findIndex(function(s){return s.uid===st.uid;})+1)+'</div>'
+    + (fields || '<div style="color:var(--text-3);font-size:12px">该指令无需配置参数</div>')
+    + '<button class="btn danger sm" id="propDel" style="margin-top:4px">'+icon('trash',13,2)+'删除此步骤</button>';
+  body.querySelectorAll('[data-pk]').forEach(function(el){
+    el.addEventListener('input', function(){
+      st.params[el.dataset.pk] = el.value;
+      const row = $('#flowBox .step[data-uid="'+st.uid+'"] .st-summary');
+      if(row) row.innerHTML = fmtSummary(CMD_MAP[st.cmdId].s(st.params)) + (st.disabled?' · 已禁用':'');
+      markDirty();
+    });
+  });
+  const pd = $('#propDel');
+  if(pd) pd.addEventListener('click', function(){ stepAction('del', st.uid); });
+}
+function renderVars(){
+  const body = $('#varBody');
+  body.innerHTML = '<div style="padding:14px 14px 0"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:12px;color:var(--text-2);font-weight:600">流程变量</span><button class="btn sm" id="addVar"><span style="display:inline-flex;width:12px;height:12px;align-items:center;justify-content:center;border-radius:2px;border:1.4px solid currentColor;font-size:11px;line-height:1">+</span>添加变量</button></div>'
+    + '<table class="var-table"><thead><tr><th>名称</th><th>类型</th><th>初始值</th><th></th></tr></thead><tbody>'
+    + vars.map(function(v,i){ return '<tr><td><input class="input" data-vk="name" data-vi="'+i+'" value="'+escapeHtml(v.name)+'"></td><td><select data-vk="type" data-vi="'+i+'">'+['文本','数值','列表','字典'].map(function(t){ return '<option'+(t===v.type?' selected':'')+'>'+t+'</option>'; }).join('')+'</select></td><td><input class="input" data-vk="value" data-vi="'+i+'" value="'+escapeHtml(v.value)+'"></td><td><button class="iconbtn" data-vdel="'+i+'" title="删除变量" aria-label="删除变量">'+icon('trash',13,2)+'</button></td></tr>'; }).join('')
+    + '</tbody></table><div style="font-size:11px;color:var(--text-4);margin-top:10px">步骤参数中的变量名会以蓝色高亮显示</div></div>';
+  body.querySelectorAll('[data-vk]').forEach(function(el){ el.addEventListener('input', function(){ vars[+el.dataset.vi][el.dataset.vk] = el.value; renderFlow(); }); });
+  body.querySelectorAll('[data-vdel]').forEach(function(b){ b.addEventListener('click', function(){ vars.splice(+b.dataset.vdel,1); renderVars(); renderFlow(); }); });
+  const av = $('#addVar');
+  if(av) av.addEventListener('click', function(){ vars.push({name:'newVar'+(vars.length+1),type:'文本',value:''}); renderVars(); });
+}
+
+/* AI 聊天 */
+const AI_REPLIES = [
+  '可以把「获取元素文本」的目标元素填为表格行内选择器,再配合循环逐行读取。需要我把这条指令插到画布吗?',
+  '这个报错通常是元素未加载完成。建议在前面加一条「等待元素出现」,超时设 10 秒。',
+  '已为你推荐指令「数据表格筛选」,放在写入 Excel 之前可以过滤空行。',
+  '调试技巧:先给可疑步骤加断点,用「调试」模式逐段运行,观察变量面板的取值变化。'
+];
+let aiIdx = 0;
+function aiSendMsg(){
+  const input = $('#aiInput');
+  const text = input.value.trim();
+  if(!text) return;
+  const chat = $('#aiChat');
+  const u = document.createElement('div');
+  u.className = 'bubble user'; u.textContent = text;
+  chat.appendChild(u);
+  input.value = '';
+  setTimeout(function(){
+    const a = document.createElement('div');
+    a.className = 'bubble ai'; a.textContent = AI_REPLIES[aiIdx % AI_REPLIES.length];
+    aiIdx++;
+    chat.appendChild(a);
+    chat.scrollTop = chat.scrollHeight;
+  }, 500);
+  chat.scrollTop = chat.scrollHeight;
+}
+$('#aiSend').addEventListener('click', aiSendMsg);
+$('#aiInput').addEventListener('keydown', function(e){ if(e.key==='Enter') aiSendMsg(); });
+
+/* 日志 */
+let logs = [], logFilter = 'all';
+function log(level, msg){
+  logs.push({t:nowTime(), level:level, msg:msg});
+  renderLogs();
+}
+function renderLogs(){
+  const body = $('#logBody');
+  if(!logs.length){ body.innerHTML = '<div class="log-empty">尚未产生日志 · 点击工具栏「运行」执行当前流程</div>'; return; }
+  const shown = logs.filter(function(l){ return logFilter==='all' ? true : logFilter==='info' ? (l.level==='info'||l.level==='success') : (l.level==='warning'||l.level==='error'); });
+  body.innerHTML = shown.map(function(l){
+    const lv = {info:'信息',success:'成功',warning:'警告',error:'错误'}[l.level];
+    return '<div class="log-line"><span class="log-time">'+l.t+'</span><span class="log-lv '+l.level+'">['+lv+']</span><span class="log-msg">'+escapeHtml(l.msg)+'</span></div>';
+  }).join('');
+  body.scrollTop = body.scrollHeight;
+}
+$$('.log-tab').forEach(function(t){ t.addEventListener('click', function(){
+  $$('.log-tab').forEach(function(x){ x.classList.toggle('active', x===t); });
+  logFilter = t.dataset.ltab; renderLogs();
+}); });
+$('#btnClearLog').addEventListener('click', function(){ logs=[]; renderLogs(); });
+$('#btnCollapseLog').addEventListener('click', function(){ $('#edLog').classList.toggle('collapsed'); });
+
+/* 运行引擎 */
+const runState = {running:false, paused:false, timer:null, i:0, mode:'run', startedAt:0, skipped:0};
+function setRunUI(){
+  const running = runState.running;
+  $('#btnRunLabel').textContent = runState.paused ? '继续' : running ? '运行中…' : '运行';
+  $('#btnRun').classList.toggle('running', running && !runState.paused);
+  $('#btnRun').disabled = running && !runState.paused;
+  $('#btnStop').disabled = !running;
+  $('#btnDebug').disabled = running;
+}
+function startRun(debugMode){
+  if(runState.running && !runState.paused) return;
+  if(runState.paused){ resumeRun(); return; }
+  const f = FLOWS[activeFlow];
+  if(!f || !f.steps.filter(function(s){ return s.kind!=='end'; }).length){ toast('当前流程为空,先添加指令再运行','error'); return; }
+  runState.running = true; runState.paused = false; runState.i = 0; runState.skipped = 0;
+  runState.mode = debugMode ? 'debug' : 'run'; runState.startedAt = Date.now();
+  log('info', '── 流程「'+f.name+'」开始'+(debugMode?'调试':'运行')+' ──');
+  setRunUI(); stepTick();
+}
+function stepTick(){
+  if(!runState.running) return;
+  const f = FLOWS[activeFlow];
+  if(!f){ abortRun('流程已被关闭'); return; }
+  while(runState.i < f.steps.length && f.steps[runState.i].kind==='end'){ runState.i++; }
+  if(runState.i >= f.steps.length){
+    const dur = ((Date.now()-runState.startedAt)/1000).toFixed(1);
+    log('success', '流程运行完成 · 耗时 '+dur+' 秒'+(runState.skipped?',跳过 '+runState.skipped+' 个禁用步骤':''));
+    finishRun(true);
+    return;
+  }
+  const st = f.steps[runState.i];
+  const row = $('#flowBox .step[data-uid="'+st.uid+'"]');
+  if(st.disabled){
+    runState.skipped++;
+    log('warning', '「'+st.name+'」已禁用,跳过');
+    runState.i++; stepTick(); return;
+  }
+  if(st.bp && !runState.paused && !st._bpHit){
+    st._bpHit = true;
+    runState.paused = true;
+    if(row) row.classList.add('running');
+    log('info', '命中断点:「'+st.name+'」 · 点击「继续」执行到下一个断点');
+    setRunUI();
+    return;
+  }
+  if(row){
+    row.classList.add('running');
+    const cv = $('#edCanvas');
+    const rTop = row.offsetTop, rBot = rTop + row.offsetHeight;
+    if(rBot > cv.scrollTop + cv.clientHeight - 8) cv.scrollTop = rBot - cv.clientHeight + 8;
+    else if(rTop < cv.scrollTop + 8) cv.scrollTop = rTop - 8;
+  }
+  const delay = runState.mode==='debug' ? 900 : 480;
+  runState.timer = setTimeout(function(){
+    if(!runState.running) return;
+    log('info', execMsg(st));
+    if(row){ row.classList.remove('running'); row.classList.add('finished'); }
+    runState.i++;
+    stepTick();
+  }, delay);
+}
+function execMsg(st){
+  const p = st.params; const n = st.name;
+  switch(st.cmdId){
+    case 'openUrl': return '打开网页 '+p.url+' ('+p.browser+') · 页面加载完成';
+    case 'waitEl': return '等待元素「'+p.target+'」已出现';
+    case 'getSimilar': return '捕获 36 个「'+p.target+'」 → '+p.output;
+    case 'loop': return '进入循环 · 遍历 '+p.list+'(共 36 项)';
+    case 'getElText': return '读取「'+p.target+'」= 279.00 → '+p.output;
+    case 'if': return '条件判断 '+p.left+' '+p.op+' '+p.right+' · 成立,进入分支';
+    case 'log': return '输出:'+p.content;
+    case 'sendMail': return '邮件已发送至 '+p.to;
+    case 'excelWrite': return '已写入 '+p.file+' ('+p.cell+' 起 36 行)';
+    case 'msgbox': return '弹出提示「'+p.content+'」';
+    case 'excelOpen': return '已打开工作簿 '+p.file;
+    case 'excelRead': return '读取区域 '+p.cell+' → '+p.output;
+    case 'regexExtract': return '提取到 36 个匹配 → '+p.output;
+    case 'delay': return '等待 '+p.seconds+' 秒完成';
+    case 'assign': return p.name+' = '+p.value;
+    default: return '「'+n+'」执行成功';
+  }
+}
+function resumeRun(){ runState.paused = false; setRunUI(); stepTick(); }
+function abortRun(reason){
+  clearTimeout(runState.timer);
+  runState.running = false; runState.paused = false;
+  log('error', '流程已停止'+(reason?' · '+reason:''));
+  finishRun(false);
+}
+function finishRun(success){
+  clearTimeout(runState.timer);
+  runState.running = false; runState.paused = false;
+  const f = FLOWS[activeFlow];
+  if(f) f.steps.forEach(function(s){ delete s._bpHit; });
+  $$('#flowBox .step.running').forEach(function(el){ el.classList.remove('running'); });
+  setRunUI();
+  if(success) toast('流程运行完成,详见运行日志','success');
+}
+$('#btnRun').addEventListener('click', function(){ startRun(false); });
+$('#btnDebug').addEventListener('click', function(){ startRun(true); });
+$('#btnStop').addEventListener('click', function(){ abortRun('用户手动停止'); });
+setRunUI();
+
+/* 任务 / 机器人 / 市场 / 教程 */
+function renderTasks(){
+  $('#taskList').innerHTML = TASKS.map(function(t,i){
+    return '<div class="task-card'+(t.on?'':' off')+'"><div class="task-ic">'+icon('clock',17,2)+'</div><div style="min-width:0"><div class="task-t">'+escapeHtml(t.name)+'</div><div class="task-s">'+escapeHtml(t.app)+' · '+t.robot+' · 最近:'+t.last[1]+'</div></div><div class="task-side"><div class="task-meta">'+t.next+'<br><span class="badge '+t.last[0]+'" style="margin-top:3px">'+t.last[1]+'</span></div><button class="switch'+(t.on?' on':'')+'" data-task="'+i+'" role="switch" aria-checked="'+t.on+'" aria-label="启用 '+escapeHtml(t.name)+'"></button><button class="btn sm" data-tasklog="'+i+'">记录</button></div></div>';
+  }).join('');
+  $$('#taskList .switch').forEach(function(s){ s.addEventListener('click', function(){
+    const t = TASKS[+s.dataset.task]; t.on = !t.on;
+    s.classList.toggle('on', t.on); s.setAttribute('aria-checked', t.on);
+    t.last = t.on ? ['plain','已启用'] : ['plain','已暂停'];
+    renderTasks(); toast('计划任务已'+(t.on?'启用':'暂停'));
+  }); });
+  $$('#taskList [data-tasklog]').forEach(function(b){ b.addEventListener('click', function(){ switchView('robots'); toast('已跳转到机器人执行记录'); }); });
+}
+function renderRobots(){
+  const MAP = {run:['success','运行中'],idle:['info','空闲'],off:['plain','离线']};
+  const ICONBG = {run:'#E7F8F0',idle:'#E8F0FE',off:'#F2F3F5'};
+  const ICONFG = {run:'#0E9F5D',idle:'#2F80ED',off:'#8A8F99'};
+  $('#robotGrid').innerHTML = ROBOTS.map(function(r){
+    return '<div class="robot-card"><div class="robot-head"><div class="robot-icon" style="background:'+ICONBG[r.status]+';color:'+ICONFG[r.status]+'">'+icon('window',19,1.9)+'</div><div style="flex:1;min-width:0"><div class="robot-name">'+r.name+'</div><div class="robot-sub">'+r.sub+'</div></div><span class="badge '+MAP[r.status][0]+'">'+MAP[r.status][1]+'</span></div><div class="robot-stat">'+r.info+'</div></div>';
+  }).join('');
+  $('#robotRecords').innerHTML = '<div class="panel"><table class="table"><thead><tr><th>时间</th><th>应用</th><th>触发方式</th><th>结果</th><th>耗时</th></tr></thead><tbody>'
+    + RECORDS.map(function(r){ return '<tr><td style="color:var(--text-3);white-space:nowrap">'+r[0]+'</td><td style="font-weight:500">'+r[1]+'</td><td>'+r[2]+'</td><td><span class="badge '+r[3][0]+'">'+r[3][1]+'</span></td><td style="color:var(--text-3)">'+r[4]+'</td></tr>'; }).join('')
+    + '</tbody></table></div>';
+}
+$('#btnRefreshRobots').addEventListener('click', function(){ renderRobots(); toast('机器人状态已刷新','success'); });
+
+const MKT_CATS = ['全部','电商','财务','办公','数据','AI'];
+let mktCat = '全部';
+function renderMarketChips(){
+  $('#marketChips').innerHTML = MKT_CATS.map(function(c){ return '<button class="chip'+(c===mktCat?' active':'')+'" data-mcat="'+c+'">'+c+'</button>'; }).join('');
+  $$('#marketChips .chip').forEach(function(c){ c.addEventListener('click', function(){ mktCat = c.dataset.mcat; renderMarketChips(); renderMarket(); }); });
+}
+function renderMarket(){
+  const q = ($('#marketSearch').value||'').trim().toLowerCase();
+  const list = MARKET.filter(function(m){ return (mktCat==='全部'||m.cat===mktCat) && (!q || m.name.toLowerCase().indexOf(q)>=0 || m.desc.toLowerCase().indexOf(q)>=0); });
+  $('#marketGrid').innerHTML = list.length ? list.map(function(m){
+    return '<div class="mkt-card"><div class="mkt-top"><div class="mkt-name">'+escapeHtml(m.name)+'</div><span class="badge plain">'+m.cat+'</span></div><div class="mkt-desc">'+escapeHtml(m.desc)+'</div><div class="mkt-foot"><span class="mkt-uses">'+m.uses+' 次安装</span><button class="btn sm primary" data-use="'+escapeHtml(m.name)+'">使用模板</button></div></div>';
+  }).join('') : '<div class="empty-hint" style="grid-column:1/-1"><div class="eh-icon">'+icon('folder',20)+'</div><div><b>没有匹配的模板</b></div><div>换个关键词试试</div></div>';
+  $$('#marketGrid [data-use]').forEach(function(b){ b.addEventListener('click', function(){
+    APPS.unshift({name:b.dataset.use,color:Math.floor(Math.random()*APP_COLORS.length),steps:0,edited:'刚刚',folder:'其他',desc:'来自指令市场的模板,已复制到我的应用'});
+    renderApps();
+    toast('模板「'+b.dataset.use+'」已安装到我的应用','success');
+  }); });
+}
+$('#marketSearch').addEventListener('input', renderMarket);
+
+function renderEdu(){
+  $('#eduGrid').innerHTML = EDU.map(function(c){
+    return '<div class="edu-card"><div class="edu-cover" style="background:linear-gradient(135deg,'+c.c+','+c.c+'CC)">'+c.lv+'</div><div class="edu-body"><div class="edu-name">'+c.name+'</div><div class="edu-desc">'+c.desc+'</div><div class="edu-foot"><span class="edu-uses">'+c.uses+' 人在学</span><button class="btn sm" data-toast="课程学习为演示占位">开始学习</button></div></div></div>';
+  }).join('');
+}
+
+/* 抽屉 */
+function closeDrawers(){ $('#edLib').classList.remove('open'); $('#edProps').classList.remove('open'); $('#drawerScrim').classList.remove('show'); }
+$('#btnLibDrawer').addEventListener('click', function(){ $('#edLib').classList.toggle('open'); $('#edProps').classList.remove('open'); $('#drawerScrim').classList.toggle('show', $('#edLib').classList.contains('open')); });
+$('#btnPropsDrawer').addEventListener('click', function(){ $('#edProps').classList.toggle('open'); $('#edLib').classList.remove('open'); $('#drawerScrim').classList.toggle('show', $('#edProps').classList.contains('open')); });
+$('#drawerScrim').addEventListener('click', closeDrawers);
+
+/* 启动 */
+renderHome(); renderChips(); renderApps(); renderTasks(); renderRobots(); renderMarketChips(); renderMarket(); renderEdu();
+renderTabs(); renderLib(); renderFlow(); renderProps(); renderVars(); renderLogs(); updateHistoryBtns();
+})();
+</script>
+</body>
+</html>

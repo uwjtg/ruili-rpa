@@ -1,0 +1,148 @@
+/* ============================================================
+   锐流 RPA · 标题栏 + 顶部横向导航（迁移自原型）
+   ============================================================ */
+.titlebar {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 0 14px 0 12px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, #f26b5e, var(--red));
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tb-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.tb-ver {
+  font-size: 11px;
+  color: var(--text-3);
+  background: var(--gray);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}
+
+.tb-nav {
+  display: flex;
+  align-self: stretch;
+  margin-left: 14px;
+}
+
+.nav-item {
+  position: relative;
+  padding: 0 15px;
+  font-size: 13px;
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+.nav-item:hover {
+  color: var(--text);
+}
+.nav-item.active {
+  color: var(--text);
+  font-weight: 500;
+}
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 26px;
+  height: 3px;
+  background: var(--red);
+  border-radius: 2px;
+}
+
+.tb-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pill-red {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: var(--red);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  margin-right: 8px;
+}
+.pill-red:hover {
+  background: var(--red-hover);
+}
+
+.tb-btn {
+  width: 30px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  border-radius: 4px;
+  position: relative;
+}
+.tb-btn:hover {
+  background: var(--gray);
+  color: var(--text);
+}
+.tb-btn .reddot {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff4d4f;
+  border: 1px solid #fff;
+}
+.tb-btn.close:hover {
+  background: #e5484d;
+  color: #fff;
+}
+
+.avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8e7cff, #7c5cfc);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 6px;
+}
+
+.tb-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+}
