@@ -7,9 +7,10 @@ interface TaskSummary {
   id: string
   flowId: string
   name: string
-  triggerType: 'cron' | 'interval'
+  triggerType: 'cron' | 'interval' | 'hotkey'
   cronExpr: string
   intervalMs: number
+  hotkey: string
   enabled: boolean
   lastRunAt: number | null
   nextRunAt: number | null
@@ -31,9 +32,10 @@ export default function TriggersView(): JSX.Element {
   const [showForm, setShowForm] = useState(false)
   const [flowId, setFlowId] = useState('')
   const [name, setName] = useState('')
-  const [triggerType, setTriggerType] = useState<'cron' | 'interval'>('cron')
+  const [triggerType, setTriggerType] = useState<'cron' | 'interval' | 'hotkey'>('cron')
   const [cronExpr, setCronExpr] = useState('0 9 * * *')
   const [intervalMin, setIntervalMin] = useState(15)
+  const [hotkey, setHotkey] = useState('Control+Shift+R')
 
   const refresh = useCallback(async () => {
     if (!ruili?.tasks) return
@@ -60,7 +62,8 @@ export default function TriggersView(): JSX.Element {
       name: name.trim() || '未命名任务',
       triggerType,
       cronExpr: triggerType === 'cron' ? cronExpr : undefined,
-      intervalMs: triggerType === 'interval' ? Math.max(1, intervalMin) * 60_000 : undefined
+      intervalMs: triggerType === 'interval' ? Math.max(1, intervalMin) * 60_000 : undefined,
+      hotkey: triggerType === 'hotkey' ? hotkey : undefined
     })
     if (res.ok) {
       setShowForm(false)
@@ -93,9 +96,9 @@ export default function TriggersView(): JSX.Element {
   }
 
   function desc(t: TaskSummary): string {
-    return t.triggerType === 'cron'
-      ? `cron: ${t.cronExpr}`
-      : `每 ${Math.round(t.intervalMs / 60000)} 分钟`
+    if (t.triggerType === 'cron') return `cron: ${t.cronExpr}`
+    if (t.triggerType === 'hotkey') return `快捷键: ${t.hotkey || '—'}`
+    return `每 ${Math.round(t.intervalMs / 60000)} 分钟`
   }
 
   return (
@@ -142,10 +145,11 @@ export default function TriggersView(): JSX.Element {
             </label>
             <label style={{ fontSize: 12, color: '#51565D' }}>
               触发方式
-              <select value={triggerType} onChange={(e) => setTriggerType(e.target.value as 'cron' | 'interval')}
+              <select value={triggerType} onChange={(e) => setTriggerType(e.target.value as 'cron' | 'interval' | 'hotkey')}
                 style={{ width: '100%', height: 30, marginTop: 4, borderRadius: 6, border: '1px solid #D8DADD', padding: '0 8px' }}>
                 <option value="cron">cron 表达式</option>
                 <option value="interval">固定间隔</option>
+                <option value="hotkey">快捷键</option>
               </select>
             </label>
             {triggerType === 'cron' ? (
@@ -154,13 +158,21 @@ export default function TriggersView(): JSX.Element {
                 <input value={cronExpr} onChange={(e) => setCronExpr(e.target.value)} placeholder="0 9 * * *"
                   style={{ width: '100%', height: 30, marginTop: 4, borderRadius: 6, border: '1px solid #D8DADD', padding: '0 8px' }} />
               </label>
-            ) : (
+            ) : null}
+            {triggerType === 'interval' ? (
               <label style={{ fontSize: 12, color: '#51565D' }}>
                 间隔（分钟）
                 <input type="number" value={intervalMin} min={1} onChange={(e) => setIntervalMin(Number(e.target.value))}
                   style={{ width: '100%', height: 30, marginTop: 4, borderRadius: 6, border: '1px solid #D8DADD', padding: '0 8px' }} />
               </label>
-            )}
+            ) : null}
+            {triggerType === 'hotkey' ? (
+              <label style={{ fontSize: 12, color: '#51565D' }}>
+                快捷键（Electron 加速器格式）
+                <input value={hotkey} onChange={(e) => setHotkey(e.target.value)} placeholder="Control+Shift+R"
+                  style={{ width: '100%', height: 30, marginTop: 4, borderRadius: 6, border: '1px solid #D8DADD', padding: '0 8px' }} />
+              </label>
+            ) : null}
           </div>
           <button onClick={() => void createTask()}
             style={{ marginTop: 12, height: 30, padding: '0 16px', borderRadius: 6, border: 'none', background: '#E64340', color: '#fff', fontSize: 13, cursor: 'pointer' }}>

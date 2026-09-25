@@ -35,6 +35,7 @@ import {
   listRunEntries
 } from './store/db'
 import { TaskScheduler } from './scheduler'
+import { HotkeyManager } from './hotkeys'
 import type { RunLogEntry } from './store/db'
 import type { RecordThresholds } from '../shared/record-settings'
 import { PickController } from './pick'
@@ -353,20 +354,41 @@ const scheduler = new TaskScheduler({
   markTick: (id, next) => markTaskTick(id, next),
   isRunning: () => runManager.isRunning()
 })
+const hotkeys = new HotkeyManager({
+  loadFlow: (flowId) => {
+    const r = loadFlow(flowId)
+    return r.ok ? r.flow : null
+  },
+  fire: (flow) => {
+    try {
+      runManager.start(flow)
+    } catch (err) {
+      console.error('热键触发运行失败：', err)
+    }
+  },
+  markRan: (id, next) => markTaskRan(id, next),
+  isRunning: () => runManager.isRunning()
+})
 
 ipcMain.handle('tasks:list', () => listTasks())
 ipcMain.handle('tasks:create', (_e, input) => createTask(input))
 ipcMain.handle('tasks:toggle', (_e, id: string, on: boolean) => {
   const r = setTaskEnabled(id, on)
-  // 启停后重建定时器
+  // 启停后重建定时器与热键
   const enabled = listEnabledTasks()
-  if (enabled.ok) scheduler.reload(enabled.items)
+  if (enabled.ok) {
+    scheduler.reload(enabled.items)
+    hotkeys.reload(enabled.items)
+  }
   return r
 })
 ipcMain.handle('tasks:delete', (_e, id: string) => {
   const r = deleteTask(id)
   const enabled = listEnabledTasks()
-  if (enabled.ok) scheduler.reload(enabled.items)
+  if (enabled.ok) {
+    scheduler.reload(enabled.items)
+    hotkeys.reload(enabled.items)
+  }
   return r
 })
 ipcMain.handle('runs:history', (_e, limit?: number) => listRunHistory(limit ?? 100))
@@ -377,9 +399,12 @@ app.whenReady().then(() => {
   openDb(join(app.getPath('userData'), 'ruili.db'))
   createWindow()
 
-  // 启动计划任务调度器（加载全部启用任务；启动时对错过的触发点补跑一次）
+  // 启动计划任务调度器与热键（加载全部启用任务；启动时对错过的定时触发点补跑一次）
   const enabled = listEnabledTasks()
-  if (enabled.ok) scheduler.reload(enabled.items, { catchUp: true })
+  if (enabled.ok) {
+    scheduler.reload(enabled.items, { catchUp: true })
+    hotkeys.reload(enabled.items)
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -389,6 +414,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   closeDb()
   scheduler.stop()
+  hotkeys.stop()
   pickController.dispose()
   disposeSidecar()
   if (process.platform !== 'darwin') app.quit()

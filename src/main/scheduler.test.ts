@@ -10,6 +10,7 @@ function mkTask(over: Partial<TaskRecord> = {}): TaskRecord {
     triggerType: 'interval',
     cronExpr: '',
     intervalMs: 50,
+    hotkey: '',
     enabled: true,
     lastRunAt: null,
     nextRunAt: null,

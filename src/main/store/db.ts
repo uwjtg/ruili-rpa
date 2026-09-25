@@ -136,6 +136,11 @@ function migrate(d: DB): void {
     );
     CREATE INDEX IF NOT EXISTS idx_tasks_flow ON tasks(flow_id);
   `)
+  // M5-4 热键触发器：旧库补列（CREATE TABLE IF NOT EXISTS 不会改已有表结构）
+  const taskCols = (d.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>).map((x) => x.name)
+  if (!taskCols.includes('hotkey')) {
+    d.exec("ALTER TABLE tasks ADD COLUMN hotkey TEXT DEFAULT ''")
+  }
 }
 
 function countSteps(flow: FlowDoc): number {
@@ -551,9 +556,10 @@ export interface TaskRecord {
   id: string
   flowId: string
   name: string
-  triggerType: 'cron' | 'interval'
+  triggerType: 'cron' | 'interval' | 'hotkey'
   cronExpr: string
   intervalMs: number
+  hotkey: string
   enabled: boolean
   lastRunAt: number | null
   nextRunAt: number | null
@@ -564,7 +570,7 @@ export interface TaskRecord {
 
 type TaskRow = {
   id: string; flow_id: string; name: string; trigger_type: string
-  cron_expr: string; interval_ms: number; enabled: number
+  cron_expr: string; interval_ms: number; hotkey: string; enabled: number
   last_run_at: number | null; next_run_at: number | null; run_count: number
   created_at: number; updated_at: number
 }
@@ -574,9 +580,10 @@ function rowToTask(r: TaskRow): TaskRecord {
     id: r.id,
     flowId: r.flow_id,
     name: r.name,
-    triggerType: r.trigger_type === 'interval' ? 'interval' : 'cron',
+    triggerType: r.trigger_type === 'interval' ? 'interval' : r.trigger_type === 'hotkey' ? 'hotkey' : 'cron',
     cronExpr: r.cron_expr,
     intervalMs: r.interval_ms,
+    hotkey: r.hotkey ?? '',
     enabled: !!r.enabled,
     lastRunAt: r.last_run_at,
     nextRunAt: r.next_run_at,
@@ -590,9 +597,10 @@ function rowToTask(r: TaskRow): TaskRecord {
 export function createTask(input: {
   flowId: string
   name: string
-  triggerType: 'cron' | 'interval'
+  triggerType: 'cron' | 'interval' | 'hotkey'
   cronExpr?: string
   intervalMs?: number
+  hotkey?: string
 }): { ok: true; task: TaskRecord } | { ok: false; error: string } {
   try {
     const d = requireDb()
@@ -605,11 +613,14 @@ export function createTask(input: {
     if (input.triggerType === 'interval' && !(Number(input.intervalMs) > 0)) {
       return { ok: false, error: '间隔必须为正整数毫秒' }
     }
+    if (input.triggerType === 'hotkey' && !String(input.hotkey || '').trim()) {
+      return { ok: false, error: '快捷键不能为空（如 Control+Shift+R）' }
+    }
     const now = Date.now()
     const id = randomUUID()
     d.prepare(
-      `INSERT INTO tasks (id, flow_id, name, trigger_type, cron_expr, interval_ms, enabled, created_at, updated_at)
-       VALUES (@id, @flowId, @name, @tt, @cron, @interval, 1, @now, @now)`
+      `INSERT INTO tasks (id, flow_id, name, trigger_type, cron_expr, interval_ms, hotkey, enabled, created_at, updated_at)
+       VALUES (@id, @flowId, @name, @tt, @cron, @interval, @hk, 1, @now, @now)`
     ).run({
       id,
       flowId: input.flowId,
@@ -617,6 +628,7 @@ export function createTask(input: {
       tt: input.triggerType,
       cron: input.triggerType === 'cron' ? String(input.cronExpr).trim() : '',
       interval: input.triggerType === 'interval' ? Math.max(1000, Number(input.intervalMs)) : 0,
+      hk: input.triggerType === 'hotkey' ? String(input.hotkey).trim() : '',
       now
     })
     const row = d.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow

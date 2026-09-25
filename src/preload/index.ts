@@ -33,6 +33,7 @@ type TaskSummary = {
   lastRunAt: number | null
   nextRunAt: number | null
   runCount: number
+  hotkey: string
 }
 
 /** 执行记录摘要（M5-3 RobotsView，与 db RunHistoryItem 对齐） */
@@ -211,7 +212,7 @@ const api = {
   tasks: {
     list: () => ipcRenderer.invoke('tasks:list') as Promise<{ ok: true; items: TaskSummary[] } | { ok: false; error: string }>,
     create: (input: {
-      flowId: string; name: string; triggerType: 'cron' | 'interval'; cronExpr?: string; intervalMs?: number
+      flowId: string; name: string; triggerType: 'cron' | 'interval' | 'hotkey'; cronExpr?: string; intervalMs?: number; hotkey?: string
     }) => ipcRenderer.invoke('tasks:create', input) as Promise<{ ok: true; task: TaskSummary } | { ok: false; error: string }>,
     toggle: (id: string, on: boolean) => ipcRenderer.invoke('tasks:toggle', id, on) as Promise<{ ok: true } | { ok: false; error: string }>,
     remove: (id: string) => ipcRenderer.invoke('tasks:delete', id) as Promise<{ ok: true } | { ok: false; error: string }>
