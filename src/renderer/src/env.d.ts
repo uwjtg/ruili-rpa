@@ -105,6 +105,13 @@ declare global {
           ok: boolean; cancelled?: boolean; selector?: string; tag?: string; text?: string; error?: string
         }>
       }
+      webRecord: {
+        start: () => Promise<{ ok: boolean; error?: string }>
+        stop: () => Promise<{
+          ok: boolean; error?: string
+          events?: Array<{ type: 'click' | 'fill'; selector: string; value?: string }>
+        }>
+      }
     }
   }
 }

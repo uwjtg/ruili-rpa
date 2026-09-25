@@ -163,6 +163,16 @@ const api = {
       ipcRenderer.invoke('web-pick:start', timeoutMs) as Promise<{
         ok: boolean; cancelled?: boolean; selector?: string; tag?: string; text?: string; error?: string
       }>
+  },
+  /** 浏览器录制器（M4 切片 4）：录制页面点击/输入事件 */
+  webRecord: {
+    start: () => ipcRenderer.invoke('web-record:start') as Promise<{ ok: boolean; error?: string }>,
+    stop: () =>
+      ipcRenderer.invoke('web-record:stop') as Promise<{
+        ok: boolean
+        error?: string
+        events?: Array<{ type: 'click' | 'fill'; selector: string; value?: string }>
+      }>
   }
 } as const
 

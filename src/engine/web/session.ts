@@ -14,6 +14,7 @@ import { chromium, type BrowserContext, type Page } from 'playwright-core'
 import { existsSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { CSS_PATH_FN, PICK_START_FN, PICK_READ_FN } from '../../shared/scrape/pick-script'
+import { REC_START_FN, REC_STOP_FN, type WebRecordEvent } from '../../shared/scrape/record-script'
 
 /** 浏览器会话接口（指令只依赖此接口） */
 export interface WebSession {
@@ -47,6 +48,10 @@ export interface WebSession {
     text?: string
     cancelled?: boolean
   }>
+  /** 开始录制页面操作（M4 切片 4）：注入 mousedown/input 监听 */
+  startWebRecord(): Promise<void>
+  /** 停止录制并返回事件数组 */
+  stopWebRecord(): Promise<WebRecordEvent[]>
   /** 关闭浏览器 */
   close(): Promise<void>
   /** 是否已启动 */
@@ -192,6 +197,20 @@ export class RealWebSession implements WebSession {
       text: r.result.text,
       cancelled: false
     }
+  }
+
+  async startWebRecord(): Promise<void> {
+    const injector = new Function(
+      '"use strict";\n' + CSS_PATH_FN + '\n' + REC_START_FN + '\nstartWebRecord();'
+    )
+    await this.requirePage().evaluate(injector as unknown as () => void)
+  }
+
+  async stopWebRecord(): Promise<WebRecordEvent[]> {
+    const reader = new Function(
+      '"use strict"; return (' + REC_STOP_FN + ')();'
+    ) as () => WebRecordEvent[]
+    return (await this.requirePage().evaluate(reader as unknown as () => WebRecordEvent[])) || []
   }
 
   async close(): Promise<void> {

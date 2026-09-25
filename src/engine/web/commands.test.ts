@@ -33,6 +33,8 @@ function fakeSession() {
     waitFor: vi.fn(async () => {}),
     eval: vi.fn(async () => []),
     startPagePick: vi.fn(async () => ({ cancelled: true })),
+    startWebRecord: vi.fn(async () => {}),
+    stopWebRecord: vi.fn(async () => []),
     close: vi.fn(async () => {}),
     isRunning: () => true
   }

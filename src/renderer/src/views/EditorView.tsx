@@ -125,6 +125,7 @@ export default function EditorView(): JSX.Element {
   const [varDialogError, setVarDialogError] = useState('')
   // M4 切片 1：数据抓取向导弹窗
   const [scrapeOpen, setScrapeOpen] = useState(false)
+  const [webRecording, setWebRecording] = useState(false)
   const [lines, setLines] = useState<LogLine[]>([])
   const [rightTab, setRightTab] = useState<'params' | 'vars' | 'elements' | 'settings' | 'ai'>('params')
   const [status, setStatus] = useState('空闲')
@@ -633,6 +634,39 @@ export default function EditorView(): JSX.Element {
     }
   }
 
+  /** M4 切片 4：浏览器录制器——开始录制页面点击/输入 */
+  async function onStartWebRec(): Promise<void> {
+    if (!window.ruili?.webRecord) return
+    const r = await window.ruili.webRecord.start()
+    if (!r.ok) { push('error', `开启网页录制失败：${r.error}`); return }
+    setWebRecording(true)
+    push('sys', '网页录制已开启：在浏览器里点击/输入将被记录；完成后点「停止网页录制」')
+  }
+
+  async function onStopWebRec(): Promise<void> {
+    if (!window.ruili?.webRecord) return
+    const r = await window.ruili.webRecord.stop()
+    setWebRecording(false)
+    if (!r.ok) { push('error', `停止网页录制失败：${r.error}`); return }
+    const evs = r.events ?? []
+    if (evs.length === 0) { push('sys', '未录制到任何网页操作'); return }
+    const idSource = activeTab.flow.steps
+    const steps: StepNode[] = []
+    let src = idSource
+    for (const e of evs) {
+      const step: StepNode = e.type === 'click'
+        ? { id: nextStepId(src), cmdId: 'webClick', params: { selector: e.selector } }
+        : { id: nextStepId(src), cmdId: 'webInput', params: { selector: e.selector, value: e.value ?? '' } }
+      src = [...src, step]
+      steps.push(step)
+    }
+    const merged = insertAfter(activeTab.flow.steps, null, steps[0])
+    for (let i = 1; i < steps.length; i++) merged.push(steps[i])
+    commit({ ...activeTab.flow, steps: merged })
+    patchTab(activeTab.tabId, { selectedId: steps[steps.length - 1].id })
+    push('success', `网页录制完成：${steps.length} 条步骤已追加（${evs.filter(e=>e.type==='click').length} 点击 / ${evs.filter(e=>e.type==='fill').length} 输入）`)
+  }
+
   /** M4 切片 1：抓取向导生成 → 重写 id 后追加到当前流程末尾（与录制追加同模式） */
   function onGenerateScrape(spec: ScrapeWizardSpec): void {
     const { steps: generated, newVars } = generateScrapeFlow(spec)
@@ -906,6 +940,14 @@ export default function EditorView(): JSX.Element {
           style={{ ...btn, background: scrapeOpen ? '#1DBF73' : '#fff', color: scrapeOpen ? '#fff' : '#1DBF73', border: scrapeOpen ? 'none' : '1px solid #1DBF73' }}
         >
           抓取
+        </button>
+        <button
+          onClick={() => void (webRecording ? onStopWebRec() : onStartWebRec())}
+          disabled={running || recording}
+          title='浏览器录制：在已开浏览器页面里点击/输入，自动生成 webClick/webInput 步骤'
+          style={{ ...btn, background: webRecording ? '#E64340' : '#fff', color: webRecording ? '#fff' : '#E64340', border: webRecording ? 'none' : '1px solid #E64340' }}
+        >
+          {webRecording ? '■ 停止网页录制' : '● 录网页'}
         </button>
         <span style={{ marginLeft: 'auto' }}>
           {/* §5 第8条：顶部常显未保存/已保存状态；录制态红点常显 */}

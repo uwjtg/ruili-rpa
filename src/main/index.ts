@@ -31,6 +31,7 @@ import { PickController } from './pick'
 import { RecordController } from './record'
 import { inspectForWizard } from './scrape'
 import { startWebPick } from './web-pick'
+import { startWebRecord, stopWebRecord } from './web-record'
 import { ensureSidecar, disposeSidecar } from './sidecar'
 import { randomUUID } from 'node:crypto'
 
@@ -300,6 +301,8 @@ ipcMain.handle('record:pickTargetWindow', async () => {
 /* ---------- M4 切片 1：数据抓取向导——在已开页面里识别相似列表项 ---------- */
 ipcMain.handle('scrape:inspect', (_e, sampleSelector: string) => inspectForWizard(sampleSelector))
 ipcMain.handle('web-pick:start', (_e, timeoutMs?: number) => startWebPick(timeoutMs))
+ipcMain.handle('web-record:start', () => startWebRecord())
+ipcMain.handle('web-record:stop', () => stopWebRecord())
 
 /* ---------- 设置（M3 切片 12）：录制聚合阈值持久化 ---------- */
 ipcMain.handle('settings:get-record-thresholds', () => loadRecordThresholds())
