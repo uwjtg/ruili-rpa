@@ -41,3 +41,4 @@
 | [35-M4-6-录制器V3.md](./35-M4-6-录制器V3.md) | M4 切片 6 · 键盘功能键录制（Enter/Tab/Esc）→ webPressKey | 2026-09-25 | ✅ 完成 |
 | [36-M4-7-翻页入抓.md](./36-M4-7-翻页入抓.md) | M4 切片 7 · webScrapeList 加 nextSelector/maxPages，自动点下一页循环抓 | 2026-09-25 | ✅ 完成 |
 | [37-M4-8_9-XLSX与修饰键.md](./37-M4-8_9-XLSX与修饰键.md) | M4 切片 8-9 · XLSX 导出 + 录制器修饰键 Ctrl/Alt 组合 | 2026-09-25 | ✅ 完成 |
+| [38-M4-10-录制器真站冒烟.md](./38-M4-10-录制器真站冒烟.md) | M4 切片 10 · 录制器真浏览器端到端冒烟（vite-node 跑 RealWebSession，click/fill/scroll/功能键/修饰键/跨导航重注入 10/10；旧 smoke_web_live 修到 7/7） | 2026-09-25 | ✅ 完成 |
