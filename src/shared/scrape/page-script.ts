@@ -25,14 +25,21 @@ export const INSPECT_FN_BODY = `function inspectInPage(sampleSelector) {
   function textOf(el) {
     return (el.textContent || '').replace(/\\s+/g, ' ').trim();
   }
-  function clsChain(el) {
-    var c = (el.getAttribute('class') || '').trim();
-    if (!c) return '';
-    return c.split(/\\s+/).slice(0, 3).join('.');
+  // 归一 class：剥离构建工具尾部 hash（product_abc123 / css-1a2b3cd → product / css），
+  // 让同组件的不同实例能聚到同一组（M4-2）。
+  function normClass(raw) {
+    if (!raw) return '';
+    var toks = raw.trim().split(/\\s+/);
+    var kept = [];
+    for (var i = 0; i < toks.length; i++) {
+      var t = toks[i].replace(/[-_][a-zA-Z0-9]{6,}$/, '');
+      if (t) kept.push(t);
+    }
+    return kept.slice(0, 3).join('.');
   }
   function groupKey(el) {
     var t = el.tagName.toLowerCase();
-    var c = clsChain(el);
+    var c = normClass(el.getAttribute('class'));
     return c ? t + '.' + c : t;
   }
   function relPath(from, to) {
@@ -40,8 +47,20 @@ export const INSPECT_FN_BODY = `function inspectInPage(sampleSelector) {
     var cur = from;
     while (cur && cur !== to) {
       var seg = cur.tagName.toLowerCase();
-      var c = clsChain(cur);
+      var c = normClass(cur.getAttribute('class'));
       if (c) seg += '.' + c;
+      // 同父内同标签多于 1 时加 :nth-of-type 消歧（M4-2）
+      var parent = cur.parentElement;
+      if (parent) {
+        var sameTag = 0, myIdx = 0;
+        for (var j = 0; j < parent.children.length; j++) {
+          if (parent.children[j].tagName === cur.tagName) {
+            sameTag++;
+            if (parent.children[j] === cur) myIdx = sameTag;
+          }
+        }
+        if (sameTag > 1) seg += ':nth-of-type(' + myIdx + ')';
+      }
       parts.unshift(seg);
       cur = cur.parentElement;
     }
@@ -75,7 +94,26 @@ export const INSPECT_FN_BODY = `function inspectInPage(sampleSelector) {
     return { ok: false, error: '未识别到相似列表项：示例元素同级至少需要 2 个同标签同 class 的兄弟节点' };
   }
 
-  var listSelector = best.key;
+  // 生成最终 listSelector：
+  //  - 常规：tag.normClass；
+  //  - hash 类（去抖前后不同）：用 [class*=前缀]，把不同 hash 实例都选中；
+  //  - 纯 tag 组（无 class）：父容器 > tag，避免全文 tag 选择器过宽。
+  var sampleRawCls = (sample.getAttribute('class') || '').trim();
+  var sampleTag = sample.tagName.toLowerCase();
+  var rawTokens = sampleRawCls ? sampleRawCls.split(/\\s+/) : [];
+  var hasHashTok = rawTokens.some(function (t) { return /[-_][a-zA-Z0-9]{6,}$/.test(t); });
+  var listSelector;
+  if (hasHashTok) {
+    var stem = rawTokens[0].replace(/[-_][a-zA-Z0-9]{6,}$/, '');
+    listSelector = sampleTag + '[class*="' + stem + '"]';
+  } else if (best.key.indexOf('.') < 0) {
+    var p = sample.parentElement;
+    var pCls = p ? normClass(p.getAttribute('class')) : '';
+    var pSel = pCls ? '.' + pCls : (p ? p.tagName.toLowerCase() : sampleTag);
+    listSelector = pSel + ' > ' + sampleTag;
+  } else {
+    listSelector = best.key;
+  }
   var matched = document.querySelectorAll(listSelector);
   if (matched.length < 2) {
     return { ok: false, error: '聚类结果只命中 ' + matched.length + ' 个元素，不足以成列；请换一个更内层的示例选择器' };
