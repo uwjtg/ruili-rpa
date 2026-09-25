@@ -78,10 +78,21 @@ export const REC_START_FN = `function startWebRecord() {
   }
 
   function onKey(e) {
-    // 只录功能键（字母数字已由 input 覆盖）；避免与 input 事件重复
+    // 1) 功能键白名单（Enter/Tab/Esc/方向/退格）
     var NAV_KEYS = ['Enter', 'Tab', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace', 'Delete'];
-    if (NAV_KEYS.indexOf(e.key) < 0) return;
-    window.__ruiliWebEvents.push({ type: 'key', key: e.key, ts: Date.now() });
+    if (NAV_KEYS.indexOf(e.key) >= 0) {
+      window.__ruiliWebEvents.push({ type: 'key', key: e.key, ts: Date.now() });
+      return;
+    }
+    // 2) 修饰键组合（Ctrl/Alt/Win + 单字符）：序列化成 Playwright 语法 "Control+c"
+    if ((e.ctrlKey || e.altKey || e.metaKey) && e.key.length === 1) {
+      var mods = [];
+      if (e.ctrlKey) mods.push('Control');
+      if (e.altKey) mods.push('Alt');
+      if (e.metaKey) mods.push('Meta');
+      mods.push(e.key.toUpperCase());
+      window.__ruiliWebEvents.push({ type: 'key', key: mods.join('+'), ts: Date.now() });
+    }
   }
 
   window.__ruiliWebOnDown = onDown;
