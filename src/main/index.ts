@@ -30,7 +30,9 @@ import {
   setTaskEnabled,
   deleteTask,
   markTaskRan,
-  markTaskTick
+  markTaskTick,
+  listRunHistory,
+  listRunEntries
 } from './store/db'
 import { TaskScheduler } from './scheduler'
 import type { RunLogEntry } from './store/db'
@@ -367,6 +369,8 @@ ipcMain.handle('tasks:delete', (_e, id: string) => {
   if (enabled.ok) scheduler.reload(enabled.items)
   return r
 })
+ipcMain.handle('runs:history', (_e, limit?: number) => listRunHistory(limit ?? 100))
+ipcMain.handle('runs:entries', (_e, runId: string) => listRunEntries(runId))
 
 app.whenReady().then(() => {
   // 数据库落在 userData 下（Electron 提供的跨版本稳定用户目录）

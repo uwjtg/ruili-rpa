@@ -45,3 +45,4 @@
 | [39-M4-11-iframe支持.md](./39-M4-11-iframe支持.md) | M4 切片 11 · web 指令跨 iframe（frameSelector + frameLocator/contentFrame；iframe 冒烟 3/3） | 2026-09-25 | ✅ 完成 |
 | [40-M5-1-计划任务调度.md](./40-M5-1-计划任务调度.md) | M5 切片 1 · 计划任务调度（tasks 表 + croner + TriggersView 真实列表/新建/启停；CRUD 冒烟 8/8） | 2026-09-25 | ✅ 完成 |
 | [41-M5-2-调度加固-互斥与补跑.md](./41-M5-2-调度加固-互斥与补跑.md) | M5 切片 2 · TaskScheduler 全局互斥（isRunning）+ 启动错过补跑（catchUp/graceMs）；调度器 7 用例 | 2026-09-25 | ✅ 完成 |
+| [42-M5-3-RobotsView执行记录.md](./42-M5-3-RobotsView执行记录.md) | M5 切片 3 · RobotsView 真实化：按 run_id 聚合运行历史 + 展开日志明细；查询冒烟 11/11 | 2026-09-25 | ✅ 完成 |

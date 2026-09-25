@@ -396,6 +396,70 @@ export function appendRunLog(
   }
 }
 
+/** 一次运行的历史摘要（按 run_id 聚合，M5-3 RobotsView）。 */
+export interface RunHistoryItem {
+  runId: string
+  flowId: string | null
+  flowName: string | null
+  status: string
+  durationMs: number | null
+  startedAt: number
+  endedAt: number
+  entryCount: number
+}
+
+/** 一条运行日志明细。 */
+export interface RunLogEntryRow {
+  level: string
+  message: string
+  ts: number
+}
+
+/** 最近 N 次运行记录（按结束时间倒序）。 */
+export function listRunHistory(
+  limit = 100
+): { ok: true; items: RunHistoryItem[] } | { ok: false; error: string } {
+  try {
+    const d = requireDb()
+    const rows = d
+      .prepare(
+        `SELECT l.run_id AS runId,
+                l.flow_id AS flowId,
+                f.name AS flowName,
+                MAX(l.status) AS status,
+                MAX(l.duration_ms) AS durationMs,
+                MIN(l.ts) AS startedAt,
+                MAX(l.ts) AS endedAt,
+                COUNT(*) AS entryCount
+         FROM logs l LEFT JOIN flows f ON f.id = l.flow_id
+         GROUP BY l.run_id
+         ORDER BY endedAt DESC
+         LIMIT ?`
+      )
+      .all(limit) as RunHistoryItem[]
+    return { ok: true, items: rows }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/** 某次运行的全部日志明细（按时间正序）。 */
+export function listRunEntries(
+  runId: string
+): { ok: true; items: RunLogEntryRow[] } | { ok: false; error: string } {
+  try {
+    const d = requireDb()
+    const rows = d
+      .prepare(
+        'SELECT level, message, ts FROM logs WHERE run_id = ? ORDER BY ts ASC, id ASC'
+      )
+      .all(runId) as RunLogEntryRow[]
+    return { ok: true, items: rows }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 /** 录制聚合阈值落盘的 settings 键（M3 切片 12）。 */
 const SETTINGS_KEY_RECORD_THRESHOLDS = 'record.thresholds'
 

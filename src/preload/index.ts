@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+﻿import { contextBridge, ipcRenderer } from 'electron'
 import type { FlowDoc } from '../shared/ast'
 import type { RunWireEvent } from '../shared/run-protocol'
 import type { CmdMeta } from '../shared/cmd-schema'
@@ -33,6 +33,25 @@ type TaskSummary = {
   lastRunAt: number | null
   nextRunAt: number | null
   runCount: number
+}
+
+/** 执行记录摘要（M5-3 RobotsView，与 db RunHistoryItem 对齐） */
+interface RunHistoryItem {
+  runId: string
+  flowId: string | null
+  flowName: string | null
+  status: string
+  durationMs: number | null
+  startedAt: number
+  endedAt: number
+  entryCount: number
+}
+
+/** 单条运行日志明细 */
+interface RunLogEntryRow {
+  level: string
+  message: string
+  ts: number
 }
 
 /**
@@ -196,6 +215,17 @@ const api = {
     }) => ipcRenderer.invoke('tasks:create', input) as Promise<{ ok: true; task: TaskSummary } | { ok: false; error: string }>,
     toggle: (id: string, on: boolean) => ipcRenderer.invoke('tasks:toggle', id, on) as Promise<{ ok: true } | { ok: false; error: string }>,
     remove: (id: string) => ipcRenderer.invoke('tasks:delete', id) as Promise<{ ok: true } | { ok: false; error: string }>
+  },
+  /** 执行记录（M5-3 RobotsView）：历史列表与单次运行明细 */
+  runs: {
+    history: (limit?: number) => ipcRenderer.invoke('runs:history', limit) as Promise<
+      | { ok: true; items: RunHistoryItem[] }
+      | { ok: false; error: string }
+    >,
+    entries: (runId: string) => ipcRenderer.invoke('runs:entries', runId) as Promise<
+      | { ok: true; items: RunLogEntryRow[] }
+      | { ok: false; error: string }
+    >
   }
 } as const
 

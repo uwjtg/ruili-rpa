@@ -1,4 +1,4 @@
-/// <reference types="vite/client" />
+﻿/// <reference types="vite/client" />
 
 import type { RunWireEvent } from '../../shared/run-protocol'
 import type { FlowDoc } from '../../shared/ast'
@@ -127,8 +127,31 @@ declare global {
         toggle: (id: string, on: boolean) => Promise<{ ok: true } | { ok: false; error: string }>
         remove: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>
       }
+      runs: {
+        history: (limit?: number) => Promise<{ ok: true; items: RunHistoryItem[] } | { ok: false; error: string }>
+        entries: (runId: string) => Promise<{ ok: true; items: RunLogEntryRow[] } | { ok: false; error: string }>
+      }
     }
   }
+}
+
+/** 执行记录摘要（M5-3 RobotsView） */
+interface RunHistoryItem {
+  runId: string
+  flowId: string | null
+  flowName: string | null
+  status: string
+  durationMs: number | null
+  startedAt: number
+  endedAt: number
+  entryCount: number
+}
+
+/** 单条运行日志明细 */
+interface RunLogEntryRow {
+  level: string
+  message: string
+  ts: number
 }
 
 /** 计划任务摘要（与 preload TaskSummary 对齐，M5 调度切片） */

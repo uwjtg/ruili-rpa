@@ -7,13 +7,13 @@
 1) docs\锐流RPA-V3-接力开发模式说明.md
 2) docs\锐流RPA-V3-开发计划书.md
 3) docs\handoff\INDEX.md
-4) docs\handoff\41-M5-2-调度加固-互斥与补跑.md（最新）
-5) docs\handoff\40-M5-1-计划任务调度.md
+4) docs\handoff\42-M5-3-RobotsView执行记录.md（最新）
+5) docs\handoff\41-M5-2-调度加固-互斥与补跑.md
 6) docs\锐流RPA-开发交接文档.md（§5 编辑器交互清单、§7 边界）
 
 当前基线：
-- M3 切片 1-18 收尾；M4 切片 1-11 完成（抓取向导/CDP拾取/录制器V1-V3/翻页/XLSX/修饰键/真站冒烟/iframe）；M5 切片 1-2 完成（计划任务调度 cron/interval + 互斥与错过补跑）。
-- 验证全绿：pytest 84/84、vitest 26 文件 168 用例、typecheck 0、build renderer 881.11 kB、license 无新传染（croner@9.1.0 MIT）。
+- M3 切片 1-18 收尾；M4 切片 1-11 完成（抓取向导/CDP拾取/录制器V1-V3/翻页/XLSX/修饰键/真站冒烟/iframe）；M5 切片 1-3 完成（计划任务调度 + 互斥补跑 + RobotsView 执行记录）。
+- 验证全绿：pytest 84/84、vitest 26 文件 168 用例、typecheck 0、build renderer 887.29 kB、license 无新传染（croner@9.1.0 MIT）。
 - 真站冒烟全过（系统 Chrome channel:'chrome'）：
   · node .runtime/smoke_web_live.mjs → 7/7
   · npx vite-node .runtime/smoke_recorder_live.mts → 10/10（录制器 click/fill/scroll/Tab/Enter/Control+C/跨导航重注入）
@@ -21,6 +21,7 @@
   · npx vite-node .runtime/smoke_iframe_live.mts → 3/3（跨 frame getText/click/scrape）
   · npx vite-node .runtime/smoke_tasks_db.mts → 8/8（tasks CRUD）
   · 调度器单测 7/7（含互斥跳过、grace 内补跑、超 grace 不补跑）
+  · npx vite-node .runtime/smoke_runs_history.mts → 11/11（run 历史聚合+明细）
 - web 指令清单（12 条）：webOpenBrowser/webOpenUrl/webClick/webInput/webScroll/webPressKey/webExtractText/webWaitFor/webScrapeList/webCloseBrowser；其中 click/input/extract/wait/scrape 均加可选 frame 参数（跨 iframe，传 iframe CSS 选择器）。
 - 调度：tasks 表（trigger_type=cron|interval，croner）+ TaskScheduler（src/main/scheduler.ts，不依赖 Electron）+ IPC tasks:list/create/toggle/delete + TriggersView 真实列表/新建/启停。fire 直接 runManager.start(flow)。whenReady 启动、退出 stop。
 - sidecar 协议未变。流程 AST：FlowDoc{version,name,vars,steps,recordThresholds?}。
@@ -28,11 +29,11 @@
 - 冒烟留存：.runtime/smoke_web_live.mjs、smoke_recorder_live.mts、smoke_recorder_headed.mts、smoke_iframe_live.mts(+iframe-parent.html)、smoke_tasks_db.mts、及历史桌面侧 .py 脚本。
 
 下一步建议：
-1. RobotsView 真实化：执行记录列表（读 run_logs/entries 表，按 runId 分组展示状态/耗时/日志）。
-2. 热键/文件监听触发器（计划书 M4 另两类）。
+1. 热键触发器：全局快捷键启动指定流程（Electron globalShortcut）。
+2. 文件监听触发器：监听目录新文件自动跑流程（chokidar 或 fs.watch）。
 3. 桌面+网页混合流程端到端演示（M3 桌面指令 × M4 网页指令串一条流程）。
 4. AI 魔法指令（function-calling 生成流程）接入。
-5. 补跑增强：关机超 grace 时补最近 N 次（防开机雪崩，需限流）。
+5. RobotsView 加「清空历史」与按流程筛选。
 
 关键约束：
 - 环境 Windows 桌面，PowerShell（不用 Bash），node 22.23.2，Electron 44，npm 镜像 npmmirror；better-sqlite3 v13 NAPI 免 rebuild；RunWireEvent 形状从未改动。
