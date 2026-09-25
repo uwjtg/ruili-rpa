@@ -109,7 +109,7 @@ declare global {
         start: () => Promise<{ ok: boolean; error?: string }>
         stop: () => Promise<{
           ok: boolean; error?: string
-          events?: Array<{ type: 'click' | 'fill' | 'scroll'; selector?: string; value?: string; deltaY?: number }>
+          events?: Array<{ type: 'click' | 'fill' | 'scroll' | 'key'; selector?: string; value?: string; deltaY?: number; key?: string }>
         }>
       }
     }

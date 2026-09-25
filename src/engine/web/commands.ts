@@ -155,6 +155,24 @@ export function registerWebCommands(
   })
 
   registry.register({
+    id: 'webPressKey',
+    name: '按下按键',
+    group: '网页',
+    icon: 'keyboard',
+    params: [
+      { key: 'key', label: '按键', type: 'text', placeholder: 'Enter / Tab / Escape' }
+    ],
+    summary: (p) => `按 ${str(p.key, '…')}`,
+    runner: async (ctx, p) => {
+      const key = ctx.interpolate(str(p.key))
+      if (!key) throw new Error('未指定按键')
+      await session.pressKey(key)
+      ctx.log('success', `已按 ${key}`)
+      return true
+    }
+  })
+
+  registry.register({
     id: 'webExtractText',
     name: '提取元素文本',
     group: '网页',

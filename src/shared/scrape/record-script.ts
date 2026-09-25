@@ -14,6 +14,7 @@
  *  { type: 'click', selector: string }
  *  { type: 'fill', selector: string, value: string }
  *  { type: 'scroll', deltaY: number }
+ *  { type: 'key', key: 'Enter'|'Tab'|'Escape'|... }
  */
 
 import { CSS_PATH_FN } from './pick-script'
@@ -76,12 +77,21 @@ export const REC_START_FN = `function startWebRecord() {
     }, 300);
   }
 
+  function onKey(e) {
+    // 只录功能键（字母数字已由 input 覆盖）；避免与 input 事件重复
+    var NAV_KEYS = ['Enter', 'Tab', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace', 'Delete'];
+    if (NAV_KEYS.indexOf(e.key) < 0) return;
+    window.__ruiliWebEvents.push({ type: 'key', key: e.key, ts: Date.now() });
+  }
+
   window.__ruiliWebOnDown = onDown;
   window.__ruiliWebOnInput = onInput;
   window.__ruiliWebOnWheel = onWheel;
+  window.__ruiliWebOnKey = onKey;
   document.addEventListener('mousedown', onDown, true);
   document.addEventListener('input', onInput, true);
   document.addEventListener('wheel', onWheel, true);
+  document.addEventListener('keydown', onKey, true);
 }`
 
 /** 停止录制并返回事件 */
@@ -91,6 +101,7 @@ export const REC_STOP_FN = `function stopWebRecord() {
   document.removeEventListener('mousedown', window.__ruiliWebOnDown, true);
   document.removeEventListener('input', window.__ruiliWebOnInput, true);
   document.removeEventListener('wheel', window.__ruiliWebOnWheel, true);
+  document.removeEventListener('keydown', window.__ruiliWebOnKey, true);
   if (window.__ruiliRecBadge && window.__ruiliRecBadge.parentNode) {
     window.__ruiliRecBadge.parentNode.removeChild(window.__ruiliRecBadge);
   }
@@ -107,9 +118,10 @@ export const REC_STOP_FN = `function stopWebRecord() {
 
 /** 录制事件（跨进程传输形状） */
 export interface WebRecordEvent {
-  type: 'click' | 'fill' | 'scroll'
+  type: 'click' | 'fill' | 'scroll' | 'key'
   selector?: string
   value?: string
   deltaY?: number
+  key?: string
   ts?: number
 }

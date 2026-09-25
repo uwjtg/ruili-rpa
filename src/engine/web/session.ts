@@ -28,6 +28,8 @@ export interface WebSession {
   fill(selector: string, value: string): Promise<void>
   /** 鼠标滚轮滚动（M4-5）：deltaY 正向下负向上 */
   scroll(deltaY: number): Promise<void>
+  /** 按下按键（M4-6）：Enter/Tab/Escape 等 */
+  pressKey(key: string): Promise<void>
   /** 读取选择器的可见文本 */
   getText(selector: string): Promise<string>
   /** 当前页标题 */
@@ -153,6 +155,10 @@ export class RealWebSession implements WebSession {
 
   async scroll(deltaY: number): Promise<void> {
     await this.requirePage().mouse.wheel(0, deltaY)
+  }
+
+  async pressKey(key: string): Promise<void> {
+    await this.requirePage().keyboard.press(key)
   }
 
   async getText(selector: string): Promise<string> {

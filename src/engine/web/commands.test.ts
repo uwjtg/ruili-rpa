@@ -29,6 +29,7 @@ function fakeSession() {
     click: vi.fn(async () => {}),
     fill: vi.fn(async () => {}),
     scroll: vi.fn(async () => {}),
+    pressKey: vi.fn(async () => {}),
     getText: vi.fn(async () => '提取到的文本'),
     getTitle: vi.fn(async () => '页面标题'),
     waitFor: vi.fn(async () => {}),
@@ -55,6 +56,7 @@ describe('web 指令（stub 会话）', () => {
         'webOpenUrl',
         'webScrapeList',
         'webScroll',
+        'webPressKey',
         'webWaitFor'
       ].sort()
     )
