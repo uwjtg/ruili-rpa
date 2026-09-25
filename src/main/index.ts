@@ -36,6 +36,7 @@ import {
 } from './store/db'
 import { TaskScheduler } from './scheduler'
 import { HotkeyManager } from './hotkeys'
+import { FileWatchManager } from './filewatch'
 import type { RunLogEntry } from './store/db'
 import type { RecordThresholds } from '../shared/record-settings'
 import { PickController } from './pick'
@@ -369,6 +370,21 @@ const hotkeys = new HotkeyManager({
   markRan: (id, next) => markTaskRan(id, next),
   isRunning: () => runManager.isRunning()
 })
+const fileWatcher = new FileWatchManager({
+  loadFlow: (flowId) => {
+    const r = loadFlow(flowId)
+    return r.ok ? r.flow : null
+  },
+  fire: (flow) => {
+    try {
+      runManager.start(flow)
+    } catch (err) {
+      console.error('文件触发运行失败：', err)
+    }
+  },
+  markRan: (id, next) => markTaskRan(id, next),
+  isRunning: () => runManager.isRunning()
+})
 
 ipcMain.handle('tasks:list', () => listTasks())
 ipcMain.handle('tasks:create', (_e, input) => createTask(input))
@@ -379,6 +395,7 @@ ipcMain.handle('tasks:toggle', (_e, id: string, on: boolean) => {
   if (enabled.ok) {
     scheduler.reload(enabled.items)
     hotkeys.reload(enabled.items)
+    fileWatcher.reload(enabled.items)
   }
   return r
 })
@@ -388,6 +405,7 @@ ipcMain.handle('tasks:delete', (_e, id: string) => {
   if (enabled.ok) {
     scheduler.reload(enabled.items)
     hotkeys.reload(enabled.items)
+    fileWatcher.reload(enabled.items)
   }
   return r
 })
@@ -404,6 +422,7 @@ app.whenReady().then(() => {
   if (enabled.ok) {
     scheduler.reload(enabled.items, { catchUp: true })
     hotkeys.reload(enabled.items)
+    fileWatcher.reload(enabled.items)
   }
 
   app.on('activate', () => {
@@ -415,6 +434,7 @@ app.on('window-all-closed', () => {
   closeDb()
   scheduler.stop()
   hotkeys.stop()
+  fileWatcher.stop()
   pickController.dispose()
   disposeSidecar()
   if (process.platform !== 'darwin') app.quit()

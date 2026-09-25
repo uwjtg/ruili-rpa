@@ -7,10 +7,11 @@ interface TaskSummary {
   id: string
   flowId: string
   name: string
-  triggerType: 'cron' | 'interval' | 'hotkey'
+  triggerType: 'cron' | 'interval' | 'hotkey' | 'file'
   cronExpr: string
   intervalMs: number
   hotkey: string
+  watchPath: string
   enabled: boolean
   lastRunAt: number | null
   nextRunAt: number | null
@@ -32,10 +33,11 @@ export default function TriggersView(): JSX.Element {
   const [showForm, setShowForm] = useState(false)
   const [flowId, setFlowId] = useState('')
   const [name, setName] = useState('')
-  const [triggerType, setTriggerType] = useState<'cron' | 'interval' | 'hotkey'>('cron')
+  const [triggerType, setTriggerType] = useState<'cron' | 'interval' | 'hotkey' | 'file'>('cron')
   const [cronExpr, setCronExpr] = useState('0 9 * * *')
   const [intervalMin, setIntervalMin] = useState(15)
   const [hotkey, setHotkey] = useState('Control+Shift+R')
+  const [watchPath, setWatchPath] = useState('')
 
   const refresh = useCallback(async () => {
     if (!ruili?.tasks) return
@@ -63,7 +65,8 @@ export default function TriggersView(): JSX.Element {
       triggerType,
       cronExpr: triggerType === 'cron' ? cronExpr : undefined,
       intervalMs: triggerType === 'interval' ? Math.max(1, intervalMin) * 60_000 : undefined,
-      hotkey: triggerType === 'hotkey' ? hotkey : undefined
+      hotkey: triggerType === 'hotkey' ? hotkey : undefined,
+      watchPath: triggerType === 'file' ? watchPath : undefined
     })
     if (res.ok) {
       setShowForm(false)
@@ -98,6 +101,7 @@ export default function TriggersView(): JSX.Element {
   function desc(t: TaskSummary): string {
     if (t.triggerType === 'cron') return `cron: ${t.cronExpr}`
     if (t.triggerType === 'hotkey') return `快捷键: ${t.hotkey || '—'}`
+    if (t.triggerType === 'file') return `监听目录: ${t.watchPath || '—'}`
     return `每 ${Math.round(t.intervalMs / 60000)} 分钟`
   }
 
@@ -145,11 +149,12 @@ export default function TriggersView(): JSX.Element {
             </label>
             <label style={{ fontSize: 12, color: '#51565D' }}>
               触发方式
-              <select value={triggerType} onChange={(e) => setTriggerType(e.target.value as 'cron' | 'interval' | 'hotkey')}
+              <select value={triggerType} onChange={(e) => setTriggerType(e.target.value as 'cron' | 'interval' | 'hotkey' | 'file')}
                 style={{ width: '100%', height: 30, marginTop: 4, borderRadius: 6, border: '1px solid #D8DADD', padding: '0 8px' }}>
                 <option value="cron">cron 表达式</option>
                 <option value="interval">固定间隔</option>
                 <option value="hotkey">快捷键</option>
+                <option value="file">文件监听</option>
               </select>
             </label>
             {triggerType === 'cron' ? (
@@ -170,6 +175,13 @@ export default function TriggersView(): JSX.Element {
               <label style={{ fontSize: 12, color: '#51565D' }}>
                 快捷键（Electron 加速器格式）
                 <input value={hotkey} onChange={(e) => setHotkey(e.target.value)} placeholder="Control+Shift+R"
+                  style={{ width: '100%', height: 30, marginTop: 4, borderRadius: 6, border: '1px solid #D8DADD', padding: '0 8px' }} />
+              </label>
+            ) : null}
+            {triggerType === 'file' ? (
+              <label style={{ fontSize: 12, color: '#51565D' }}>
+                监听目录（新文件出现时触发）
+                <input value={watchPath} onChange={(e) => setWatchPath(e.target.value)} placeholder="C:\Users\你\Downloads"
                   style={{ width: '100%', height: 30, marginTop: 4, borderRadius: 6, border: '1px solid #D8DADD', padding: '0 8px' }} />
               </label>
             ) : null}

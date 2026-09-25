@@ -120,10 +120,11 @@ declare global {
         create: (input: {
           flowId: string
           name: string
-          triggerType: 'cron' | 'interval' | 'hotkey'
+          triggerType: 'cron' | 'interval' | 'hotkey' | 'file'
           cronExpr?: string
           intervalMs?: number
           hotkey?: string
+          watchPath?: string
         }) => Promise<{ ok: true; task: TaskSummary } | { ok: false; error: string }>
         toggle: (id: string, on: boolean) => Promise<{ ok: true } | { ok: false; error: string }>
         remove: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>
@@ -168,4 +169,5 @@ interface TaskSummary {
   nextRunAt: number | null
   runCount: number
   hotkey: string
+  watchPath: string
 }

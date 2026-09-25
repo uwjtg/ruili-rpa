@@ -141,6 +141,9 @@ function migrate(d: DB): void {
   if (!taskCols.includes('hotkey')) {
     d.exec("ALTER TABLE tasks ADD COLUMN hotkey TEXT DEFAULT ''")
   }
+  if (!taskCols.includes('watch_path')) {
+    d.exec("ALTER TABLE tasks ADD COLUMN watch_path TEXT DEFAULT ''")
+  }
 }
 
 function countSteps(flow: FlowDoc): number {
@@ -556,10 +559,11 @@ export interface TaskRecord {
   id: string
   flowId: string
   name: string
-  triggerType: 'cron' | 'interval' | 'hotkey'
+  triggerType: 'cron' | 'interval' | 'hotkey' | 'file'
   cronExpr: string
   intervalMs: number
   hotkey: string
+  watchPath: string
   enabled: boolean
   lastRunAt: number | null
   nextRunAt: number | null
@@ -570,7 +574,7 @@ export interface TaskRecord {
 
 type TaskRow = {
   id: string; flow_id: string; name: string; trigger_type: string
-  cron_expr: string; interval_ms: number; hotkey: string; enabled: number
+  cron_expr: string; interval_ms: number; hotkey: string; watch_path: string; enabled: number
   last_run_at: number | null; next_run_at: number | null; run_count: number
   created_at: number; updated_at: number
 }
@@ -584,6 +588,7 @@ function rowToTask(r: TaskRow): TaskRecord {
     cronExpr: r.cron_expr,
     intervalMs: r.interval_ms,
     hotkey: r.hotkey ?? '',
+    watchPath: r.watch_path ?? '',
     enabled: !!r.enabled,
     lastRunAt: r.last_run_at,
     nextRunAt: r.next_run_at,
@@ -597,10 +602,11 @@ function rowToTask(r: TaskRow): TaskRecord {
 export function createTask(input: {
   flowId: string
   name: string
-  triggerType: 'cron' | 'interval' | 'hotkey'
+  triggerType: 'cron' | 'interval' | 'hotkey' | 'file'
   cronExpr?: string
   intervalMs?: number
   hotkey?: string
+  watchPath?: string
 }): { ok: true; task: TaskRecord } | { ok: false; error: string } {
   try {
     const d = requireDb()
@@ -616,11 +622,14 @@ export function createTask(input: {
     if (input.triggerType === 'hotkey' && !String(input.hotkey || '').trim()) {
       return { ok: false, error: '快捷键不能为空（如 Control+Shift+R）' }
     }
+    if (input.triggerType === 'file' && !String(input.watchPath || '').trim()) {
+      return { ok: false, error: '监听目录不能为空' }
+    }
     const now = Date.now()
     const id = randomUUID()
     d.prepare(
-      `INSERT INTO tasks (id, flow_id, name, trigger_type, cron_expr, interval_ms, hotkey, enabled, created_at, updated_at)
-       VALUES (@id, @flowId, @name, @tt, @cron, @interval, @hk, 1, @now, @now)`
+      `INSERT INTO tasks (id, flow_id, name, trigger_type, cron_expr, interval_ms, hotkey, watch_path, enabled, created_at, updated_at)
+       VALUES (@id, @flowId, @name, @tt, @cron, @interval, @hk, @wp, 1, @now, @now)`
     ).run({
       id,
       flowId: input.flowId,
@@ -629,6 +638,7 @@ export function createTask(input: {
       cron: input.triggerType === 'cron' ? String(input.cronExpr).trim() : '',
       interval: input.triggerType === 'interval' ? Math.max(1000, Number(input.intervalMs)) : 0,
       hk: input.triggerType === 'hotkey' ? String(input.hotkey).trim() : '',
+      wp: input.triggerType === 'file' ? String(input.watchPath).trim() : '',
       now
     })
     const row = d.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow

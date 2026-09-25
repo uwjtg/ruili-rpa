@@ -11,6 +11,7 @@ function mkTask(over: Partial<TaskRecord> = {}): TaskRecord {
     cronExpr: '',
     intervalMs: 50,
     hotkey: '',
+    watchPath: '',
     enabled: true,
     lastRunAt: null,
     nextRunAt: null,

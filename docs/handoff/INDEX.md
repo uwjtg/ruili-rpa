@@ -47,3 +47,4 @@
 | [41-M5-2-调度加固-互斥与补跑.md](./41-M5-2-调度加固-互斥与补跑.md) | M5 切片 2 · TaskScheduler 全局互斥（isRunning）+ 启动错过补跑（catchUp/graceMs）；调度器 7 用例 | 2026-09-25 | ✅ 完成 |
 | [42-M5-3-RobotsView执行记录.md](./42-M5-3-RobotsView执行记录.md) | M5 切片 3 · RobotsView 真实化：按 run_id 聚合运行历史 + 展开日志明细；查询冒烟 11/11 | 2026-09-25 | ✅ 完成 |
 | [43-M5-4-热键触发器.md](./43-M5-4-热键触发器.md) | M5 切片 4 · globalShortcut 热键触发器（tasks 表加 hotkey 列 + HotkeyManager）；CRUD 冒烟 5/5 | 2026-09-25 | ✅ 完成 |
+| [44-M5-5-文件监听触发器.md](./44-M5-5-文件监听触发器.md) | M5 切片 5 · fs.watch 文件监听触发器（watch_path 列 + FileWatchManager 防抖去重）；真冒烟 2/2 | 2026-09-25 | ✅ 完成 |
