@@ -226,6 +226,8 @@ export function registerWebCommands(
       },
       { key: 'resultVar', label: '结果变量', type: 'text', default: 'rows' },
       { key: 'maxItems', label: '最多抓取条数（0=不限）', type: 'number', default: 0 },
+      { key: 'nextSelector', label: '下一页按钮选择器（可选）', type: 'text', placeholder: '如 .next / a[rel=next]' },
+      { key: 'maxPages', label: '最多翻几页（含当前页，1=只抓当前页）', type: 'number', default: 1 },
       { key: 'csvPath', label: '导出 CSV 路径（可选）', type: 'text', placeholder: '如 D:\\out.csv，支持 ${变量}' }
     ],
     summary: (p) => `抓取 ${str(p.listSelector, '…')} → ${str(p.resultVar, 'rows')}`,
@@ -234,6 +236,8 @@ export function registerWebCommands(
       const resultVar = str(p.resultVar, 'rows')
       const maxItems = Number(p.maxItems) || 0
       const csvPath = ctx.interpolate(str(p.csvPath)).trim()
+      const nextSelector = ctx.interpolate(str(p.nextSelector)).trim()
+      const maxPages = Math.max(1, Number(p.maxPages) || 1)
 
       let fields: ScrapeFieldSpec[] = []
       try {
@@ -245,14 +249,30 @@ export function registerWebCommands(
         throw new Error(`字段映射 JSON 解析失败：${e instanceof Error ? e.message : String(e)}`)
       }
 
-      ctx.log('info', `开始抓取 ${listSelector}（${fields.length} 个字段）…`)
-      const rows = (await session.eval(SCRAPE_FN_BODY, {
-        listSelector,
-        fields,
-        maxItems
-      })) as Array<Record<string, unknown>>
-
-      if (!Array.isArray(rows)) throw new Error('页面抓取返回格式异常（非数组）')
+      ctx.log('info', `开始抓取 ${listSelector}（${fields.length} 个字段，最多 ${maxPages} 页）…`)
+      const allRows: Array<Record<string, unknown>> = []
+      for (let page = 0; page < maxPages; page++) {
+        const rows = (await session.eval(SCRAPE_FN_BODY, {
+          listSelector,
+          fields,
+          maxItems
+        })) as Array<Record<string, unknown>>
+        if (!Array.isArray(rows)) throw new Error('页面抓取返回格式异常（非数组）')
+        allRows.push(...rows)
+        ctx.log('info', `第 ${page + 1} 页：抓 ${rows.length} 行（累计 ${allRows.length}）`)
+        // 还有下一页要翻：点 nextSelector 并等新列表加载
+        if (nextSelector && page < maxPages - 1) {
+          try {
+            await session.click(nextSelector)
+            await session.waitFor(listSelector, 5000)
+            await new Promise((r) => setTimeout(r, 500)) // 轻等渲染
+          } catch (e) {
+            ctx.log('info', `下一页不可点或未加载，停止翻页：${e instanceof Error ? e.message : e}`)
+            break
+          }
+        }
+      }
+      const rows = allRows
       ctx.setVar(resultVar, rows)
       ctx.log('success', `抓取完成：${rows.length} 行 → 变量 ${resultVar}`)
 

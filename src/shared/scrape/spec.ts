@@ -63,4 +63,8 @@ export interface ScrapeWizardSpec {
   csvPath?: string
   /** 最多抓取条数；0=不限 */
   maxItems?: number
+  /** 可选：下一页按钮选择器（M4-7 翻页入抓）；空=只抓当前页 */
+  nextSelector?: string
+  /** 最多翻几页（含当前页）；0=不限（M4-7） */
+  maxPages?: number
 }

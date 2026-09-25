@@ -54,6 +54,8 @@ export default function ScrapeWizard({ onClose, onGenerate }: Props) {
   const [resultVar, setResultVar] = useState('rows')
   const [csvPath, setCsvPath] = useState('')
   const [maxItems, setMaxItems] = useState(0)
+  const [nextSel, setNextSel] = useState('')
+  const [maxPages, setMaxPages] = useState(1)
 
   async function onInspect(): Promise<void> {
     setInspectErr('')
@@ -125,7 +127,9 @@ export default function ScrapeWizard({ onClose, onGenerate }: Props) {
       })),
       resultVar: (resultVar.trim() || 'rows').replace(/\s+/g, ''),
       csvPath: csvPath.trim(),
-      maxItems: Number(maxItems) || 0
+      maxItems: Number(maxItems) || 0,
+      nextSelector: nextSel.trim(),
+      maxPages: Number(maxPages) || 1
     })
   }
 
@@ -312,6 +316,28 @@ export default function ScrapeWizard({ onClose, onGenerate }: Props) {
               placeholder="D:\output\items.csv，支持 ${变量}"
               style={inputStyle}
             />
+          </div>
+        ) : null}
+        {result ? (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <div style={{ flex: 2 }}>
+              <div style={{ fontSize: 12, color: '#51565D', marginBottom: 4 }}>下一页按钮选择器（可选，如 .next / a[rel=next]）</div>
+              <input
+                value={nextSel}
+                onChange={(e) => setNextSel(e.target.value)}
+                placeholder=".next"
+                style={inputStyle}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: '#51565D', marginBottom: 4 }}>最多翻几页（含当前）</div>
+              <input
+                type="number"
+                value={maxPages}
+                onChange={(e) => setMaxPages(Number(e.target.value) || 1)}
+                style={inputStyle}
+              />
+            </div>
           </div>
         ) : null}
 
