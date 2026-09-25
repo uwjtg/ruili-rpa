@@ -156,6 +156,13 @@ const api = {
     /** 给定示例项选择器，返回聚类出的列表项选择器 + 候选字段 */
     inspect: (sampleSelector: string): Promise<ScrapeInspectResult> =>
       ipcRenderer.invoke('scrape:inspect', sampleSelector)
+  },
+  /** 浏览器 CDP 点选拾取（M4 切片 3）：进入页面拾取模式，等用户点击元素 */
+  webPick: {
+    start: (timeoutMs?: number) =>
+      ipcRenderer.invoke('web-pick:start', timeoutMs) as Promise<{
+        ok: boolean; cancelled?: boolean; selector?: string; tag?: string; text?: string; error?: string
+      }>
   }
 } as const
 

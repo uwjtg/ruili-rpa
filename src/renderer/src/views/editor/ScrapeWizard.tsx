@@ -47,6 +47,8 @@ export default function ScrapeWizard({ onClose, onGenerate }: Props) {
   const [sampleSel, setSampleSel] = useState('')
   const [inspecting, setInspecting] = useState(false)
   const [inspectErr, setInspectErr] = useState('')
+  const [picking, setPicking] = useState(false)
+  const [pickMsg, setPickMsg] = useState('')
   const [result, setResult] = useState<ScrapeInspectResult | null>(null)
   const [rows, setRows] = useState<FieldRow[]>([])
   const [resultVar, setResultVar] = useState('rows')
@@ -85,6 +87,21 @@ export default function ScrapeWizard({ onClose, onGenerate }: Props) {
       setRows(defaults)
     } finally {
       setInspecting(false)
+    }
+  }
+
+  async function onPick(): Promise<void> {
+    if (!window.ruili?.webPick) return
+    setPickMsg('')
+    setPicking(true)
+    try {
+      const r = await window.ruili.webPick.start(120000)
+      if (!r.ok) { setPickMsg(r.error ?? '点选失败'); return }
+      if (r.cancelled) { setPickMsg('已取消'); return }
+      setSampleSel(r.selector ?? '')
+      setPickMsg('已选中：' + (r.text ?? '').slice(0, 30))
+    } finally {
+      setPicking(false)
     }
   }
 
@@ -166,13 +183,21 @@ export default function ScrapeWizard({ onClose, onGenerate }: Props) {
               }}
             />
             <button
+              onClick={() => void onPick()}
+              disabled={picking || inspecting}
+              style={{ ...btn, background: '#fff', color: '#7C5CFC', border: '1px solid #7C5CFC' }}
+            >
+              {picking ? '点选中…' : '在页面中点选'}
+            </button>
+            <button
               onClick={() => void onInspect()}
-              disabled={inspecting}
+              disabled={inspecting || picking}
               style={{ ...btn, background: '#7C5CFC', color: '#fff', border: 'none' }}
             >
               {inspecting ? '识别中…' : '识别相似项'}
             </button>
           </div>
+          {pickMsg ? <div style={{ fontSize: 11, color: '#51565D', marginTop: 4 }}>{pickMsg}</div> : null}
           <div style={{ fontSize: 11, color: '#8A8F99', marginTop: 4 }}>
             前提：已用「打开浏览器/打开网址」运行到目标列表页（向导会在当前页面里找相似列表项）。
           </div>

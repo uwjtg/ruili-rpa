@@ -13,6 +13,7 @@
 import { chromium, type BrowserContext, type Page } from 'playwright-core'
 import { existsSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { CSS_PATH_FN, PICK_START_FN, PICK_READ_FN } from '../../shared/scrape/pick-script'
 
 /** 浏览器会话接口（指令只依赖此接口） */
 export interface WebSession {
@@ -36,6 +37,16 @@ export interface WebSession {
    * Runtime.callFunctionOn 注入页面（不受页面 CSP 影响），返回值可 JSON 序列化。
    */
   eval(fnBody: string, arg: unknown): Promise<unknown>
+  /**
+   * 进入浏览器页面拾取模式（M4 切片 3）：注入高亮/监听脚本，阻塞等用户点击或 Esc。
+   * 返回选中元素的 CSS 路径；cancelled=true 表示用户按 Esc 取消。
+   */
+  startPagePick(timeoutMs?: number): Promise<{
+    selector?: string
+    tag?: string
+    text?: string
+    cancelled?: boolean
+  }>
   /** 关闭浏览器 */
   close(): Promise<void>
   /** 是否已启动 */
@@ -152,6 +163,35 @@ export class RealWebSession implements WebSession {
       `"use strict"; return (${fnBody})(arg)`
     ) as (arg: unknown) => unknown
     return await this.requirePage().evaluate(fn, arg)
+  }
+
+  async startPagePick(timeoutMs = 120000): Promise<{
+    selector?: string
+    tag?: string
+    text?: string
+    cancelled?: boolean
+  }> {
+    const page = this.requirePage()
+    // 三段函数拼一起包成函数对象注入（同作用域可调 cssPathOf/startPagePick）
+    const injector = new Function(
+      `"use strict";\n${CSS_PATH_FN}\n${PICK_START_FN}\nstartPagePick();`
+    )
+    await page.evaluate(injector as unknown as () => void)
+    await page.waitForFunction('window.__ruiliPickDone === true', null, {
+      timeout: timeoutMs
+    })
+    const reader = new Function(`"use strict"; return (${PICK_READ_FN})();`) as () => {
+      cancelled: boolean
+      result: { selector: string; tag: string; text: string } | null
+    }
+    const r = await page.evaluate(reader)
+    if (r.cancelled || !r.result) return { cancelled: true }
+    return {
+      selector: r.result.selector,
+      tag: r.result.tag,
+      text: r.result.text,
+      cancelled: false
+    }
   }
 
   async close(): Promise<void> {

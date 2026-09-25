@@ -100,6 +100,11 @@ declare global {
       scrape: {
         inspect: (sampleSelector: string) => Promise<ScrapeInspectResult>
       }
+      webPick: {
+        start: (timeoutMs?: number) => Promise<{
+          ok: boolean; cancelled?: boolean; selector?: string; tag?: string; text?: string; error?: string
+        }>
+      }
     }
   }
 }

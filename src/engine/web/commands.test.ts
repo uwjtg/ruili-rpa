@@ -32,6 +32,7 @@ function fakeSession() {
     getTitle: vi.fn(async () => '页面标题'),
     waitFor: vi.fn(async () => {}),
     eval: vi.fn(async () => []),
+    startPagePick: vi.fn(async () => ({ cancelled: true })),
     close: vi.fn(async () => {}),
     isRunning: () => true
   }
