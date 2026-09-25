@@ -28,6 +28,7 @@ function fakeSession() {
     goto: vi.fn(async () => {}),
     click: vi.fn(async () => {}),
     fill: vi.fn(async () => {}),
+    scroll: vi.fn(async () => {}),
     getText: vi.fn(async () => '提取到的文本'),
     getTitle: vi.fn(async () => '页面标题'),
     waitFor: vi.fn(async () => {}),
@@ -41,7 +42,7 @@ function fakeSession() {
 }
 
 describe('web 指令（stub 会话）', () => {
-  it('注册 7 条网页指令', () => {
+  it('注册网页指令', () => {
     const reg = new CommandRegistry()
     registerWebCommands(reg, { session: fakeSession() })
     expect(reg.list().map((c) => c.id).sort()).toEqual(
@@ -53,6 +54,7 @@ describe('web 指令（stub 会话）', () => {
         'webOpenBrowser',
         'webOpenUrl',
         'webScrapeList',
+        'webScroll',
         'webWaitFor'
       ].sort()
     )

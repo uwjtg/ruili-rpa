@@ -13,6 +13,7 @@
  * 事件形状：
  *  { type: 'click', selector: string }
  *  { type: 'fill', selector: string, value: string }
+ *  { type: 'scroll', deltaY: number }
  */
 
 import { CSS_PATH_FN } from './pick-script'
@@ -24,6 +25,14 @@ export const REC_START_FN = `function startWebRecord() {
   window.__ruiliWebRecording = true;
   window.__ruiliWebEvents = [];
   window.__ruiliWebTimers = {};
+
+  // 录制浮层（右上角红色指示）
+  var badge = document.createElement('div');
+  badge.setAttribute('data-ruili-rec-badge', '1');
+  badge.textContent = '● 网页录制中';
+  badge.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;background:#E64340;color:#fff;font:12px/1.6 sans-serif;padding:4px 10px;border-radius:12px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+  document.documentElement.appendChild(badge);
+  window.__ruiliRecBadge = badge;
 
   function cssPathOf(el) {
     ${CSS_PATH_FN.replace(/^function cssPathOf\(el\) \{/, '').replace(/\}\s*$/, '')}
@@ -58,10 +67,21 @@ export const REC_START_FN = `function startWebRecord() {
     }, 500);
   }
 
+  function onWheel(e) {
+    // 连续滚动去抖 300ms：合并成一条
+    if (window.__ruiliWebTimers.__scroll) clearTimeout(window.__ruiliWebTimers.__scroll);
+    var delta = e.deltaY || 0;
+    window.__ruiliWebTimers.__scroll = setTimeout(function () {
+      window.__ruiliWebEvents.push({ type: 'scroll', deltaY: Math.round(delta), ts: Date.now() });
+    }, 300);
+  }
+
   window.__ruiliWebOnDown = onDown;
   window.__ruiliWebOnInput = onInput;
+  window.__ruiliWebOnWheel = onWheel;
   document.addEventListener('mousedown', onDown, true);
   document.addEventListener('input', onInput, true);
+  document.addEventListener('wheel', onWheel, true);
 }`
 
 /** 停止录制并返回事件 */
@@ -70,6 +90,10 @@ export const REC_STOP_FN = `function stopWebRecord() {
   if (!window.__ruiliWebRecording) return [];
   document.removeEventListener('mousedown', window.__ruiliWebOnDown, true);
   document.removeEventListener('input', window.__ruiliWebOnInput, true);
+  document.removeEventListener('wheel', window.__ruiliWebOnWheel, true);
+  if (window.__ruiliRecBadge && window.__ruiliRecBadge.parentNode) {
+    window.__ruiliRecBadge.parentNode.removeChild(window.__ruiliRecBadge);
+  }
   // 清掉未触发的去抖定时器
   for (var k in window.__ruiliWebTimers) {
     clearTimeout(window.__ruiliWebTimers[k]);
@@ -83,8 +107,9 @@ export const REC_STOP_FN = `function stopWebRecord() {
 
 /** 录制事件（跨进程传输形状） */
 export interface WebRecordEvent {
-  type: 'click' | 'fill'
-  selector: string
+  type: 'click' | 'fill' | 'scroll'
+  selector?: string
   value?: string
+  deltaY?: number
   ts?: number
 }

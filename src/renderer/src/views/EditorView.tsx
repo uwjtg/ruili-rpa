@@ -654,9 +654,14 @@ export default function EditorView(): JSX.Element {
     const steps: StepNode[] = []
     let src = idSource
     for (const e of evs) {
-      const step: StepNode = e.type === 'click'
-        ? { id: nextStepId(src), cmdId: 'webClick', params: { selector: e.selector } }
-        : { id: nextStepId(src), cmdId: 'webInput', params: { selector: e.selector, value: e.value ?? '' } }
+      let step: StepNode
+      if (e.type === 'click') {
+        step = { id: nextStepId(src), cmdId: 'webClick', params: { selector: e.selector } }
+      } else if (e.type === 'scroll') {
+        step = { id: nextStepId(src), cmdId: 'webScroll', params: { deltaY: e.deltaY ?? 300 } }
+      } else {
+        step = { id: nextStepId(src), cmdId: 'webInput', params: { selector: e.selector, value: e.value ?? '' } }
+      }
       src = [...src, step]
       steps.push(step)
     }
@@ -664,7 +669,7 @@ export default function EditorView(): JSX.Element {
     for (let i = 1; i < steps.length; i++) merged.push(steps[i])
     commit({ ...activeTab.flow, steps: merged })
     patchTab(activeTab.tabId, { selectedId: steps[steps.length - 1].id })
-    push('success', `网页录制完成：${steps.length} 条步骤已追加（${evs.filter(e=>e.type==='click').length} 点击 / ${evs.filter(e=>e.type==='fill').length} 输入）`)
+    push('success', `网页录制完成：${steps.length} 条步骤已追加（${evs.filter(e=>e.type==='click').length} 点击 / ${evs.filter(e=>e.type==='fill').length} 输入 / ${evs.filter(e=>e.type==='scroll').length} 滚动）`)
   }
 
   /** M4 切片 1：抓取向导生成 → 重写 id 后追加到当前流程末尾（与录制追加同模式） */

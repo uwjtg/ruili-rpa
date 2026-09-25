@@ -138,6 +138,23 @@ export function registerWebCommands(
   })
 
   registry.register({
+    id: 'webScroll',
+    name: '网页滚动',
+    group: '网页',
+    icon: 'mouse',
+    params: [
+      { key: 'deltaY', label: '垂直滚动量（正=向下）', type: 'number', default: 300 }
+    ],
+    summary: (p) => `滚轮 ${str(p.deltaY, '300')}px`,
+    runner: async (ctx, p) => {
+      const deltaY = Number(p.deltaY) || 300
+      await session.scroll(deltaY)
+      ctx.log('success', `已滚动 ${deltaY}px`)
+      return true
+    }
+  })
+
+  registry.register({
     id: 'webExtractText',
     name: '提取元素文本',
     group: '网页',

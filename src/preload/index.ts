@@ -171,7 +171,7 @@ const api = {
       ipcRenderer.invoke('web-record:stop') as Promise<{
         ok: boolean
         error?: string
-        events?: Array<{ type: 'click' | 'fill'; selector: string; value?: string }>
+        events?: Array<{ type: 'click' | 'fill' | 'scroll'; selector?: string; value?: string; deltaY?: number }>
       }>
   }
 } as const

@@ -26,6 +26,8 @@ export interface WebSession {
   click(selector: string): Promise<void>
   /** 在选择器处输入文本 */
   fill(selector: string, value: string): Promise<void>
+  /** 鼠标滚轮滚动（M4-5）：deltaY 正向下负向上 */
+  scroll(deltaY: number): Promise<void>
   /** 读取选择器的可见文本 */
   getText(selector: string): Promise<string>
   /** 当前页标题 */
@@ -72,6 +74,10 @@ const DEFAULT_PROFILE_DIR = resolve(process.cwd(), '.runtime', 'web-profile')
 export class RealWebSession implements WebSession {
   private context: BrowserContext | null = null
   private page: Page | null = null
+  /** 录制中标志：导航后自动重注入 */
+  private recording = false
+  /** framenavigated 监听句柄（防重复挂） */
+  private navHandler: (() => void) | null = null
   private readonly channel?: string
   private readonly userDataDir: string
   private readonly headless: boolean
@@ -145,6 +151,10 @@ export class RealWebSession implements WebSession {
     await this.requirePage().fill(selector, value)
   }
 
+  async scroll(deltaY: number): Promise<void> {
+    await this.requirePage().mouse.wheel(0, deltaY)
+  }
+
   async getText(selector: string): Promise<string> {
     return (await this.requirePage().locator(selector).first().textContent()) ?? ''
   }
@@ -200,17 +210,31 @@ export class RealWebSession implements WebSession {
   }
 
   async startWebRecord(): Promise<void> {
-    const injector = new Function(
+    const page = this.requirePage()
+    const injector = () => new Function(
       '"use strict";\n' + CSS_PATH_FN + '\n' + REC_START_FN + '\nstartWebRecord();'
-    )
-    await this.requirePage().evaluate(injector as unknown as () => void)
+    ) as unknown as () => void
+    await page.evaluate(injector())
+    // 导航后自动重注入（SPA/多页跳转场景）
+    this.recording = true
+    this.navHandler = () => {
+      if (!this.recording || !this.page) return
+      this.page.evaluate(injector()).catch(() => undefined)
+    }
+    page.on('framenavigated', this.navHandler)
   }
 
   async stopWebRecord(): Promise<WebRecordEvent[]> {
+    const page = this.requirePage()
+    if (this.navHandler) {
+      page.off('framenavigated', this.navHandler)
+      this.navHandler = null
+    }
+    this.recording = false
     const reader = new Function(
       '"use strict"; return (' + REC_STOP_FN + ')();'
     ) as () => WebRecordEvent[]
-    return (await this.requirePage().evaluate(reader as unknown as () => WebRecordEvent[])) || []
+    return (await page.evaluate(reader as unknown as () => WebRecordEvent[])) || []
   }
 
   async close(): Promise<void> {
