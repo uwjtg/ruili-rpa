@@ -21,6 +21,20 @@ import type {
 import type { RecordThresholds } from '../shared/record-settings'
 import type { ScrapeInspectResult } from '../shared/scrape/spec'
 
+/** 计划任务摘要（渲染端展示用，M5 调度切片） */
+type TaskSummary = {
+  id: string
+  flowId: string
+  name: string
+  triggerType: 'cron' | 'interval'
+  cronExpr: string
+  intervalMs: number
+  enabled: boolean
+  lastRunAt: number | null
+  nextRunAt: number | null
+  runCount: number
+}
+
 /**
  * 暴露给渲染进程的桥接 API。
  * - 阶段 1：平台/版本信息、窗口控制。
@@ -173,6 +187,15 @@ const api = {
         error?: string
         events?: Array<{ type: 'click' | 'fill' | 'scroll' | 'key'; selector?: string; value?: string; deltaY?: number; key?: string }>
       }>
+  },
+  /** 计划任务（M5 调度切片）：cron/interval 到点触发运行 */
+  tasks: {
+    list: () => ipcRenderer.invoke('tasks:list') as Promise<{ ok: true; items: TaskSummary[] } | { ok: false; error: string }>,
+    create: (input: {
+      flowId: string; name: string; triggerType: 'cron' | 'interval'; cronExpr?: string; intervalMs?: number
+    }) => ipcRenderer.invoke('tasks:create', input) as Promise<{ ok: true; task: TaskSummary } | { ok: false; error: string }>,
+    toggle: (id: string, on: boolean) => ipcRenderer.invoke('tasks:toggle', id, on) as Promise<{ ok: true } | { ok: false; error: string }>,
+    remove: (id: string) => ipcRenderer.invoke('tasks:delete', id) as Promise<{ ok: true } | { ok: false; error: string }>
   }
 } as const
 

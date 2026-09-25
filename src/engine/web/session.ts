@@ -22,26 +22,27 @@ export interface WebSession {
   start(): Promise<void>
   /** 打开 URL（新开一个标签页） */
   goto(url: string): Promise<void>
-  /** 点击选择器 */
-  click(selector: string): Promise<void>
-  /** 在选择器处输入文本 */
-  fill(selector: string, value: string): Promise<void>
+  /** 点击选择器；frameSelector 给定时在该 iframe 内定位（M4-11） */
+  click(selector: string, frameSelector?: string): Promise<void>
+  /** 在选择器处输入文本；frameSelector 给定时在该 iframe 内定位（M4-11） */
+  fill(selector: string, value: string, frameSelector?: string): Promise<void>
   /** 鼠标滚轮滚动（M4-5）：deltaY 正向下负向上 */
   scroll(deltaY: number): Promise<void>
   /** 按下按键（M4-6）：Enter/Tab/Escape 等 */
   pressKey(key: string): Promise<void>
-  /** 读取选择器的可见文本 */
-  getText(selector: string): Promise<string>
+  /** 读取选择器的可见文本；frameSelector 给定时在该 iframe 内定位（M4-11） */
+  getText(selector: string, frameSelector?: string): Promise<string>
   /** 当前页标题 */
   getTitle(): Promise<string>
-  /** 等待选择器可见（超时抛错；Playwright auto-waiting 之外的显式等待） */
-  waitFor(selector: string, timeoutMs: number): Promise<void>
+  /** 等待选择器可见（超时抛错；Playwright auto-waiting 之外的显式等待）；frameSelector 给定时在该 iframe 内定位（M4-11） */
+  waitFor(selector: string, timeoutMs: number, frameSelector?: string): Promise<void>
   /**
    * 在当前页面上下文里执行一段自包含函数体（M4 切片 1 数据抓取）。
    * fnBody 形如 `function myFn(arg){…return x}`；生产由 Playwright
    * Runtime.callFunctionOn 注入页面（不受页面 CSP 影响），返回值可 JSON 序列化。
+   * frameSelector 给定时在该 iframe 的执行上下文里跑（M4-11）。
    */
-  eval(fnBody: string, arg: unknown): Promise<unknown>
+  eval(fnBody: string, arg: unknown, frameSelector?: string): Promise<unknown>
   /**
    * 进入浏览器页面拾取模式（M4 切片 3）：注入高亮/监听脚本，阻塞等用户点击或 Esc。
    * 返回选中元素的 CSS 路径；cancelled=true 表示用户按 Esc 取消。
@@ -145,12 +146,23 @@ export class RealWebSession implements WebSession {
     await this.requirePage().goto(url, { waitUntil: 'domcontentloaded' })
   }
 
-  async click(selector: string): Promise<void> {
-    await this.requirePage().click(selector)
+  /**
+   * 解析元素定位器：给了 frameSelector 就落到该 iframe 内（frameLocator），
+   * 否则主框架。M4-11 iframe 支持。
+   */
+  private loc(selector: string, frameSelector?: string) {
+    const page = this.requirePage()
+    return frameSelector
+      ? page.frameLocator(frameSelector).locator(selector)
+      : page.locator(selector)
   }
 
-  async fill(selector: string, value: string): Promise<void> {
-    await this.requirePage().fill(selector, value)
+  async click(selector: string, frameSelector?: string): Promise<void> {
+    await this.loc(selector, frameSelector).click()
+  }
+
+  async fill(selector: string, value: string, frameSelector?: string): Promise<void> {
+    await this.loc(selector, frameSelector).fill(value)
   }
 
   async scroll(deltaY: number): Promise<void> {
@@ -161,29 +173,36 @@ export class RealWebSession implements WebSession {
     await this.requirePage().keyboard.press(key)
   }
 
-  async getText(selector: string): Promise<string> {
-    return (await this.requirePage().locator(selector).first().textContent()) ?? ''
+  async getText(selector: string, frameSelector?: string): Promise<string> {
+    return (await this.loc(selector, frameSelector).first().textContent()) ?? ''
   }
 
   async getTitle(): Promise<string> {
     return await this.requirePage().title()
   }
 
-  async waitFor(selector: string, timeoutMs: number): Promise<void> {
-    await this.requirePage()
-      .locator(selector)
+  async waitFor(selector: string, timeoutMs: number, frameSelector?: string): Promise<void> {
+    await this.loc(selector, frameSelector)
       .first()
       .waitFor({ state: 'visible', timeout: timeoutMs })
   }
 
-  async eval(fnBody: string, arg: unknown): Promise<unknown> {
+  async eval(fnBody: string, arg: unknown, frameSelector?: string): Promise<unknown> {
     // 包成函数对象交给 Playwright：内部用 Runtime.callFunctionOn，
     // 不受目标页面 CSP / 全局污染影响。fnBody 必须自包含（不闭包外部变量）。
     const fn = new Function(
       'arg',
       `"use strict"; return (${fnBody})(arg)`
     ) as (arg: unknown) => unknown
-    return await this.requirePage().evaluate(fn, arg)
+    const page = this.requirePage()
+    if (frameSelector) {
+      // 跨 frame：先等 iframe 元素 attached，再拿它的 contentFrame，在其执行上下文跑
+      const handle = await page.waitForSelector(frameSelector, { state: 'attached', timeout: 10000 })
+      const frame = handle ? await handle.contentFrame() : null
+      if (!frame) throw new Error('未找到 iframe：' + frameSelector)
+      return await frame.evaluate(fn, arg)
+    }
+    return await page.evaluate(fn, arg)
   }
 
   async startPagePick(timeoutMs = 120000): Promise<{

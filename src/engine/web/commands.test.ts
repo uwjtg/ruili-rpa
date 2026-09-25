@@ -91,7 +91,7 @@ describe('web 指令（stub 会话）', () => {
       { selector: '#q', value: '搜索 ${kw}' },
       { id: 's2', cmdId: 'webInput', params: {} }
     )
-    expect(session.fill).toHaveBeenCalledWith('#q', '搜索 锐流')
+    expect(session.fill).toHaveBeenCalledWith('#q', '搜索 锐流', undefined)
   })
 
   it('webExtractText 把文本写入结果变量', async () => {
@@ -106,7 +106,7 @@ describe('web 指令（stub 会话）', () => {
       { selector: 'h1', resultVar: 'title' },
       { id: 's3', cmdId: 'webExtractText', params: {} }
     )
-    expect(session.getText).toHaveBeenCalledWith('h1')
+    expect(session.getText).toHaveBeenCalledWith('h1', undefined)
     expect(vars.get('title')).toBe('提取到的文本')
   })
 
@@ -122,7 +122,7 @@ describe('web 指令（stub 会话）', () => {
       { selector: '#result', timeoutMs: 3000 },
       { id: 's4', cmdId: 'webWaitFor', params: {} }
     )
-    expect(session.waitFor).toHaveBeenCalledWith('#result', 3000)
+    expect(session.waitFor).toHaveBeenCalledWith('#result', 3000, undefined)
   })
   it('webScrapeList 调页面 eval 取字段并写入结果变量（可选 CSV）', async () => {
     const session = fakeSession()
@@ -183,5 +183,36 @@ describe('web 指令（stub 会话）', () => {
         { id: 's6', cmdId: 'webScrapeList', params: {} }
       )
     ).rejects.toThrow(/字段映射 JSON/)
+  })
+
+  it('frame 参数透传：webClick 把 iframe 选择器传给 session.click', async () => {
+    const session = fakeSession()
+    const reg = new CommandRegistry()
+    registerWebCommands(reg, { session })
+    const { ctx } = makeCtx()
+    const cmd = reg.get('webClick')!
+    await cmd.runner(
+      ctx,
+      { selector: '#btn', frame: 'iframe#main' },
+      { id: 's7', cmdId: 'webClick', params: {} }
+    )
+    expect(session.click).toHaveBeenCalledWith('#btn', 'iframe#main')
+  })
+
+  it('frame 参数透传：webScrapeList 把 iframe 选择器作为 eval 第三参', async () => {
+    const session = fakeSession()
+    ;(session.eval as ReturnType<typeof vi.fn>).mockResolvedValue([])
+    const reg = new CommandRegistry()
+    registerWebCommands(reg, { session })
+    const { ctx } = makeCtx()
+    const cmd = reg.get('webScrapeList')!
+    await cmd.runner(
+      ctx,
+      { listSelector: 'div.row', fieldsJson: JSON.stringify([{ name: 't', subSelector: '.t' }]), frame: 'iframe#main' },
+      { id: 's8', cmdId: 'webScrapeList', params: {} }
+    )
+    expect(session.eval).toHaveBeenCalledTimes(1)
+    const [, , frameArg] = (session.eval as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(frameArg).toBe('iframe#main')
   })
 })

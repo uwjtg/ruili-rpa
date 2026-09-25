@@ -120,6 +120,21 @@ function migrate(d: DB): void {
       value      TEXT NOT NULL,
       updated_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS tasks (
+      id           TEXT PRIMARY KEY,
+      flow_id      TEXT NOT NULL,
+      name         TEXT NOT NULL,
+      trigger_type TEXT NOT NULL,            -- 'cron' | 'interval'
+      cron_expr    TEXT DEFAULT '',          -- trigger_type=cron 时 5/6 段 cron
+      interval_ms  INTEGER DEFAULT 0,        -- trigger_type=interval 时每多少毫秒
+      enabled      INTEGER NOT NULL DEFAULT 1,
+      last_run_at  INTEGER,
+      next_run_at  INTEGER,
+      run_count    INTEGER NOT NULL DEFAULT 0,
+      created_at   INTEGER NOT NULL,
+      updated_at   INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_tasks_flow ON tasks(flow_id);
   `)
 }
 
@@ -462,6 +477,150 @@ export function saveForegroundDelayMs(
     return { ok: true, updatedAt: Date.now() }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/* ---------- 计划任务（M5 调度切片） ---------- */
+
+/** 一条计划任务（跨进程传输形状） */
+export interface TaskRecord {
+  id: string
+  flowId: string
+  name: string
+  triggerType: 'cron' | 'interval'
+  cronExpr: string
+  intervalMs: number
+  enabled: boolean
+  lastRunAt: number | null
+  nextRunAt: number | null
+  runCount: number
+  createdAt: number
+  updatedAt: number
+}
+
+type TaskRow = {
+  id: string; flow_id: string; name: string; trigger_type: string
+  cron_expr: string; interval_ms: number; enabled: number
+  last_run_at: number | null; next_run_at: number | null; run_count: number
+  created_at: number; updated_at: number
+}
+
+function rowToTask(r: TaskRow): TaskRecord {
+  return {
+    id: r.id,
+    flowId: r.flow_id,
+    name: r.name,
+    triggerType: r.trigger_type === 'interval' ? 'interval' : 'cron',
+    cronExpr: r.cron_expr,
+    intervalMs: r.interval_ms,
+    enabled: !!r.enabled,
+    lastRunAt: r.last_run_at,
+    nextRunAt: r.next_run_at,
+    runCount: r.run_count,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at
+  }
+}
+
+/** 新建任务；校验 trigger_type 与对应字段。 */
+export function createTask(input: {
+  flowId: string
+  name: string
+  triggerType: 'cron' | 'interval'
+  cronExpr?: string
+  intervalMs?: number
+}): { ok: true; task: TaskRecord } | { ok: false; error: string } {
+  try {
+    const d = requireDb()
+    if (!input.flowId) return { ok: false, error: '未选择流程' }
+    const flow = d.prepare('SELECT id FROM flows WHERE id = ?').get(input.flowId)
+    if (!flow) return { ok: false, error: '流程不存在' }
+    if (input.triggerType === 'cron' && !String(input.cronExpr || '').trim()) {
+      return { ok: false, error: 'cron 表达式不能为空' }
+    }
+    if (input.triggerType === 'interval' && !(Number(input.intervalMs) > 0)) {
+      return { ok: false, error: '间隔必须为正整数毫秒' }
+    }
+    const now = Date.now()
+    const id = randomUUID()
+    d.prepare(
+      `INSERT INTO tasks (id, flow_id, name, trigger_type, cron_expr, interval_ms, enabled, created_at, updated_at)
+       VALUES (@id, @flowId, @name, @tt, @cron, @interval, 1, @now, @now)`
+    ).run({
+      id,
+      flowId: input.flowId,
+      name: input.name || '未命名任务',
+      tt: input.triggerType,
+      cron: input.triggerType === 'cron' ? String(input.cronExpr).trim() : '',
+      interval: input.triggerType === 'interval' ? Math.max(1000, Number(input.intervalMs)) : 0,
+      now
+    })
+    const row = d.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow
+    return { ok: true, task: rowToTask(row) }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/** 列出全部任务（按最近更新倒序）。 */
+export function listTasks(): { ok: true; items: TaskRecord[] } | { ok: false; error: string } {
+  try {
+    const d = requireDb()
+    const rows = d
+      .prepare('SELECT * FROM tasks ORDER BY updated_at DESC, rowid DESC')
+      .all() as TaskRow[]
+    return { ok: true, items: rows.map(rowToTask) }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/** 列出启用中的任务（调度器启动/重载用）。 */
+export function listEnabledTasks(): { ok: true; items: TaskRecord[] } | { ok: false; error: string } {
+  try {
+    const d = requireDb()
+    const rows = d
+      .prepare('SELECT * FROM tasks WHERE enabled = 1 ORDER BY updated_at DESC')
+      .all() as TaskRow[]
+    return { ok: true, items: rows.map(rowToTask) }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/** 启停切换。 */
+export function setTaskEnabled(id: string, enabled: boolean): { ok: true } | { ok: false; error: string } {
+  try {
+    requireDb().prepare('UPDATE tasks SET enabled = ?, updated_at = ? WHERE id = ?').run(
+      enabled ? 1 : 0,
+      Date.now(),
+      id
+    )
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/** 删除任务。 */
+export function deleteTask(id: string): { ok: true } | { ok: false; error: string } {
+  try {
+    requireDb().prepare('DELETE FROM tasks WHERE id = ?').run(id)
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/** 任务触发后记录 last_run_at / run_count，并回写下一次触发时间。 */
+export function markTaskRan(id: string, nextRunAt: number | null): void {
+  try {
+    const d = requireDb()
+    d.prepare(
+      'UPDATE tasks SET last_run_at = ?, run_count = run_count + 1, next_run_at = ?, updated_at = ? WHERE id = ?'
+    ).run(Date.now(), nextRunAt, Date.now(), id)
+  } catch {
+    /* 调度记录失败不影响本次运行 */
   }
 }
 

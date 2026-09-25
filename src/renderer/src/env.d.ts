@@ -112,6 +112,35 @@ declare global {
           events?: Array<{ type: 'click' | 'fill' | 'scroll' | 'key'; selector?: string; value?: string; deltaY?: number; key?: string }>
         }>
       }
+      tasks: {
+        list: () => Promise<
+          | { ok: true; items: TaskSummary[] }
+          | { ok: false; error: string }
+        >
+        create: (input: {
+          flowId: string
+          name: string
+          triggerType: 'cron' | 'interval'
+          cronExpr?: string
+          intervalMs?: number
+        }) => Promise<{ ok: true; task: TaskSummary } | { ok: false; error: string }>
+        toggle: (id: string, on: boolean) => Promise<{ ok: true } | { ok: false; error: string }>
+        remove: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>
+      }
     }
   }
+}
+
+/** 计划任务摘要（与 preload TaskSummary 对齐，M5 调度切片） */
+interface TaskSummary {
+  id: string
+  flowId: string
+  name: string
+  triggerType: 'cron' | 'interval'
+  cronExpr: string
+  intervalMs: number
+  enabled: boolean
+  lastRunAt: number | null
+  nextRunAt: number | null
+  runCount: number
 }

@@ -23,8 +23,15 @@ import {
   saveElement,
   saveFlow,
   saveForegroundDelayMs,
-  saveRecordThresholds
+  saveRecordThresholds,
+  createTask,
+  listTasks,
+  listEnabledTasks,
+  setTaskEnabled,
+  deleteTask,
+  markTaskRan
 } from './store/db'
+import { TaskScheduler } from './scheduler'
 import type { RunLogEntry } from './store/db'
 import type { RecordThresholds } from '../shared/record-settings'
 import { PickController } from './pick'
@@ -326,10 +333,46 @@ ipcMain.handle('settings:set-foreground-delay-ms', async (_e, raw: unknown) => {
   return r
 })
 
+/* ---------- M5 调度：计划任务（cron/interval）到点触发运行 ---------- */
+const scheduler = new TaskScheduler({
+  loadFlow: (flowId) => {
+    const r = loadFlow(flowId)
+    return r.ok ? r.flow : null
+  },
+  fire: (flow) => {
+    try {
+      runManager.start(flow)
+    } catch (err) {
+      console.error('计划任务触发运行失败：', err)
+    }
+  },
+  markRan: (id, next) => markTaskRan(id, next)
+})
+
+ipcMain.handle('tasks:list', () => listTasks())
+ipcMain.handle('tasks:create', (_e, input) => createTask(input))
+ipcMain.handle('tasks:toggle', (_e, id: string, on: boolean) => {
+  const r = setTaskEnabled(id, on)
+  // 启停后重建定时器
+  const enabled = listEnabledTasks()
+  if (enabled.ok) scheduler.reload(enabled.items)
+  return r
+})
+ipcMain.handle('tasks:delete', (_e, id: string) => {
+  const r = deleteTask(id)
+  const enabled = listEnabledTasks()
+  if (enabled.ok) scheduler.reload(enabled.items)
+  return r
+})
+
 app.whenReady().then(() => {
   // 数据库落在 userData 下（Electron 提供的跨版本稳定用户目录）
   openDb(join(app.getPath('userData'), 'ruili.db'))
   createWindow()
+
+  // 启动计划任务调度器（加载全部启用任务）
+  const enabled = listEnabledTasks()
+  if (enabled.ok) scheduler.reload(enabled.items)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -338,6 +381,7 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   closeDb()
+  scheduler.stop()
   pickController.dispose()
   disposeSidecar()
   if (process.platform !== 'darwin') app.quit()

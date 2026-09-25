@@ -42,3 +42,5 @@
 | [36-M4-7-翻页入抓.md](./36-M4-7-翻页入抓.md) | M4 切片 7 · webScrapeList 加 nextSelector/maxPages，自动点下一页循环抓 | 2026-09-25 | ✅ 完成 |
 | [37-M4-8_9-XLSX与修饰键.md](./37-M4-8_9-XLSX与修饰键.md) | M4 切片 8-9 · XLSX 导出 + 录制器修饰键 Ctrl/Alt 组合 | 2026-09-25 | ✅ 完成 |
 | [38-M4-10-录制器真站冒烟.md](./38-M4-10-录制器真站冒烟.md) | M4 切片 10 · 录制器真浏览器端到端冒烟（vite-node 跑 RealWebSession，click/fill/scroll/功能键/修饰键/跨导航重注入 10/10；旧 smoke_web_live 修到 7/7） | 2026-09-25 | ✅ 完成 |
+| [39-M4-11-iframe支持.md](./39-M4-11-iframe支持.md) | M4 切片 11 · web 指令跨 iframe（frameSelector + frameLocator/contentFrame；iframe 冒烟 3/3） | 2026-09-25 | ✅ 完成 |
+| [40-M5-1-计划任务调度.md](./40-M5-1-计划任务调度.md) | M5 切片 1 · 计划任务调度（tasks 表 + croner + TriggersView 真实列表/新建/启停；CRUD 冒烟 8/8） | 2026-09-25 | ✅ 完成 |

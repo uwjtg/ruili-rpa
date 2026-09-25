@@ -109,11 +109,15 @@ export function registerWebCommands(
     name: '点击元素',
     group: '网页',
     icon: 'mouse',
-    params: [{ key: 'selector', label: '选择器', type: 'text', placeholder: 'CSS / text=…' }],
+    params: [
+      { key: 'selector', label: '选择器', type: 'text', placeholder: 'CSS / text=…' },
+      { key: 'frame', label: '所在 iframe 选择器（可选）', type: 'text', placeholder: '如 iframe#main' }
+    ],
     summary: (p) => `点击 ${str(p.selector)}`,
     runner: async (ctx, p) => {
       const selector = ctx.interpolate(str(p.selector))
-      await session.click(selector)
+      const frame = ctx.interpolate(str(p.frame)).trim()
+      await session.click(selector, frame || undefined)
       ctx.log('success', `已点击 ${selector}`)
       return true
     }
@@ -126,13 +130,15 @@ export function registerWebCommands(
     icon: 'keyboard',
     params: [
       { key: 'selector', label: '选择器', type: 'text' },
-      { key: 'value', label: '内容', type: 'text', placeholder: '支持 ${变量} 插值' }
+      { key: 'value', label: '内容', type: 'text', placeholder: '支持 ${变量} 插值' },
+      { key: 'frame', label: '所在 iframe 选择器（可选）', type: 'text', placeholder: '如 iframe#main' }
     ],
     summary: (p) => `输入 ${str(p.value)} → ${str(p.selector)}`,
     runner: async (ctx, p) => {
       const selector = ctx.interpolate(str(p.selector))
       const value = ctx.interpolate(str(p.value))
-      await session.fill(selector, value)
+      const frame = ctx.interpolate(str(p.frame)).trim()
+      await session.fill(selector, value, frame || undefined)
       ctx.log('success', `已在 ${selector} 输入文本`)
       return true
     }
@@ -180,13 +186,15 @@ export function registerWebCommands(
     icon: 'scissors',
     params: [
       { key: 'selector', label: '选择器', type: 'text' },
-      { key: 'resultVar', label: '结果变量', type: 'text' }
+      { key: 'resultVar', label: '结果变量', type: 'text' },
+      { key: 'frame', label: '所在 iframe 选择器（可选）', type: 'text', placeholder: '如 iframe#main' }
     ],
     summary: (p) => `提取 ${str(p.selector)} → ${str(p.resultVar)}`,
     runner: async (ctx, p) => {
       const selector = ctx.interpolate(str(p.selector))
       const resultVar = str(p.resultVar)
-      const text = await session.getText(selector)
+      const frame = ctx.interpolate(str(p.frame)).trim()
+      const text = await session.getText(selector, frame || undefined)
       ctx.setVar(resultVar, text)
       ctx.log('success', `提取文本（${text.length} 字）→ ${resultVar}`)
       return text
@@ -200,13 +208,15 @@ export function registerWebCommands(
     icon: 'clock',
     params: [
       { key: 'selector', label: '选择器', type: 'text' },
-      { key: 'timeoutMs', label: '超时（毫秒）', type: 'number', default: 5000 }
+      { key: 'timeoutMs', label: '超时（毫秒）', type: 'number', default: 5000 },
+      { key: 'frame', label: '所在 iframe 选择器（可选）', type: 'text', placeholder: '如 iframe#main' }
     ],
     summary: (p) => `等待 ${str(p.selector, '…')} 出现（${str(p.timeoutMs, '5000')}ms）`,
     runner: async (ctx, p) => {
       const selector = ctx.interpolate(str(p.selector))
       const timeoutMs = Number(p.timeoutMs) || 5000
-      await session.waitFor(selector, timeoutMs)
+      const frame = ctx.interpolate(str(p.frame)).trim()
+      await session.waitFor(selector, timeoutMs, frame || undefined)
       ctx.log('success', `元素 ${selector} 已出现`)
       return true
     }
@@ -230,7 +240,8 @@ export function registerWebCommands(
       { key: 'nextSelector', label: '下一页按钮选择器（可选）', type: 'text', placeholder: '如 .next / a[rel=next]' },
       { key: 'maxPages', label: '最多翻几页（含当前页，1=只抓当前页）', type: 'number', default: 1 },
       { key: 'csvPath', label: '导出 CSV 路径（可选）', type: 'text', placeholder: '如 D:\\out.csv，支持 ${变量}' },
-      { key: 'xlsxPath', label: '导出 XLSX 路径（可选）', type: 'text', placeholder: '如 D:\\out.xlsx，支持 ${变量}' }
+      { key: 'xlsxPath', label: '导出 XLSX 路径（可选）', type: 'text', placeholder: '如 D:\\out.xlsx，支持 ${变量}' },
+      { key: 'frame', label: '列表所在 iframe 选择器（可选）', type: 'text', placeholder: '如 iframe#main' }
     ],
     summary: (p) => `抓取 ${str(p.listSelector, '…')} → ${str(p.resultVar, 'rows')}`,
     runner: async (ctx, p) => {
@@ -241,6 +252,7 @@ export function registerWebCommands(
       const xlsxPath = ctx.interpolate(str(p.xlsxPath)).trim()
       const nextSelector = ctx.interpolate(str(p.nextSelector)).trim()
       const maxPages = Math.max(1, Number(p.maxPages) || 1)
+      const frame = ctx.interpolate(str(p.frame)).trim()
 
       let fields: ScrapeFieldSpec[] = []
       try {
@@ -259,7 +271,7 @@ export function registerWebCommands(
           listSelector,
           fields,
           maxItems
-        })) as Array<Record<string, unknown>>
+        }, frame || undefined)) as Array<Record<string, unknown>>
         if (!Array.isArray(rows)) throw new Error('页面抓取返回格式异常（非数组）')
         allRows.push(...rows)
         ctx.log('info', `第 ${page + 1} 页：抓 ${rows.length} 行（累计 ${allRows.length}）`)
