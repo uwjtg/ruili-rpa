@@ -3,32 +3,31 @@
 > 在新对话开头复制粘贴下面整段即可无缝接力。
 
 ```
-继续锐流 RPA M4 开发（下一步建议：真站端到端冒烟，或 iframe 支持/XLSX 导出，按优先级自选）。请先读：
+继续锐流 RPA 开发（M4 浏览器自动化线已收尾，下一步建议：真站端到端冒烟，或进入 M5 新方向）。请先读：
 1) docs\锐流RPA-V3-接力开发模式说明.md
 2) docs\锐流RPA-V3-开发计划书.md
 3) docs\handoff\INDEX.md
-4) docs\handoff\36-M4-7-翻页入抓.md（最新）
-5) docs\handoff\35-M4-6-录制器V3.md
+4) docs\handoff\37-M4-8_9-XLSX与修饰键.md（最新）
+5) docs\handoff\36-M4-7-翻页入抓.md
 6) docs\锐流RPA-开发交接文档.md（§5 编辑器交互清单、§7 边界）
 
 当前基线：
-- M3 切片 1-18 全部收尾；M4 切片 1-7 完成（抓取向导V1/聚类加固+基准/CDP点选拾取/录制器V1/V2/V3/翻页入抓）。
-- 验证全绿：pytest 84/84、vitest 25 文件 159 用例、typecheck 0、build renderer 869.80 kB、license 无新增传染。
-- 录制器闭环：click（webClick）/ input（webInput，500ms 去抖）/ scroll（webScroll，300ms 去抖）/ key（webPressKey，NAV 白名单 Enter/Tab/Esc/方向/退格）；导航后 framenavigated 自动重注入；录制浮层红色 badge。
-- web 指令清单（10 条）：webOpenBrowser/webOpenUrl/webClick/webInput/webScroll/webPressKey/webExtractText/webWaitFor/webScrapeList/webCloseBrowser。
-- webScrapeList 翻页：nextSelector（下一页按钮）+ maxPages（含当前页），循环抓→点下一页→waitFor→轻等 500ms；下一页不可点则停。
-- M4-1 抓取向导：WebSession.eval + INSPECT/SCRAPE 自函数字符串 + ScrapeWizard 三步。
-- M4-2 聚类加固：normClass 剥 hash + listSelector 三分支（tag.cls / [class*=stem] / 父>tag）+ nth-of-type + 10 形态基准。
-- M4-3 点选拾取：pick-script.ts 三段；页面紫色高亮 mousemove 跟踪、mousedown capture、Esc 取消。
-- Git 基线：M4-1 (b7afe29)、M4-2 (5c5a607)、M4-3 (d6feeb9)、M4-4 (a58fe77)、M4-5 (15c73df)、M4-6 (8237cd4)、M4-7 (1355904)。
+- M3 切片 1-18 全部收尾；M4 切片 1-9 全部完成（抓取向导V1/聚类加固+基准/CDP点选拾取/录制器V1/V2/V3/翻页入抓/XLSX导出/修饰键）。
+- 验证全绿：pytest 84/84、vitest 25 文件 159 用例、typecheck 0、build renderer 870.58 kB、license 无新增传染（xlsx@0.18.5 Apache-2.0）。
+- M4 浏览器线完整：
+  · 抓取向导：WebSession.eval + INSPECT/SCRAPE 自函数字符串 + ScrapeWizard 三步；listSelector 三分支（tag.cls / [class*=stem] / 父>tag）+ nth-of-type；10 形态基准 10/10；翻页 nextSelector+maxPages 循环抓；CSV(UTF-8 BOM)+XLSX 双导出。
+  · CDP 点选拾取：pick-script.ts 三段；页面紫色高亮 mousemove 跟踪、mousedown capture、Esc 取消；WebSession.startPagePick + IPC web-pick:start。
+  · 录制器：click（webClick）/ input（webInput 500ms 去抖）/ scroll（webScroll 300ms 去抖）/ key（webPressKey，NAV 白名单 + 修饰键组合 "Control+c"）；导航后 framenavigated 自动重注入；录制浮层红色 badge。
+- web 指令清单（11 条）：webOpenBrowser/webOpenUrl/webClick/webInput/webScroll/webPressKey/webExtractText/webWaitFor/webScrapeList/webCloseBrowser。
+- Git 基线：M4-1 (b7afe29)、M4-2 (5c5a607)、M4-3 (d6feeb9)、M4-4 (a58fe77)、M4-5 (15c73df)、M4-6 (8237cd4)、M4-7 (1355904)、M4-8 (7afec0b)、M4-9 (6b67b49)。
 - sidecar 协议未变。流程 AST：FlowDoc{version,name,vars,steps,recordThresholds?}。
 - DB %APPDATA%\ruili-rpa\ruili.db。
 - 冒烟留存：.runtime/smoke_record.py、smoke_replay.py、smoke_bring_foreground.py、gui_smoke_record.py、smoke_fallback.py、smoke_pick_chain.py、diag_record_keys.py、probe_taskbar.py。
 
-下一步建议（M4 方向，按优先级）：
-1. （手动）真站端到端冒烟：开 Edge→电商搜索结果页→向导识别→填 .next→maxPages=3→跑→检查 CSV 3 页数据；再测登录页录制（输账号+Enter）。
-2. （M4-8）iframe 支持 / XLSX 导出 / 反爬等待。
-3. 修饰键录制 / hover 录制。
+下一步建议：
+1. （手动，最重要）真站端到端冒烟：开 Edge→电商搜索结果页→向导识别→填 .next→maxPages=3→跑→检查 XLSX；再测登录页录制（输账号+Enter+Ctrl 修饰键）。
+2. iframe 支持（抓取/录制跨 iframe）。
+3. M5 新方向（按计划书）：桌面+网页混合流程、调度、变量高级用法。
 
 关键约束：
 - 环境 Windows 桌面，PowerShell（不用 Bash），node 22.23.2，Electron 44，npm 镜像 npmmirror；better-sqlite3 v13 NAPI 免 rebuild；RunWireEvent 形状从未改动。
@@ -48,5 +47,5 @@
 - Playwright page.evaluate 接受 new Function 结果时要 cast as unknown as () => void。
 - lint 有基线告警（EditorView.tsx:134 setState-in-effect、env.d.ts:13 FlowSummary 未用等），非本轮引入，修复前先确认。
 
-完成后按 §4 模板落盘 docs/handoff/37-M4-8-XXX.md、更新 INDEX.md 与本文件，并生成下一对话开场白。
+完成后按 §4 模板落盘 docs/handoff/38-XXX.md、更新 INDEX.md 与本文件，并生成下一对话开场白。
 ```
