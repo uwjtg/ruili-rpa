@@ -32,7 +32,8 @@ import {
   markTaskRan,
   markTaskTick,
   listRunHistory,
-  listRunEntries
+  listRunEntries,
+  clearRunHistory
 } from './store/db'
 import { TaskScheduler } from './scheduler'
 import { HotkeyManager } from './hotkeys'
@@ -375,9 +376,9 @@ const fileWatcher = new FileWatchManager({
     const r = loadFlow(flowId)
     return r.ok ? r.flow : null
   },
-  fire: (flow) => {
+  fire: (flow, _task, extraVars) => {
     try {
-      runManager.start(flow)
+      runManager.start(flow, extraVars ? { initialVars: extraVars } : {})
     } catch (err) {
       console.error('文件触发运行失败：', err)
     }
@@ -411,6 +412,7 @@ ipcMain.handle('tasks:delete', (_e, id: string) => {
 })
 ipcMain.handle('runs:history', (_e, limit?: number) => listRunHistory(limit ?? 100))
 ipcMain.handle('runs:entries', (_e, runId: string) => listRunEntries(runId))
+ipcMain.handle('runs:clear', () => clearRunHistory())
 
 app.whenReady().then(() => {
   // 数据库落在 userData 下（Electron 提供的跨版本稳定用户目录）

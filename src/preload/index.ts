@@ -227,7 +227,8 @@ const api = {
     entries: (runId: string) => ipcRenderer.invoke('runs:entries', runId) as Promise<
       | { ok: true; items: RunLogEntryRow[] }
       | { ok: false; error: string }
-    >
+    >,
+    clear: () => ipcRenderer.invoke('runs:clear') as Promise<{ ok: true } | { ok: false; error: string }>
   }
 } as const
 

@@ -132,6 +132,7 @@ declare global {
       runs: {
         history: (limit?: number) => Promise<{ ok: true; items: RunHistoryItem[] } | { ok: false; error: string }>
         entries: (runId: string) => Promise<{ ok: true; items: RunLogEntryRow[] } | { ok: false; error: string }>
+        clear: () => Promise<{ ok: true } | { ok: false; error: string }>
       }
     }
   }

@@ -68,6 +68,8 @@ export class RunValidationError extends Error {
 export interface StartOptions {
   /** 整体运行超时（毫秒）；到时协作式 stop()。默认不限制 */
   timeoutMs?: number
+  /** 注入初始变量（如触发器传 triggerFile） */
+  initialVars?: Record<string, unknown>
 }
 
 export class RunManager {
@@ -95,6 +97,7 @@ export class RunManager {
     this.interpreter = new Interpreter({
       registry: this.registry,
       stepOnce: this.stepOncePending,
+      initialVars: opts.initialVars,
       events: {
         onFlowStart: (f) => this.emit({ type: 'flow-start', flowName: f.name }),
         onStepStart: (s, d) =>

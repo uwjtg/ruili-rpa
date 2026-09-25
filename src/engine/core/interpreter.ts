@@ -35,6 +35,8 @@ export interface InterpreterOptions {
   events?: RunEvents
   /** 初始即进入单步模式：每步执行前暂停（step-over） */
   stepOnce?: boolean
+  /** 运行前注入的初始变量（触发器/外部传参，如文件监听的 triggerFile） */
+  initialVars?: Record<string, unknown>
 }
 
 export class Interpreter {
@@ -50,11 +52,13 @@ export class Interpreter {
   private currentDepth = 0
   /** 单步门闩：true 时下一步执行前暂停一次并自动复位 */
   private stepOnce: boolean
+  private readonly initialVars?: Record<string, unknown>
 
   constructor(opts: InterpreterOptions) {
     this.registry = opts.registry
     this.events = opts.events ?? {}
     this.stepOnce = opts.stepOnce ?? false
+    this.initialVars = opts.initialVars
   }
 
   /** 请求单步：若正等断点则放行一步；否则下次执行前暂停 */
@@ -84,7 +88,9 @@ export class Interpreter {
     const start = Date.now()
     this.cancelled = false
     this.stepsExecuted = 0
-    this.scopes = [{ vars: new Map(flow.vars.map((v) => [v.name, v.value])) }]
+    const rootVars = new Map(flow.vars.map((v) => [v.name, v.value]))
+    if (this.initialVars) for (const [k, v] of Object.entries(this.initialVars)) rootVars.set(k, v)
+    this.scopes = [{ vars: rootVars }]
     this.events.onFlowStart?.(flow)
 
     let status: RunResult['status'] = 'completed'

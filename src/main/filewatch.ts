@@ -15,7 +15,7 @@ import type { TaskRecord } from './store/db'
 
 export interface FileWatchCtx {
   loadFlow(flowId: string): FlowDoc | null
-  fire(flow: FlowDoc, task: TaskRecord): void
+  fire(flow: FlowDoc, task: TaskRecord, extraVars?: Record<string, unknown>): void
   markRan(id: string, nextRunAt: number | null): void
   isRunning(): boolean
 }
@@ -82,7 +82,7 @@ export class FileWatchManager {
     if (this.ctx.isRunning()) return
     const flow = this.ctx.loadFlow(t.flowId)
     if (!flow) return
-    this.ctx.fire(flow, t)
+    this.ctx.fire(flow, t, { triggerFile: full })
     this.ctx.markRan(t.id, null)
   }
 

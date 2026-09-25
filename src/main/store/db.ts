@@ -468,6 +468,16 @@ export function listRunEntries(
   }
 }
 
+/** 清空全部运行日志（M5-8 RobotsView）。 */
+export function clearRunHistory(): { ok: true } | { ok: false; error: string } {
+  try {
+    requireDb().prepare('DELETE FROM logs').run()
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 /** 录制聚合阈值落盘的 settings 键（M3 切片 12）。 */
 const SETTINGS_KEY_RECORD_THRESHOLDS = 'record.thresholds'
 
@@ -624,6 +634,19 @@ export function createTask(input: {
     }
     if (input.triggerType === 'file' && !String(input.watchPath || '').trim()) {
       return { ok: false, error: '监听目录不能为空' }
+    }
+    // M5-9 查重：同一加速器/同一监听目录不允许重复任务
+    if (input.triggerType === 'hotkey') {
+      const dup = d
+        .prepare("SELECT name FROM tasks WHERE trigger_type='hotkey' AND hotkey = ? LIMIT 1")
+        .get(String(input.hotkey).trim()) as { name: string } | undefined
+      if (dup) return { ok: false, error: `快捷键已被任务「${dup.name}」占用` }
+    }
+    if (input.triggerType === 'file') {
+      const dup = d
+        .prepare("SELECT name FROM tasks WHERE trigger_type='file' AND watch_path = ? LIMIT 1")
+        .get(String(input.watchPath).trim()) as { name: string } | undefined
+      if (dup) return { ok: false, error: `目录已被任务「${dup.name}」监听` }
     }
     const now = Date.now()
     const id = randomUUID()

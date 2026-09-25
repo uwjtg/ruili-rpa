@@ -36,6 +36,7 @@ export default function RobotsView(): JSX.Element {
   const [openId, setOpenId] = useState<string | null>(null)
   const [entries, setEntries] = useState<RunLogEntryRow[]>([])
   const [loadingEntries, setLoadingEntries] = useState(false)
+  const [flowFilter, setFlowFilter] = useState<string>('all')
 
   const refresh = useCallback(async () => {
     if (!ruili?.runs) return
@@ -63,6 +64,17 @@ export default function RobotsView(): JSX.Element {
     setLoadingEntries(false)
   }
 
+  async function clearHistory(): Promise<void> {
+    if (!ruili?.runs) return
+    if (!window.confirm('确定清空全部运行记录吗？此操作不可恢复。')) return
+    const res = await ruili.runs.clear()
+    if (res.ok) void refresh()
+    else setError(res.error)
+  }
+
+  const flowOptions = Array.from(new Map(items.map((r) => [r.flowId ?? '', r.flowName ?? '未保存'])).entries())
+  const shown = flowFilter === 'all' ? items : items.filter((r) => (r.flowId ?? '') === flowFilter)
+
   function fmt(ts: number): string {
     const d = new Date(ts)
     const p = (n: number) => String(n).padStart(2, '0')
@@ -89,9 +101,20 @@ export default function RobotsView(): JSX.Element {
             最近 {items.length} 次运行 · 点击展开日志
           </div>
         </div>
+        <select value={flowFilter} onChange={(e) => setFlowFilter(e.target.value)}
+          style={{ marginLeft: 'auto', height: 32, borderRadius: 6, border: '1px solid #D8DADD', background: '#fff', color: '#1F2329', fontSize: 13, padding: '0 8px' }}>
+          <option value="all">全部流程</option>
+          {flowOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
+        <button
+          onClick={() => void clearHistory()}
+          style={{ marginLeft: 8, height: 32, padding: '0 16px', borderRadius: 6, border: '1px solid #FDECEC', background: '#fff', color: '#E64340', fontSize: 13, cursor: 'pointer' }}
+        >
+          清空
+        </button>
         <button
           onClick={() => void refresh()}
-          style={{ marginLeft: 'auto', height: 32, padding: '0 16px', borderRadius: 6, border: '1px solid #D8DADD', background: '#fff', color: '#1F2329', fontSize: 13, cursor: 'pointer' }}
+          style={{ marginLeft: 8, height: 32, padding: '0 16px', borderRadius: 6, border: '1px solid #D8DADD', background: '#fff', color: '#1F2329', fontSize: 13, cursor: 'pointer' }}
         >
           刷新
         </button>
@@ -105,7 +128,7 @@ export default function RobotsView(): JSX.Element {
 
       {loading ? (
         <div style={{ color: '#8A8F99', fontSize: 13, padding: 24 }}>加载中…</div>
-      ) : items.length === 0 ? (
+      ) : shown.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '80px 20px', background: '#fff', borderRadius: 10, border: '1px dashed #D8DADD' }}>
           <div style={{ fontSize: 16, fontWeight: 600, color: '#1F2329' }}>还没有运行记录</div>
           <div style={{ fontSize: 12, color: '#8A8F99', marginTop: 6 }}>
@@ -114,7 +137,7 @@ export default function RobotsView(): JSX.Element {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {items.map((r) => (
+          {shown.map((r) => (
             <div key={r.runId} style={{ background: '#fff', border: '1px solid #E5E6EB', borderRadius: 8, overflow: 'hidden' }}>
               <div onClick={() => void toggle(r.runId)} style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <span style={{ fontSize: 14 }}>{openId === r.runId ? '▼' : '▶'}</span>
