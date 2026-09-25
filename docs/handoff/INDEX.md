@@ -39,3 +39,4 @@
 | [33-M4-4-浏览器录制器V1.md](./33-M4-4-浏览器录制器V1.md) | M4 切片 4 · 页面 mousedown/input 录制，停止后转 webClick/webInput 步骤追加流程 | 2026-09-25 | ✅ 完成 |
 | [34-M4-5-录制器V2.md](./34-M4-5-录制器V2.md) | M4 切片 5 · 滚动录制 webScroll + 导航后自动重注入 + 录制浮层 | 2026-09-25 | ✅ 完成 |
 | [35-M4-6-录制器V3.md](./35-M4-6-录制器V3.md) | M4 切片 6 · 键盘功能键录制（Enter/Tab/Esc）→ webPressKey | 2026-09-25 | ✅ 完成 |
+| [36-M4-7-翻页入抓.md](./36-M4-7-翻页入抓.md) | M4 切片 7 · webScrapeList 加 nextSelector/maxPages，自动点下一页循环抓 | 2026-09-25 | ✅ 完成 |
