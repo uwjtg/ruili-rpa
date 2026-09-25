@@ -129,8 +129,15 @@ export class RunManager {
         void stepOnce
         if (timer) clearTimeout(timer)
         // 无论 completed / error / cancelled，都释放本次运行占用的资源
-        void this.disposeResources()
+        void this.disposeResources().finally(() => {
+          this.interpreter = null
+        })
       })
+  }
+
+  /** 是否有流程正在运行（计划任务互斥用） */
+  isRunning(): boolean {
+    return this.interpreter !== null
   }
 
   /** 单步：正在跑则下一步前暂停；未启动则下次 start 以单步模式开始 */

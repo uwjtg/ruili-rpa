@@ -1,4 +1,4 @@
-# docs/handoff · 交接文档索引
+﻿# docs/handoff · 交接文档索引
 
 > 接力开发模式事实源。每个阶段完成时追加一行并落盘对应交接文档。
 
@@ -44,3 +44,4 @@
 | [38-M4-10-录制器真站冒烟.md](./38-M4-10-录制器真站冒烟.md) | M4 切片 10 · 录制器真浏览器端到端冒烟（vite-node 跑 RealWebSession，click/fill/scroll/功能键/修饰键/跨导航重注入 10/10；旧 smoke_web_live 修到 7/7） | 2026-09-25 | ✅ 完成 |
 | [39-M4-11-iframe支持.md](./39-M4-11-iframe支持.md) | M4 切片 11 · web 指令跨 iframe（frameSelector + frameLocator/contentFrame；iframe 冒烟 3/3） | 2026-09-25 | ✅ 完成 |
 | [40-M5-1-计划任务调度.md](./40-M5-1-计划任务调度.md) | M5 切片 1 · 计划任务调度（tasks 表 + croner + TriggersView 真实列表/新建/启停；CRUD 冒烟 8/8） | 2026-09-25 | ✅ 完成 |
+| [41-M5-2-调度加固-互斥与补跑.md](./41-M5-2-调度加固-互斥与补跑.md) | M5 切片 2 · TaskScheduler 全局互斥（isRunning）+ 启动错过补跑（catchUp/graceMs）；调度器 7 用例 | 2026-09-25 | ✅ 完成 |

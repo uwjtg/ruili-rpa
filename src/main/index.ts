@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+﻿import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'path'
 import { RunManager, buildEngineRegistry } from '../engine/run/runManager'
@@ -29,7 +29,8 @@ import {
   listEnabledTasks,
   setTaskEnabled,
   deleteTask,
-  markTaskRan
+  markTaskRan,
+  markTaskTick
 } from './store/db'
 import { TaskScheduler } from './scheduler'
 import type { RunLogEntry } from './store/db'
@@ -346,7 +347,9 @@ const scheduler = new TaskScheduler({
       console.error('计划任务触发运行失败：', err)
     }
   },
-  markRan: (id, next) => markTaskRan(id, next)
+  markRan: (id, next) => markTaskRan(id, next),
+  markTick: (id, next) => markTaskTick(id, next),
+  isRunning: () => runManager.isRunning()
 })
 
 ipcMain.handle('tasks:list', () => listTasks())
@@ -370,9 +373,9 @@ app.whenReady().then(() => {
   openDb(join(app.getPath('userData'), 'ruili.db'))
   createWindow()
 
-  // 启动计划任务调度器（加载全部启用任务）
+  // 启动计划任务调度器（加载全部启用任务；启动时对错过的触发点补跑一次）
   const enabled = listEnabledTasks()
-  if (enabled.ok) scheduler.reload(enabled.items)
+  if (enabled.ok) scheduler.reload(enabled.items, { catchUp: true })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

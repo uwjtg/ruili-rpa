@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 主进程 SQLite 存储（M2 切片 2 持久化）。
  *
  * 选型：better-sqlite3（MIT，计划书 §4.1「本地存储」锁定）。
@@ -621,6 +621,20 @@ export function markTaskRan(id: string, nextRunAt: number | null): void {
     ).run(Date.now(), nextRunAt, Date.now(), id)
   } catch {
     /* 调度记录失败不影响本次运行 */
+  }
+}
+
+/** 跳过本次触发（互斥/loadFlow 缺失等）：只推进 next_run_at，不动 last_run_at 与 run_count。 */
+export function markTaskTick(id: string, nextRunAt: number | null): void {
+  try {
+    const d = requireDb()
+    d.prepare('UPDATE tasks SET next_run_at = ?, updated_at = ? WHERE id = ?').run(
+      nextRunAt,
+      Date.now(),
+      id
+    )
+  } catch {
+    /* 调度记录失败不影响本次 */
   }
 }
 
