@@ -53,6 +53,7 @@ export default function ScrapeWizard({ onClose, onGenerate }: Props) {
   const [rows, setRows] = useState<FieldRow[]>([])
   const [resultVar, setResultVar] = useState('rows')
   const [csvPath, setCsvPath] = useState('')
+  const [xlsxPath, setXlsxPath] = useState('')
   const [maxItems, setMaxItems] = useState(0)
   const [nextSel, setNextSel] = useState('')
   const [maxPages, setMaxPages] = useState(1)
@@ -127,6 +128,7 @@ export default function ScrapeWizard({ onClose, onGenerate }: Props) {
       })),
       resultVar: (resultVar.trim() || 'rows').replace(/\s+/g, ''),
       csvPath: csvPath.trim(),
+      xlsxPath: xlsxPath.trim(),
       maxItems: Number(maxItems) || 0,
       nextSelector: nextSel.trim(),
       maxPages: Number(maxPages) || 1
@@ -318,6 +320,17 @@ export default function ScrapeWizard({ onClose, onGenerate }: Props) {
             />
           </div>
         ) : null}
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 12, color: '#51565D', marginBottom: 4 }}>
+              导出 XLSX 路径（可选，留空不导出）
+            </div>
+            <input
+              value={xlsxPath}
+              onChange={(e) => setXlsxPath(e.target.value)}
+              placeholder="D:\output\items.xlsx"
+              style={inputStyle}
+            />
+          </div>
         {result ? (
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
             <div style={{ flex: 2 }}>

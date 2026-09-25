@@ -23,6 +23,7 @@ export interface GeneratedScrapeFlow {
 export function generateScrapeFlow(spec: ScrapeWizardSpec): GeneratedScrapeFlow {
   const fieldsJson = JSON.stringify(spec.fields)
   const csvPath = (spec.csvPath ?? '').trim()
+  const xlsxPath = (spec.xlsxPath ?? '').trim()
   const maxItems = Number(spec.maxItems) || 0
   const nextSelector = (spec.nextSelector ?? '').trim()
   const maxPages = Number(spec.maxPages) || 1
@@ -38,6 +39,7 @@ export function generateScrapeFlow(spec: ScrapeWizardSpec): GeneratedScrapeFlow 
         fieldsJson,
         resultVar: spec.resultVar,
         csvPath,
+        xlsxPath,
         maxItems,
         nextSelector,
         maxPages

@@ -61,6 +61,8 @@ export interface ScrapeWizardSpec {
   resultVar: string
   /** 可选：导出 CSV 的绝对/相对路径（支持 ${var}）；空=不导出 */
   csvPath?: string
+  /** 可选：导出 XLSX 路径（支持 ${var}）；空=不导出 */
+  xlsxPath?: string
   /** 最多抓取条数；0=不限 */
   maxItems?: number
   /** 可选：下一页按钮选择器（M4-7 翻页入抓）；空=只抓当前页 */

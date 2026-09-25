@@ -18,6 +18,7 @@ import { getWebSession, type WebSession } from './session'
 import { SCRAPE_FN_BODY } from '../../shared/scrape/page-script'
 import type { ScrapeFieldSpec } from '../../shared/scrape/spec'
 import { writeFile } from 'node:fs/promises'
+import * as XLSX from 'xlsx'
 
 type RegistryLike = { register(c: RegisteredCommand): void }
 
@@ -228,7 +229,8 @@ export function registerWebCommands(
       { key: 'maxItems', label: '最多抓取条数（0=不限）', type: 'number', default: 0 },
       { key: 'nextSelector', label: '下一页按钮选择器（可选）', type: 'text', placeholder: '如 .next / a[rel=next]' },
       { key: 'maxPages', label: '最多翻几页（含当前页，1=只抓当前页）', type: 'number', default: 1 },
-      { key: 'csvPath', label: '导出 CSV 路径（可选）', type: 'text', placeholder: '如 D:\\out.csv，支持 ${变量}' }
+      { key: 'csvPath', label: '导出 CSV 路径（可选）', type: 'text', placeholder: '如 D:\\out.csv，支持 ${变量}' },
+      { key: 'xlsxPath', label: '导出 XLSX 路径（可选）', type: 'text', placeholder: '如 D:\\out.xlsx，支持 ${变量}' }
     ],
     summary: (p) => `抓取 ${str(p.listSelector, '…')} → ${str(p.resultVar, 'rows')}`,
     runner: async (ctx, p) => {
@@ -236,6 +238,7 @@ export function registerWebCommands(
       const resultVar = str(p.resultVar, 'rows')
       const maxItems = Number(p.maxItems) || 0
       const csvPath = ctx.interpolate(str(p.csvPath)).trim()
+      const xlsxPath = ctx.interpolate(str(p.xlsxPath)).trim()
       const nextSelector = ctx.interpolate(str(p.nextSelector)).trim()
       const maxPages = Math.max(1, Number(p.maxPages) || 1)
 
@@ -280,6 +283,13 @@ export function registerWebCommands(
         const headers = fields.map((f) => f.name)
         await writeFile(csvPath, toCsv(rows, headers), 'utf8')
         ctx.log('success', `已导出 CSV（${rows.length} 行）→ ${csvPath}`)
+      }
+      if (xlsxPath) {
+        const ws = XLSX.utils.json_to_sheet(rows)
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, ws, '抓取结果')
+        XLSX.writeFile(wb, xlsxPath)
+        ctx.log('success', `已导出 XLSX（${rows.length} 行）→ ${xlsxPath}`)
       }
       return rows
     }
