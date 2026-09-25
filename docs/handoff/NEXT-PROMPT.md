@@ -7,8 +7,8 @@
 1) docs\锐流RPA-V3-接力开发模式说明.md
 2) docs\锐流RPA-V3-开发计划书.md
 3) docs\handoff\INDEX.md
-4) docs\handoff\44-M5-5-文件监听触发器.md（最新）
-5) docs\handoff\43-M5-4-热键触发器.md
+4) docs\handoff\45-M5-6-桌面网页混合流程演示.md（最新）
+5) docs\handoff\44-M5-5-文件监听触发器.md
 6) docs\锐流RPA-开发交接文档.md（§5 编辑器交互清单、§7 边界）
 
 当前基线：
@@ -24,6 +24,7 @@
   · npx vite-node .runtime/smoke_runs_history.mts → 11/11（run 历史聚合+明细）
   · npx vite-node .runtime/smoke_hotkey_task.mts → 5/5（热键任务 CRUD）
   · npx vite-node .runtime/smoke_filewatch.mts → 2/2（fs.watch 新文件触发+去重）
+  · npx vite-node .runtime/smoke_mixed_flow.mts → 4/4（桌面+网页混合流程）
 - web 指令清单（12 条）：webOpenBrowser/webOpenUrl/webClick/webInput/webScroll/webPressKey/webExtractText/webWaitFor/webScrapeList/webCloseBrowser；其中 click/input/extract/wait/scrape 均加可选 frame 参数（跨 iframe，传 iframe CSS 选择器）。
 - 调度：tasks 表（trigger_type=cron|interval，croner）+ TaskScheduler（src/main/scheduler.ts，不依赖 Electron）+ IPC tasks:list/create/toggle/delete + TriggersView 真实列表/新建/启停。fire 直接 runManager.start(flow)。whenReady 启动、退出 stop。
 - sidecar 协议未变。流程 AST：FlowDoc{version,name,vars,steps,recordThresholds?}。
@@ -31,11 +32,10 @@
 - 冒烟留存：.runtime/smoke_web_live.mjs、smoke_recorder_live.mts、smoke_recorder_headed.mts、smoke_iframe_live.mts(+iframe-parent.html)、smoke_tasks_db.mts、及历史桌面侧 .py 脚本。
 
 下一步建议：
-1. 桌面+网页混合流程端到端演示（M3 桌面指令 × M4 网页指令串一条流程）。
-2. 文件路径注入触发变量（triggerFile 传给流程，处理下载的那个文件）。
-3. AI 魔法指令（function-calling 生成流程）接入。
-4. RobotsView 加「清空历史」与按流程筛选。
-5. 热键/文件监听创建时查重。
+1. 文件路径注入触发变量（文件监听触发时把新文件路径塞进流程变量）。
+2. AI 魔法指令（function-calling 生成 FlowDoc）。
+3. RobotsView 加「清空历史」与按流程筛选。
+4. 热键/文件监听创建时查重。
 
 关键约束：
 - 环境 Windows 桌面，PowerShell（不用 Bash），node 22.23.2，Electron 44，npm 镜像 npmmirror；better-sqlite3 v13 NAPI 免 rebuild；RunWireEvent 形状从未改动。
