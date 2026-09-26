@@ -83,3 +83,4 @@
 | [77-M7-10-指令扩充第二批.md](./77-M7-10-指令扩充第二批.md) | M7 切片 10 · 系统类 9 条（剪贴板 2/对话框 5/sleep/beep）；SystemLike 接口懒加载 electron；vitest 341→348；指令总数 49→58 | 2026-09-26 | ✅ 完成 |
 | [78-M7-11-指令扩充第三批.md](./78-M7-11-指令扩充第三批.md) | M7 切片 11 · 数据处理 16 条（字符串 6/日期 3/数学 5/数组 2）；纯 Node 零依赖；vitest 348→358；指令总数 58→74 | 2026-09-26 | ✅ 完成 |
 | [79-M7-12-指令扩充第四批.md](./79-M7-12-指令扩充第四批.md) | M7 切片 12 · CSV 5 条（parseText/readFile/rowsToObjects/objectsToRows/writeFile）；自实现 RFC4180 子集；UTF-8 BOM；vitest 358→365；指令总数 74→79 | 2026-09-26 | ✅ 完成 |
+| [80-M7-13-指令扩充第五批.md](./80-M7-13-指令扩充第五批.md) | M7 切片 13 · 文件 6 + 字符串 5 + 数学 4（共 15 条零依赖）；registerFileExtraCommands/registerDataExtraCommands；vitest 365→369；指令总数 79→94 | 2026-09-26 | ✅ 完成 |

@@ -308,3 +308,175 @@ export function registerDataCommands(registry: RegistryLike): void {
     summary: (p) => `${str(p.listVar)}.push(${str(p.item)})`
   })
 }
+
+export function registerDataExtraCommands(registry: RegistryLike): void {
+// ---------- M7-13 扩展：字符串更多 / 数学更多 ----------
+
+registry.register({
+  id: 'stringLength',
+  name: '字符串长度',
+  group: '数据处理',
+  icon: 'hash',
+  params: [
+    { key: 'text', label: '原文', type: 'text' },
+    { key: 'resultVar', label: '结果变量', type: 'text' }
+  ],
+  runner: async (ctx, p) => {
+    const out = ctx.interpolate(str(p.text)).length
+    ctx.setVar(str(p.resultVar), out)
+    return out
+  },
+  summary: (p) => `len(${str(p.text)})`
+})
+
+registry.register({
+  id: 'stringIncludes',
+  name: '是否包含子串',
+  group: '数据处理',
+  icon: 'search',
+  params: [
+    { key: 'text', label: '原文', type: 'text' },
+    { key: 'sub', label: '子串', type: 'text' },
+    { key: 'resultVar', label: '结果变量（bool）', type: 'text' }
+  ],
+  runner: async (ctx, p) => {
+    const text = ctx.interpolate(str(p.text))
+    const sub = ctx.interpolate(str(p.sub))
+    const out = text.includes(sub)
+    ctx.setVar(str(p.resultVar), out)
+    return out
+  },
+  summary: (p) => `includes("${str(p.sub)}")`
+})
+
+registry.register({
+  id: 'stringPadStart',
+  name: '左侧补字符',
+  group: '数据处理',
+  icon: 'arrow-left',
+  params: [
+    { key: 'text', label: '原文', type: 'text' },
+    { key: 'length', label: '目标长度', type: 'number' },
+    { key: 'pad', label: '补字符', type: 'text', default: '0' },
+    { key: 'resultVar', label: '结果变量', type: 'text' }
+  ],
+  runner: async (ctx, p) => {
+    const text = ctx.interpolate(str(p.text))
+    const out = text.padStart(num(p.length, 0), ctx.interpolate(str(p.pad, '0')))
+    ctx.setVar(str(p.resultVar), out)
+    return out
+  },
+  summary: (p) => `padStart(${str(p.length)}, "${str(p.pad)}")`
+})
+
+registry.register({
+  id: 'stringPadEnd',
+  name: '右侧补字符',
+  group: '数据处理',
+  icon: 'arrow-right',
+  params: [
+    { key: 'text', label: '原文', type: 'text' },
+    { key: 'length', label: '目标长度', type: 'number' },
+    { key: 'pad', label: '补字符', type: 'text', default: ' ' },
+    { key: 'resultVar', label: '结果变量', type: 'text' }
+  ],
+  runner: async (ctx, p) => {
+    const text = ctx.interpolate(str(p.text))
+    const out = text.padEnd(num(p.length, 0), ctx.interpolate(str(p.pad, ' ')))
+    ctx.setVar(str(p.resultVar), out)
+    return out
+  },
+  summary: (p) => `padEnd(${str(p.length)})`
+})
+
+registry.register({
+  id: 'stringRepeat',
+  name: '字符串重复',
+  group: '数据处理',
+  icon: 'repeat',
+  params: [
+    { key: 'text', label: '原文', type: 'text' },
+    { key: 'count', label: '次数', type: 'number' },
+    { key: 'resultVar', label: '结果变量', type: 'text' }
+  ],
+  runner: async (ctx, p) => {
+    const text = ctx.interpolate(str(p.text))
+    const out = text.repeat(num(p.count, 1))
+    ctx.setVar(str(p.resultVar), out)
+    return out
+  },
+  summary: (p) => `repeat(${str(p.count)})`
+})
+
+registry.register({
+  id: 'numAbs',
+  name: '绝对值',
+  group: '数据处理',
+  icon: 'bar-chart',
+  params: [
+    { key: 'a', label: '数字', type: 'number' },
+    { key: 'resultVar', label: '结果变量', type: 'text' }
+  ],
+  runner: async (ctx, p) => {
+    const out = Math.abs(num(p.a))
+    ctx.setVar(str(p.resultVar), out)
+    return out
+  },
+  summary: (p) => `abs(${str(p.a)})`
+})
+
+registry.register({
+  id: 'numRound',
+  name: '四舍五入',
+  group: '数据处理',
+  icon: 'circle',
+  params: [
+    { key: 'a', label: '数字', type: 'number' },
+    { key: 'digits', label: '小数位', type: 'number', default: 0 },
+    { key: 'resultVar', label: '结果变量', type: 'text' }
+  ],
+  runner: async (ctx, p) => {
+    const f = num(p.digits, 0)
+    const out = Number(num(p.a).toFixed(f))
+    ctx.setVar(str(p.resultVar), out)
+    return out
+  },
+  summary: (p) => `round(${str(p.a)}, ${str(p.digits)})`
+})
+
+registry.register({
+  id: 'numMax',
+  name: '取最大值',
+  group: '数据处理',
+  icon: 'arrow-up',
+  params: [
+    { key: 'a', label: 'A', type: 'number' },
+    { key: 'b', label: 'B', type: 'number' },
+    { key: 'resultVar', label: '结果变量', type: 'text' }
+  ],
+  runner: async (ctx, p) => {
+    const out = Math.max(num(p.a), num(p.b))
+    ctx.setVar(str(p.resultVar), out)
+    return out
+  },
+  summary: (p) => `max(${str(p.a)}, ${str(p.b)})`
+})
+
+registry.register({
+  id: 'numMin',
+  name: '取最小值',
+  group: '数据处理',
+  icon: 'arrow-down',
+  params: [
+    { key: 'a', label: 'A', type: 'number' },
+    { key: 'b', label: 'B', type: 'number' },
+    { key: 'resultVar', label: '结果变量', type: 'text' }
+  ],
+  runner: async (ctx, p) => {
+    const out = Math.min(num(p.a), num(p.b))
+    ctx.setVar(str(p.resultVar), out)
+    return out
+  },
+  summary: (p) => `min(${str(p.a)}, ${str(p.b)})`
+})
+}

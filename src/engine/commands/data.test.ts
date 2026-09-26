@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CommandRegistry } from '../commands/registry'
-import { registerDataCommands } from './data'
+import { registerDataCommands, registerDataExtraCommands } from './data'
 import type { RunContext } from '../core/context'
 
 function makeCtx(): { ctx: RunContext; vars: Map<string, unknown>; logs: string[] } {
@@ -121,5 +121,39 @@ describe('JSON / 数组', () => {
     expect(vars.get('x')).toBe('b')
     await reg.get('listAppend')!.runner(ctx, { listVar: 'items', item: 'c' }, step)
     expect(vars.get('items')).toEqual(['a', 'b', 'c'])
+  })
+})
+
+describe('M7-13 字符串/数学扩展', () => {
+  it('stringLength / Includes / Pad / Repeat', async () => {
+    const reg = new CommandRegistry()
+    registerDataCommands(reg)
+    registerDataExtraCommands(reg)
+    const { ctx, vars } = makeCtx()
+    await reg.get('stringLength')!.runner(ctx, { text: 'hello', resultVar: 'n' }, step)
+    expect(vars.get('n')).toBe(5)
+    await reg.get('stringIncludes')!.runner(ctx, { text: 'hello world', sub: 'world', resultVar: 'b' }, step)
+    expect(vars.get('b')).toBe(true)
+    await reg.get('stringPadStart')!.runner(ctx, { text: '7', length: 3, pad: '0', resultVar: 'p' }, step)
+    expect(vars.get('p')).toBe('007')
+    await reg.get('stringPadEnd')!.runner(ctx, { text: 'ab', length: 5, pad: '-', resultVar: 'p2' }, step)
+    expect(vars.get('p2')).toBe('ab---')
+    await reg.get('stringRepeat')!.runner(ctx, { text: 'ab', count: 3, resultVar: 'r' }, step)
+    expect(vars.get('r')).toBe('ababab')
+  })
+
+  it('numAbs / round / max / min', async () => {
+    const reg = new CommandRegistry()
+    registerDataCommands(reg)
+    registerDataExtraCommands(reg)
+    const { ctx, vars } = makeCtx()
+    await reg.get('numAbs')!.runner(ctx, { a: -5, resultVar: 'x' }, step)
+    expect(vars.get('x')).toBe(5)
+    await reg.get('numRound')!.runner(ctx, { a: 3.14159, digits: 2, resultVar: 'y' }, step)
+    expect(vars.get('y')).toBe(3.14)
+    await reg.get('numMax')!.runner(ctx, { a: 3, b: 7, resultVar: 'm' }, step)
+    expect(vars.get('m')).toBe(7)
+    await reg.get('numMin')!.runner(ctx, { a: 3, b: 7, resultVar: 'n' }, step)
+    expect(vars.get('n')).toBe(3)
   })
 })

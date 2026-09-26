@@ -1,9 +1,9 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, writeFileSync, existsSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, existsSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { CommandRegistry } from '../commands/registry'
-import { registerUtilCommands } from './util'
+import { registerUtilCommands, registerFileExtraCommands } from './util'
 import type { RunContext } from '../core/context'
 
 function makeCtx(): { ctx: RunContext; vars: Map<string, unknown>; logs: string[] } {
@@ -157,5 +157,43 @@ describe('网络/通知指令（mock fetch）', () => {
     await reg.get('notifyDingTalk')!.runner(ctx, { webhook: 'https://ding', title: 't', text: 'c' }, undefined as any)
     await reg.get('notifyFeishu')!.runner(ctx, { webhook: 'https://fs', text: 'c' }, undefined as any)
     expect(global.fetch).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('M7-13 文件扩展', () => {
+  let dir: string
+  beforeEach(() => { dir = mkdtempSync(path.join(tmpdir(), 'rui-util2-')) })
+  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('fileExists / folderExists', async () => {
+    const reg = new CommandRegistry()
+    registerUtilCommands(reg)
+    registerFileExtraCommands(reg)
+    const { ctx, vars } = makeCtx()
+    const f = path.join(dir, 'x.txt')
+    writeFileSync(f, 'x')
+    await reg.get('fileExists')!.runner(ctx, { path: f, resultVar: 'e' }, undefined as any)
+    expect(vars.get('e')).toBe(true)
+    await reg.get('folderExists')!.runner(ctx, { path: dir, resultVar: 'd' }, undefined as any)
+    expect(vars.get('d')).toBe(true)
+  })
+
+  it('fileSize / moveFile / readJsonFile / writeJsonFile', async () => {
+    const reg = new CommandRegistry()
+    registerUtilCommands(reg)
+    registerFileExtraCommands(reg)
+    const { ctx, vars } = makeCtx()
+    const src = path.join(dir, 'a.json')
+    vars.set('obj', { hello: 'world', n: 1 })
+    await reg.get('writeJsonFile')!.runner(ctx, { path: src, sourceVar: 'obj', pretty: true }, undefined as any)
+    expect(statSync(src).size).toBeGreaterThan(0)
+    await reg.get('fileSize')!.runner(ctx, { path: src, resultVar: 's' }, undefined as any)
+    expect(vars.get('s')).toBeGreaterThan(0)
+    await reg.get('readJsonFile')!.runner(ctx, { path: src, resultVar: 'o' }, undefined as any)
+    expect(vars.get('o')).toEqual({ hello: 'world', n: 1 })
+    const dst = path.join(dir, 'b.json')
+    await reg.get('moveFile')!.runner(ctx, { src, dest: dst }, undefined as any)
+    expect(existsSync(dst)).toBe(true)
+    expect(existsSync(src)).toBe(false)
   })
 })

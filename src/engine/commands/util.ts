@@ -11,6 +11,7 @@
  */
 
 import { promises as fsp } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import path from 'node:path'
 import type { RegisteredCommand } from './registry'
 
@@ -365,4 +366,121 @@ export function registerUtilCommands(registry: RegistryLike): void {
       return iso
     }
   })
+}
+export function registerFileExtraCommands(registry: RegistryLike): void {
+// ---------- M7-13 扩展：文件查询/移动/JSON ----------
+
+
+registry.register({
+  id: 'fileExists',
+  name: '判断文件是否存在',
+  group: '文件',
+  icon: 'file',
+  params: [
+    { key: 'path', label: '文件路径', type: 'text' },
+    { key: 'resultVar', label: '结果变量（true/false）', type: 'text' }
+  ],
+  summary: (p) => `exists(${str(p.path)})`,
+  runner: async (ctx, p) => {
+    const fp = ctx.interpolate(str(p.path))
+    const out = existsSync(fp)
+    ctx.setVar(str(p.resultVar), out)
+    return out
+  }
+})
+
+registry.register({
+  id: 'fileSize',
+  name: '取文件大小（字节）',
+  group: '文件',
+  icon: 'file',
+  params: [
+    { key: 'path', label: '文件路径', type: 'text' },
+    { key: 'resultVar', label: '结果变量（数字）', type: 'text' }
+  ],
+  summary: (p) => `size(${str(p.path)})`,
+  runner: async (ctx, p) => {
+    const fp = ctx.interpolate(str(p.path))
+    const out = statSync(fp).size
+    ctx.setVar(str(p.resultVar), out)
+    return out
+  }
+})
+
+registry.register({
+  id: 'folderExists',
+  name: '判断文件夹是否存在',
+  group: '文件',
+  icon: 'folder',
+  params: [
+    { key: 'path', label: '文件夹路径', type: 'text' },
+    { key: 'resultVar', label: '结果变量', type: 'text' }
+  ],
+  summary: (p) => `existsDir(${str(p.path)})`,
+  runner: async (ctx, p) => {
+    const fp = ctx.interpolate(str(p.path))
+    const out = existsSync(fp) && statSync(fp).isDirectory()
+    ctx.setVar(str(p.resultVar), out)
+    return out
+  }
+})
+
+registry.register({
+  id: 'moveFile',
+  name: '移动/重命名文件',
+  group: '文件',
+  icon: 'move',
+  params: [
+    { key: 'src', label: '源文件', type: 'text' },
+    { key: 'dest', label: '目标路径', type: 'text' }
+  ],
+  summary: (p) => `mv ${str(p.src)} → ${str(p.dest)}`,
+  runner: async (ctx, p) => {
+    const src = ctx.interpolate(str(p.src))
+    const dest = ctx.interpolate(str(p.dest))
+    await fsp.mkdir(path.dirname(dest), { recursive: true })
+    await fsp.rename(src, dest)
+    return dest
+  }
+})
+
+registry.register({
+  id: 'readJsonFile',
+  name: '读 JSON 文件',
+  group: '文件',
+  icon: 'file',
+  params: [
+    { key: 'path', label: '文件路径', type: 'text' },
+    { key: 'resultVar', label: '结果变量（对象/数组）', type: 'text' }
+  ],
+  summary: (p) => `readJson(${str(p.path)})`,
+  runner: async (ctx, p) => {
+    const fp = ctx.interpolate(str(p.path))
+    const text = await fsp.readFile(fp, 'utf-8')
+    const out = JSON.parse(text)
+    ctx.setVar(str(p.resultVar), out)
+    return out
+  }
+})
+
+registry.register({
+  id: 'writeJsonFile',
+  name: '写 JSON 文件',
+  group: '文件',
+  icon: 'file-edit',
+  params: [
+    { key: 'path', label: '文件路径', type: 'text' },
+    { key: 'sourceVar', label: '变量名（对象/数组）', type: 'text' },
+    { key: 'pretty', label: '格式化缩进', type: 'boolean', default: true }
+  ],
+  summary: (p) => `writeJson(${str(p.sourceVar)})`,
+  runner: async (ctx, p) => {
+    const fp = ctx.interpolate(str(p.path))
+    const v = ctx.getVar(str(p.sourceVar))
+    const text = p.pretty === false ? JSON.stringify(v) : JSON.stringify(v, null, 2)
+    await fsp.mkdir(path.dirname(fp), { recursive: true })
+    await fsp.writeFile(fp, text, 'utf-8')
+    return fp
+  }
+})
 }
