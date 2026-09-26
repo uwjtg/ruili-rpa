@@ -23,6 +23,7 @@ import { registerDesktopCommands } from '../desktop/commands'
 import { registerUtilCommands } from '../commands/util'
 import { registerSystemCommands } from '../commands/system'
 import { registerDataCommands } from '../commands/data'
+import { registerCsvCommands } from '../commands/csv'
 import { getWebSession } from '../web/session'
 import { getExcelSession } from '../excel/workbook'
 
@@ -37,6 +38,7 @@ export function buildEngineRegistry(): CommandRegistry {
   registerUtilCommands(reg)
   registerSystemCommands(reg)
   registerDataCommands(reg)
+  registerCsvCommands(reg)
   return reg
 }
 
