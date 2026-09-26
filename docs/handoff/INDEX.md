@@ -95,3 +95,4 @@
 | [89-M7-22-桌面高级.md](./89-M7-22-桌面高级.md) | M7 切片 22 · sidecar 加 4 endpoint（move_mouse/click_coords/screenshot/foreground_window）；Node 暴露 4 条指令；pytest 84→88；指令总数 150→154 | 2026-09-26 | ✅ 完成 |
 | [90-M7-23-桌面高级真机冒烟.md](./90-M7-23-桌面高级真机冒烟.md) | M7 切片 23 · 真机起 sidecar 调 4 endpoint 全通（前台窗口/move/click/screenshot 379KB）；修上一切片漏写 desktop_pick.py 4 方法；pytest 88 | 2026-09-26 | ✅ 完成 |
 | [91-M7-24-Electron端到端冒烟.md](./91-M7-24-Electron端到端冒烟.md) | M7 切片 24 · electron-vite build + 起 electron.exe 15s 不崩；stderr 空；updater dev 提示预期；进程干净清理 | 2026-09-26 | ✅ 完成 |
+| [92-M7-25-IMAP收邮件.md](./92-M7-25-IMAP收邮件.md) | M7 切片 25 · 第五个新依赖 imapflow；imapConnect/FetchUnseen/Disconnect 3 条；fake ImapLike 注入单测；vitest 400→402；指令总数 154→157 | 2026-09-26 | ✅ 完成 |
