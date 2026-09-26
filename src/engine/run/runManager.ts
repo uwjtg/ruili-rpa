@@ -22,6 +22,7 @@ import { registerSidecarCommands } from '../sidecar/commands'
 import { registerDesktopCommands } from '../desktop/commands'
 import { registerUtilCommands } from '../commands/util'
 import { registerSystemCommands } from '../commands/system'
+import { registerDataCommands } from '../commands/data'
 import { getWebSession } from '../web/session'
 import { getExcelSession } from '../excel/workbook'
 
@@ -35,6 +36,7 @@ export function buildEngineRegistry(): CommandRegistry {
   registerDesktopCommands(reg)
   registerUtilCommands(reg)
   registerSystemCommands(reg)
+  registerDataCommands(reg)
   return reg
 }
 
