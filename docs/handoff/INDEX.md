@@ -75,3 +75,4 @@
 | [69-M7-2-性能基线度量.md](./69-M7-2-性能基线度量.md) | M7 切片 2 · 性能基线度量（RUILI_PERF 门控埋点：冷启动 ~0.8s / RSS 194MB / renderer 947.7KB·gzip180KB；只度量不改行为；vitest 330/pytest 84/typecheck 0） | 2026-09-26 | ✅ 完成 |
 | [70-M7-3-发版前准备与版本徽章修复.md](./70-M7-3-发版前准备与版本徽章修复.md) | M7 切片 3 · 发版前准备：装机版冷启动实测 0.6-1.0s / RSS 194MB；修掉装机版版本徽章 v0.0.0 真 bug（preload 改读 package.json）；重打安装包 230.9MB 静默装机；vitest 330/pytest 84/typecheck 0 | 2026-09-26 | ✅ 完成 |
 | [71-M7-4-GitHub建仓与首次Release发布.md](./71-M7-4-GitHub建仓与首次Release发布.md) | M7 切片 4 · GitHub 建仓 uwjtg/ruili-rpa + push main + v0.1.0 正式 Release（setup.exe 230.9MB + blockmap + latest.yml）；releases.atom 200，自动更新链路打通；token 未入库 | 2026-09-26 | ✅ 完成 |
+| [72-M7-5-GitHub-Actions-CI.md](./72-M7-5-GitHub-Actions-CI.md) | M7 切片 5 · GitHub Actions CI（ci.yml push/PR 跑 typecheck+vitest+pytest；release.yml 推 tag v* 自动 build sidecar/构建/发 Release/draft 翻正式；用内置 GITHUB_TOKEN 不再本地带 token）；本地基线 330/84/0 | 2026-09-26 | ✅ 完成 |
