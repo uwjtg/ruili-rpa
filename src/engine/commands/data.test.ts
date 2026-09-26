@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CommandRegistry } from '../commands/registry'
-import { registerDataCommands, registerDataExtraCommands, registerDataExtra2Commands, registerDataExtra3Commands } from './data'
+import { registerDataCommands, registerDataExtraCommands, registerDataExtra2Commands, registerDataExtra3Commands, registerDataExtra4Commands } from './data'
 import type { RunContext } from '../core/context'
 
 function makeCtx(): { ctx: RunContext; vars: Map<string, unknown>; logs: string[] } {
@@ -256,5 +256,59 @@ describe('M7-15 第四批', () => {
     expect(typeof vars.get('t')).toBe('number')
     await reg.get('comment')!.runner(ctx, { text: '测试注释' }, step)
     expect(ctx.log.length).toBeGreaterThan(0)
+  })
+})
+describe('M7-20 第五批', () => {
+  it('注册 10 条', () => {
+    const reg = new CommandRegistry()
+    registerDataExtra4Commands(reg)
+    expect(reg.list()).toHaveLength(10)
+  })
+
+  it('listChunk/Flatten/Pluck', async () => {
+    const reg = new CommandRegistry()
+    registerDataExtra4Commands(reg)
+    const { ctx, vars } = makeCtx()
+    vars.set('nums', [1,2,3,4,5])
+    await reg.get('listChunk')!.runner(ctx, { listVar: 'nums', size: 2, resultVar: 'c' }, step)
+    expect(vars.get('c')).toEqual([[1,2],[3,4],[5]])
+    vars.set('grid', [[1,2],[3,4]])
+    await reg.get('listFlatten')!.runner(ctx, { listVar: 'grid', resultVar: 'f' }, step)
+    expect(vars.get('f')).toEqual([1,2,3,4])
+    vars.set('objs', [{name:'a'},{name:'b'}])
+    await reg.get('listPluck')!.runner(ctx, { listVar: 'objs', field: 'name', resultVar: 'names' }, step)
+    expect(vars.get('names')).toEqual(['a','b'])
+  })
+
+  it('字符串 trim/padCenter', async () => {
+    const reg = new CommandRegistry()
+    registerDataExtra4Commands(reg)
+    const { ctx, vars } = makeCtx()
+    await reg.get('stringTrimStart')!.runner(ctx, { text: '  hi', resultVar: 'a' }, step)
+    expect(vars.get('a')).toBe('hi')
+    await reg.get('stringTrimEnd')!.runner(ctx, { text: 'hi  ', resultVar: 'b' }, step)
+    expect(vars.get('b')).toBe('hi')
+    await reg.get('stringPadCenter')!.runner(ctx, { text: 'ab', length: 6, pad: '-', resultVar: 'c' }, step)
+    expect(vars.get('c')).toBe('--ab--')
+  })
+
+  it('numPow/Mod/AbsDiff', async () => {
+    const reg = new CommandRegistry()
+    registerDataExtra4Commands(reg)
+    const { ctx, vars } = makeCtx()
+    await reg.get('numPow')!.runner(ctx, { a: 2, b: 3, resultVar: 'x' }, step)
+    expect(vars.get('x')).toBe(8)
+    await reg.get('numMod')!.runner(ctx, { a: 10, b: 3, resultVar: 'm' }, step)
+    expect(vars.get('m')).toBe(1)
+    await reg.get('numAbsDiff')!.runner(ctx, { a: 5, b: 9, resultVar: 'd' }, step)
+    expect(vars.get('d')).toBe(4)
+  })
+
+  it('dateDiffDays', async () => {
+    const reg = new CommandRegistry()
+    registerDataExtra4Commands(reg)
+    const { ctx, vars } = makeCtx()
+    await reg.get('dateDiffDays')!.runner(ctx, { from: '2026-01-01', to: '2026-01-10', resultVar: 'n' }, step)
+    expect(vars.get('n')).toBe(9)
   })
 })

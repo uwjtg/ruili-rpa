@@ -30,6 +30,7 @@ import { registerMailCommands } from '../commands/mail'
 import { registerDocxCommands } from '../commands/docx'
 import { registerPdfCommands } from '../commands/pdf'
 import { registerXlsxCommands } from '../commands/xlsx'
+import { registerDataExtra4Commands } from '../commands/data'
 import { getWebSession } from '../web/session'
 import { getExcelSession } from '../excel/workbook'
 
@@ -53,6 +54,7 @@ export function buildEngineRegistry(): CommandRegistry {
   registerDocxCommands(reg)
   registerPdfCommands(reg)
   registerXlsxCommands(reg)
+  registerDataExtra4Commands(reg)
   return reg
 }
 

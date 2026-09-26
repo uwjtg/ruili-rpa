@@ -817,3 +817,146 @@ export function registerDataExtra3Commands(registry: RegistryLike): void {
     summary: (p) => `now() → ${str(p.resultVar)}`
   })
 }
+
+// ---------- M7-20 第五批：数组/字符串/数学/日期 ----------
+
+export function registerDataExtra4Commands(registry: RegistryLike): void {
+  registry.register({
+    id: 'listChunk', name: '列表分块', group: '数据处理', icon: 'grid',
+    params: [
+      { key: 'listVar', label: '列表变量', type: 'text' },
+      { key: 'size', label: '块大小', type: 'number' },
+      { key: 'resultVar', label: '结果变量（二维数组）', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const arr = ctx.getVar<unknown[]>(str(p.listVar)) ?? []
+      const size = Math.max(1, num(p.size, 1))
+      const out: unknown[][] = []
+      for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `chunk(${str(p.size)})`
+  })
+
+  registry.register({
+    id: 'listFlatten', name: '列表扁平化', group: '数据处理', icon: 'squares',
+    params: [
+      { key: 'listVar', label: '二维列表变量', type: 'text' },
+      { key: 'resultVar', label: '结果变量（一维数组）', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const arr = ctx.getVar<unknown[][]>(str(p.listVar)) ?? []
+      const out = ([] as unknown[]).concat(...arr)
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `flatten(${str(p.listVar)})`
+  })
+
+  registry.register({
+    id: 'listPluck', name: '取对象数组某字段', group: '数据处理', icon: 'columns',
+    params: [
+      { key: 'listVar', label: '对象数组变量', type: 'text' },
+      { key: 'field', label: '字段名', type: 'text' },
+      { key: 'resultVar', label: '结果变量（列表）', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const arr = ctx.getVar<Array<Record<string, unknown>>>(str(p.listVar)) ?? []
+      const field = str(p.field)
+      const out = arr.map((o) => o[field])
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `pluck("${str(p.field)}")`
+  })
+
+  registry.register({
+    id: 'stringTrimStart', name: '去左空白', group: '数据处理', icon: 'arrow-left',
+    params: [
+      { key: 'text', label: '原文', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = ctx.interpolate(str(p.text)).trimStart(); ctx.setVar(str(p.resultVar), out); return out },
+    summary: () => `trimStart(...)`
+  })
+
+  registry.register({
+    id: 'stringTrimEnd', name: '去右空白', group: '数据处理', icon: 'arrow-right',
+    params: [
+      { key: 'text', label: '原文', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = ctx.interpolate(str(p.text)).trimEnd(); ctx.setVar(str(p.resultVar), out); return out },
+    summary: () => `trimEnd(...)`
+  })
+
+  registry.register({
+    id: 'stringPadCenter', name: '两侧补字符居中', group: '数据处理', icon: 'align-center',
+    params: [
+      { key: 'text', label: '原文', type: 'text' },
+      { key: 'length', label: '目标长度', type: 'number' },
+      { key: 'pad', label: '补字符', type: 'text', default: ' ' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const text = ctx.interpolate(str(p.text))
+      const len = num(p.length, 0)
+      const pad = ctx.interpolate(str(p.pad, ' '))
+      const out = text.padStart(text.length + Math.ceil((len - text.length) / 2), pad).padEnd(len, pad)
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `padCenter(${str(p.length)})`
+  })
+
+  registry.register({
+    id: 'numPow', name: '幂', group: '数据处理', icon: 'arrow-up-circle',
+    params: [
+      { key: 'a', label: '底数', type: 'number' },
+      { key: 'b', label: '指数', type: 'number' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = Math.pow(num(p.a), num(p.b)); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `${str(p.a)}^${str(p.b)}`
+  })
+
+  registry.register({
+    id: 'numMod', name: '取模', group: '数据处理', icon: 'percent',
+    params: [
+      { key: 'a', label: '被除数', type: 'number' },
+      { key: 'b', label: '除数', type: 'number' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const b = num(p.b, 1); const out = num(p.a) % b; ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `${str(p.a)} mod ${str(p.b)}`
+  })
+
+  registry.register({
+    id: 'numAbsDiff', name: '两数差绝对值', group: '数据处理', icon: 'minus',
+    params: [
+      { key: 'a', label: 'A', type: 'number' },
+      { key: 'b', label: 'B', type: 'number' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = Math.abs(num(p.a) - num(p.b)); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `|${str(p.a)}-${str(p.b)}|`
+  })
+
+  registry.register({
+    id: 'dateDiffDays', name: '两日期相差天数', group: '数据处理', icon: 'calendar',
+    params: [
+      { key: 'from', label: '起始日期（ISO 或 yyyy-MM-dd）', type: 'text' },
+      { key: 'to', label: '结束日期', type: 'text' },
+      { key: 'resultVar', label: '结果变量（天数）', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const a = new Date(ctx.interpolate(str(p.from))).getTime()
+      const b = new Date(ctx.interpolate(str(p.to))).getTime()
+      const out = Math.round((b - a) / 86400000)
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `${str(p.from)} → ${str(p.to)}`
+  })
+}

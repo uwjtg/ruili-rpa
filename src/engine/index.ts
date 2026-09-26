@@ -15,6 +15,7 @@ export { registerMailCommands } from './commands/mail'
 export { registerDocxCommands } from './commands/docx'
 export { registerPdfCommands } from './commands/pdf'
 export { registerXlsxCommands } from './commands/xlsx'
+export { registerDataExtra4Commands } from './commands/data'
 export { DEMO_FLOW } from './core/demo-flow'
 // 阶段 3 · 真实链路
 export { registerWebCommands } from './web/commands'
