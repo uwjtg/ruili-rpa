@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CommandRegistry } from '../commands/registry'
-import { registerDataCommands, registerDataExtraCommands } from './data'
+import { registerDataCommands, registerDataExtraCommands, registerDataExtra2Commands } from './data'
 import type { RunContext } from '../core/context'
 
 function makeCtx(): { ctx: RunContext; vars: Map<string, unknown>; logs: string[] } {
@@ -155,5 +155,57 @@ describe('M7-13 字符串/数学扩展', () => {
     expect(vars.get('m')).toBe(7)
     await reg.get('numMin')!.runner(ctx, { a: 3, b: 7, resultVar: 'n' }, step)
     expect(vars.get('n')).toBe(3)
+  })
+})
+describe('M7-14 第三批', () => {
+  it('注册 15 条', () => {
+    const reg = new CommandRegistry()
+    registerDataExtra2Commands(reg)
+    expect(reg.list()).toHaveLength(15)
+  })
+
+  it('pathBasename/Dirname/Extname/Join', async () => {
+    const reg = new CommandRegistry()
+    registerDataExtra2Commands(reg)
+    const { ctx, vars } = makeCtx()
+    await reg.get('pathBasename')!.runner(ctx, { pathStr: 'C:/a/b/c.txt', resultVar: 'b' }, step)
+    expect(vars.get('b')).toBe('c.txt')
+    await reg.get('pathDirname')!.runner(ctx, { pathStr: 'C:/a/b/c.txt', resultVar: 'd' }, step)
+    expect(vars.get('d')).toBe('C:/a/b')
+    await reg.get('pathExtname')!.runner(ctx, { pathStr: 'C:/a/b/c.txt', resultVar: 'e' }, step)
+    expect(vars.get('e')).toBe('.txt')
+  })
+
+  it('getEnv/setEnv', async () => {
+    const reg = new CommandRegistry()
+    registerDataExtra2Commands(reg)
+    const { ctx, vars } = makeCtx()
+    await reg.get('setEnv')!.runner(ctx, { name: 'RUI_TEST_X', value: 'hello' }, step)
+    await reg.get('getEnv')!.runner(ctx, { name: 'RUI_TEST_X', resultVar: 'v' }, step)
+    expect(vars.get('v')).toBe('hello')
+  })
+
+  it('base64 往返', async () => {
+    const reg = new CommandRegistry()
+    registerDataExtra2Commands(reg)
+    const { ctx, vars } = makeCtx()
+    await reg.get('base64Encode')!.runner(ctx, { text: '你好', resultVar: 'b' }, step)
+    expect(vars.get('b')).not.toBe('你好')
+    await reg.get('base64Decode')!.runner(ctx, { b64: vars.get('b'), resultVar: 'o' }, step)
+    expect(vars.get('o')).toBe('你好')
+  })
+
+  it('字符串/数学扩展', async () => {
+    const reg = new CommandRegistry()
+    registerDataExtra2Commands(reg)
+    const { ctx, vars } = makeCtx()
+    await reg.get('stringIndexOf')!.runner(ctx, { text: 'hello', sub: 'll', resultVar: 'i' }, step)
+    expect(vars.get('i')).toBe(2)
+    await reg.get('stringReverse')!.runner(ctx, { text: 'abc', resultVar: 'r' }, step)
+    expect(vars.get('r')).toBe('cba')
+    await reg.get('numFloor')!.runner(ctx, { a: 3.7, resultVar: 'f' }, step)
+    expect(vars.get('f')).toBe(3)
+    await reg.get('numCeil')!.runner(ctx, { a: 3.2, resultVar: 'c' }, step)
+    expect(vars.get('c')).toBe(4)
   })
 })

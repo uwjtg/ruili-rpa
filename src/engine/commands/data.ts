@@ -480,3 +480,158 @@ registry.register({
   summary: (p) => `min(${str(p.a)}, ${str(p.b)})`
 })
 }
+
+// ---------- M7-14 第三批：路径/环境变量/Base64/字符串/数学 ----------
+
+import path from 'node:path'
+
+export function registerDataExtra2Commands(registry: RegistryLike): void {
+  // 路径
+  registry.register({
+    id: 'pathBasename', name: '取文件名', group: '文件', icon: 'file',
+    params: [
+      { key: 'pathStr', label: '路径', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = path.basename(ctx.interpolate(str(p.pathStr))); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `basename(${str(p.pathStr)})`
+  })
+  registry.register({
+    id: 'pathDirname', name: '取文件夹', group: '文件', icon: 'folder',
+    params: [
+      { key: 'pathStr', label: '路径', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = path.dirname(ctx.interpolate(str(p.pathStr))); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `dirname(${str(p.pathStr)})`
+  })
+  registry.register({
+    id: 'pathExtname', name: '取扩展名', group: '文件', icon: 'file',
+    params: [
+      { key: 'pathStr', label: '路径', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = path.extname(ctx.interpolate(str(p.pathStr))); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `extname(${str(p.pathStr)})`
+  })
+  registry.register({
+    id: 'pathJoin', name: '拼接路径', group: '文件', icon: 'link',
+    params: [
+      { key: 'a', label: '段 A', type: 'text' },
+      { key: 'b', label: '段 B', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = path.join(ctx.interpolate(str(p.a)), ctx.interpolate(str(p.b))); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `join(${str(p.a)}, ${str(p.b)})`
+  })
+
+  // 环境变量
+  registry.register({
+    id: 'getEnv', name: '读环境变量', group: '系统', icon: 'settings',
+    params: [
+      { key: 'name', label: '变量名', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = process.env[str(p.name)] ?? ''; ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `env(${str(p.name)})`
+  })
+  registry.register({
+    id: 'setEnv', name: '写环境变量', group: '系统', icon: 'settings',
+    params: [
+      { key: 'name', label: '变量名', type: 'text' },
+      { key: 'value', label: '值', type: 'text' }
+    ],
+    runner: async (ctx, p) => { process.env[str(p.name)] = ctx.interpolate(str(p.value)); return true },
+    summary: (p) => `env ${str(p.name)}=...`
+  })
+
+  // Base64
+  registry.register({
+    id: 'base64Encode', name: 'Base64 编码', group: '数据处理', icon: 'lock',
+    params: [
+      { key: 'text', label: '原文', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = Buffer.from(ctx.interpolate(str(p.text)), 'utf-8').toString('base64'); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `b64encode(${str(p.text).slice(0, 10)})`
+  })
+  registry.register({
+    id: 'base64Decode', name: 'Base64 解码', group: '数据处理', icon: 'unlock',
+    params: [
+      { key: 'b64', label: 'Base64', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = Buffer.from(ctx.interpolate(str(p.b64)), 'base64').toString('utf-8'); ctx.setVar(str(p.resultVar), out); return out },
+    summary: () => `b64decode(...)`
+  })
+
+  // 字符串更多
+  registry.register({
+    id: 'stringIndexOf', name: '查找子串位置', group: '数据处理', icon: 'search',
+    params: [
+      { key: 'text', label: '原文', type: 'text' },
+      { key: 'sub', label: '子串', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = ctx.interpolate(str(p.text)).indexOf(ctx.interpolate(str(p.sub))); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `indexOf("${str(p.sub)}")`
+  })
+  registry.register({
+    id: 'stringStartsWith', name: '是否开头匹配', group: '数据处理', icon: 'arrow-up',
+    params: [
+      { key: 'text', label: '原文', type: 'text' },
+      { key: 'prefix', label: '前缀', type: 'text' },
+      { key: 'resultVar', label: '结果变量（bool）', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = ctx.interpolate(str(p.text)).startsWith(ctx.interpolate(str(p.prefix))); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `startsWith("${str(p.prefix)}")`
+  })
+  registry.register({
+    id: 'stringEndsWith', name: '是否结尾匹配', group: '数据处理', icon: 'arrow-down',
+    params: [
+      { key: 'text', label: '原文', type: 'text' },
+      { key: 'suffix', label: '后缀', type: 'text' },
+      { key: 'resultVar', label: '结果变量（bool）', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = ctx.interpolate(str(p.text)).endsWith(ctx.interpolate(str(p.suffix))); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `endsWith("${str(p.suffix)}")`
+  })
+  registry.register({
+    id: 'stringReverse', name: '字符串反转', group: '数据处理', icon: 'arrow-left-right',
+    params: [
+      { key: 'text', label: '原文', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = [...ctx.interpolate(str(p.text))].reverse().join(''); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `reverse(${str(p.text).slice(0, 10)})`
+  })
+
+  // 数学更多
+  registry.register({
+    id: 'numFloor', name: '向下取整', group: '数据处理', icon: 'arrow-down',
+    params: [
+      { key: 'a', label: '数字', type: 'number' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = Math.floor(num(p.a)); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `floor(${str(p.a)})`
+  })
+  registry.register({
+    id: 'numCeil', name: '向上取整', group: '数据处理', icon: 'arrow-up',
+    params: [
+      { key: 'a', label: '数字', type: 'number' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = Math.ceil(num(p.a)); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `ceil(${str(p.a)})`
+  })
+  registry.register({
+    id: 'numSqrt', name: '平方根', group: '数据处理', icon: 'hash',
+    params: [
+      { key: 'a', label: '数字', type: 'number' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => { const out = Math.sqrt(num(p.a)); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `sqrt(${str(p.a)})`
+  })
+}
