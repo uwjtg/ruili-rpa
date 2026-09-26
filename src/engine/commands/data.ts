@@ -12,6 +12,7 @@
  */
 
 import type { RegisteredCommand } from './registry'
+import * as fsp from 'node:fs/promises'
 
 type RegistryLike = { register(c: RegisteredCommand): void }
 
@@ -633,5 +634,186 @@ export function registerDataExtra2Commands(registry: RegistryLike): void {
     ],
     runner: async (ctx, p) => { const out = Math.sqrt(num(p.a)); ctx.setVar(str(p.resultVar), out); return out },
     summary: (p) => `sqrt(${str(p.a)})`
+  })
+}
+// ---------- M7-15 第四批：数组/字符串/数字/网络/文件 ----------
+
+export function registerDataExtra3Commands(registry: RegistryLike): void {
+  // 数组
+  registry.register({
+    id: 'listSort', name: '列表排序', group: '数据处理', icon: 'sort-asc',
+    params: [
+      { key: 'listVar', label: '列表变量', type: 'text' },
+      { key: 'desc', label: '降序', type: 'boolean', default: false }
+    ],
+    runner: async (ctx, p) => {
+      const name = str(p.listVar)
+      const cur = ctx.getVar<unknown[]>(name) ?? []
+      const arr = [...cur].sort((a, b) => String(a).localeCompare(String(b), 'zh'))
+      if (p.desc) arr.reverse()
+      ctx.setVar(name, arr)
+      return arr
+    },
+    summary: (p) => `sort(${str(p.listVar)})`
+  })
+  registry.register({
+    id: 'listReverse', name: '列表反转', group: '数据处理', icon: 'repeat',
+    params: [{ key: 'listVar', label: '列表变量', type: 'text' }],
+    runner: async (ctx, p) => {
+      const name = str(p.listVar)
+      const arr = [...(ctx.getVar<unknown[]>(name) ?? [])].reverse()
+      ctx.setVar(name, arr)
+      return arr
+    },
+    summary: (p) => `reverse(${str(p.listVar)})`
+  })
+  registry.register({
+    id: 'listUnique', name: '列表去重', group: '数据处理', icon: 'filter',
+    params: [
+      { key: 'listVar', label: '列表变量', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const arr = ctx.getVar<unknown[]>(str(p.listVar)) ?? []
+      const out = [...new Set(arr.map(String))]
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `unique(${str(p.listVar)})`
+  })
+  registry.register({
+    id: 'listSum', name: '列表求和', group: '数据处理', icon: 'sum',
+    params: [
+      { key: 'listVar', label: '列表变量', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const arr = ctx.getVar<unknown[]>(str(p.listVar)) ?? []
+      const out = arr.reduce((s: number, x) => s + Number(x), 0)
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `sum(${str(p.listVar)})`
+  })
+  registry.register({
+    id: 'listMin', name: '列表最小值', group: '数据处理', icon: 'arrow-down',
+    params: [
+      { key: 'listVar', label: '列表变量', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const arr = ctx.getVar<unknown[]>(str(p.listVar)) ?? []
+      const out = Math.min(...arr.map(Number))
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `min(${str(p.listVar)})`
+  })
+  registry.register({
+    id: 'listMax', name: '列表最大值', group: '数据处理', icon: 'arrow-up',
+    params: [
+      { key: 'listVar', label: '列表变量', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const arr = ctx.getVar<unknown[]>(str(p.listVar)) ?? []
+      const out = Math.max(...arr.map(Number))
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `max(${str(p.listVar)})`
+  })
+
+  // 字符串
+  registry.register({
+    id: 'stringCount', name: '统计子串出现次数', group: '数据处理', icon: 'hash',
+    params: [
+      { key: 'text', label: '原文', type: 'text' },
+      { key: 'sub', label: '子串', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const text = ctx.interpolate(str(p.text))
+      const sub = ctx.interpolate(str(p.sub))
+      const out = sub ? text.split(sub).length - 1 : 0
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `count("${str(p.sub)}")`
+  })
+  registry.register({
+    id: 'stringSplitLines', name: '按行拆分', group: '数据处理', icon: 'columns',
+    params: [
+      { key: 'text', label: '原文', type: 'text' },
+      { key: 'resultVar', label: '结果变量（列表）', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const out = ctx.interpolate(str(p.text)).split(/\r?\n/)
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: () => `splitLines(...)`
+  })
+
+  // 数字
+  registry.register({
+    id: 'parseInt', name: '转整数', group: '数据处理', icon: 'hash',
+    params: [
+      { key: 'text', label: '文本', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const out = parseInt(ctx.interpolate(str(p.text)), 10)
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `parseInt(${str(p.text)})`
+  })
+  registry.register({
+    id: 'parseFloat', name: '转浮点数', group: '数据处理', icon: 'hash',
+    params: [
+      { key: 'text', label: '文本', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const out = parseFloat(ctx.interpolate(str(p.text)))
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `parseFloat(${str(p.text)})`
+  })
+
+
+  // 文件
+  registry.register({
+    id: 'appendTextFile', name: '追加文本到文件', group: '文件', icon: 'file-edit',
+    params: [
+      { key: 'path', label: '文件路径', type: 'text' },
+      { key: 'content', label: '内容', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const fp = ctx.interpolate(str(p.path))
+      const content = ctx.interpolate(str(p.content))
+      await fsp.mkdir(path.dirname(fp), { recursive: true })
+      await fsp.appendFile(fp, content + '\n', 'utf-8')
+      return fp
+    },
+    summary: (p) => `append ${str(p.path)}`
+  })
+
+  // 流程
+  registry.register({
+    id: 'comment', name: '注释（不执行）', group: '流程', icon: 'message-square',
+    params: [{ key: 'text', label: '注释内容', type: 'text' }],
+    runner: async (ctx, p) => { ctx.log('info', `注释: ${str(p.text)}`); return true },
+    summary: (p) => `// ${str(p.text)}`
+  })
+
+  // 时间戳
+  registry.register({
+    id: 'timestampNow', name: '当前毫秒时间戳', group: '数据处理', icon: 'clock',
+    params: [{ key: 'resultVar', label: '结果变量', type: 'text' }],
+    runner: async (ctx, p) => { const out = Date.now(); ctx.setVar(str(p.resultVar), out); return out },
+    summary: (p) => `now() → ${str(p.resultVar)}`
   })
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CommandRegistry } from '../commands/registry'
-import { registerDataCommands, registerDataExtraCommands, registerDataExtra2Commands } from './data'
+import { registerDataCommands, registerDataExtraCommands, registerDataExtra2Commands, registerDataExtra3Commands } from './data'
 import type { RunContext } from '../core/context'
 
 function makeCtx(): { ctx: RunContext; vars: Map<string, unknown>; logs: string[] } {
@@ -207,5 +207,54 @@ describe('M7-14 第三批', () => {
     expect(vars.get('f')).toBe(3)
     await reg.get('numCeil')!.runner(ctx, { a: 3.2, resultVar: 'c' }, step)
     expect(vars.get('c')).toBe(4)
+  })
+})
+describe('M7-15 第四批', () => {
+  it('注册 15 条', () => {
+    const reg = new CommandRegistry()
+    registerDataExtra3Commands(reg)
+    expect(reg.list()).toHaveLength(13)
+  })
+
+  it('listSort/Reverse/Unique/Sum/Min/Max', async () => {
+    const reg = new CommandRegistry()
+    registerDataExtra3Commands(reg)
+    const { ctx, vars } = makeCtx()
+    vars.set('nums', [3, 1, 2])
+    await reg.get('listSort')!.runner(ctx, { listVar: 'nums', desc: false }, step)
+    expect(vars.get('nums')).toEqual([1, 2, 3])
+    await reg.get('listSum')!.runner(ctx, { listVar: 'nums', resultVar: 's' }, step)
+    expect(vars.get('s')).toBe(6)
+    await reg.get('listMin')!.runner(ctx, { listVar: 'nums', resultVar: 'mn' }, step)
+    expect(vars.get('mn')).toBe(1)
+    await reg.get('listMax')!.runner(ctx, { listVar: 'nums', resultVar: 'mx' }, step)
+    expect(vars.get('mx')).toBe(3)
+    vars.set('dup', ['a', 'b', 'a'])
+    await reg.get('listUnique')!.runner(ctx, { listVar: 'dup', resultVar: 'u' }, step)
+    expect(vars.get('u')).toEqual(['a', 'b'])
+  })
+
+  it('stringCount / splitLines / parseInt / parseFloat', async () => {
+    const reg = new CommandRegistry()
+    registerDataExtra3Commands(reg)
+    const { ctx, vars } = makeCtx()
+    await reg.get('stringCount')!.runner(ctx, { text: 'a,b,a,c', sub: ',', resultVar: 'n' }, step)
+    expect(vars.get('n')).toBe(3)
+    await reg.get('stringSplitLines')!.runner(ctx, { text: 'a\nb\r\nc', resultVar: 'l' }, step)
+    expect(vars.get('l')).toEqual(['a', 'b', 'c'])
+    await reg.get('parseInt')!.runner(ctx, { text: '12abc', resultVar: 'i' }, step)
+    expect(vars.get('i')).toBe(12)
+    await reg.get('parseFloat')!.runner(ctx, { text: '3.14x', resultVar: 'f' }, step)
+    expect(vars.get('f')).toBe(3.14)
+  })
+
+  it('timestampNow / comment', async () => {
+    const reg = new CommandRegistry()
+    registerDataExtra3Commands(reg)
+    const { ctx, vars } = makeCtx()
+    await reg.get('timestampNow')!.runner(ctx, { resultVar: 't' }, step)
+    expect(typeof vars.get('t')).toBe('number')
+    await reg.get('comment')!.runner(ctx, { text: '测试注释' }, step)
+    expect(ctx.log.length).toBeGreaterThan(0)
   })
 })
