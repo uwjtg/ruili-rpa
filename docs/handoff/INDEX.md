@@ -92,3 +92,4 @@
 | [86-M7-19-Excel读写.md](./86-M7-19-Excel读写.md) | M7 切片 19 · 第四个新依赖 exceljs（纯 Node 不需 Office）；xlsxListSheets/ReadSheet/WriteSheet 3 条；vitest 388→390；指令总数 128→131 | 2026-09-26 | ✅ 完成 |
 | [87-M7-20-指令扩充第八批.md](./87-M7-20-指令扩充第八批.md) | M7 切片 20 · 数组 3/字符串 3/数学 3/日期 1（共 10 条零依赖）；vitest 390→395；指令总数 131→141 | 2026-09-26 | ✅ 完成 |
 | [88-M7-21-浏览器高级.md](./88-M7-21-浏览器高级.md) | M7 切片 21 · 浏览器高级 9 条（title/url/eval/back/forward/refresh/check/clear/select）；vitest 395→400；指令总数 141→150 达标 | 2026-09-26 | ✅ 完成 |
+| [89-M7-22-桌面高级.md](./89-M7-22-桌面高级.md) | M7 切片 22 · sidecar 加 4 endpoint（move_mouse/click_coords/screenshot/foreground_window）；Node 暴露 4 条指令；pytest 84→88；指令总数 150→154 | 2026-09-26 | ✅ 完成 |

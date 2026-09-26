@@ -274,6 +274,60 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": True, "pid": pid})
             return
 
+        # ---- M7 切片 22：坐标级鼠标 / 截图 / 前台窗口 ----
+        if self.path == "/desktop/move_mouse":
+            try:
+                x = int(body.get("x"))
+                y = int(body.get("y"))
+            except (TypeError, ValueError):
+                self._send_json(400, {"ok": False, "error": "xy_required"})
+                return
+            try:
+                _PICKER.move_mouse(x, y)
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"move_mouse_failed: {e}"})
+                return
+            self._send_json(200, {"ok": True})
+            return
+
+        if self.path == "/desktop/click_coords":
+            try:
+                x = int(body.get("x"))
+                y = int(body.get("y"))
+            except (TypeError, ValueError):
+                self._send_json(400, {"ok": False, "error": "xy_required"})
+                return
+            button = body.get("button", "left")
+            double = bool(body.get("double", False))
+            try:
+                _PICKER.click_coords(x, y, str(button), double)
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"click_coords_failed: {e}"})
+                return
+            self._send_json(200, {"ok": True})
+            return
+
+        if self.path == "/desktop/screenshot":
+            path = body.get("path")
+            if not isinstance(path, str) or not path:
+                self._send_json(400, {"ok": False, "error": "path_required"})
+                return
+            try:
+                saved = _PICKER.screenshot(path)
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"screenshot_failed: {e}"})
+                return
+            self._send_json(200, {"ok": True, "path": saved})
+            return
+
+        if self.path == "/desktop/foreground_window":
+            try:
+                info = _PICKER.foreground_window()
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"foreground_window_failed: {e}"})
+                return
+            self._send_json(200, {"ok": True, **info})
+            return
         # ---- sidecar 运行期配置（M3 切片 18）：主进程推送全局开关 ----
         if self.path == "/desktop/config":
             delay = body.get("foreground_delay_ms")

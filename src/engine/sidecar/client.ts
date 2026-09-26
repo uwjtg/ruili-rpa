@@ -306,6 +306,66 @@ export class SidecarClient {
     }
   }
 
+  /** M7 切片 22：移动鼠标到屏幕坐标 */
+  async moveMouse(x: number, y: number): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await fetch(`${this.baseUrl}/desktop/move_mouse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ x, y })
+      })
+      return (await res.json()) as { ok: boolean; error?: string }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  }
+
+  /** M7 切片 22：在屏幕坐标点击（button: left/right/middle；double 双击） */
+  async clickCoords(opts: {
+    x: number; y: number; button?: 'left' | 'right' | 'middle'; double?: boolean
+  }): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await fetch(`${this.baseUrl}/desktop/click_coords`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ x: opts.x, y: opts.y, button: opts.button ?? 'left', double: !!opts.double })
+      })
+      return (await res.json()) as { ok: boolean; error?: string }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  }
+
+  /** M7 切片 22：全屏截图保存为 PNG */
+  async screenshot(path: string): Promise<{ ok: boolean; path?: string; error?: string }> {
+    try {
+      const res = await fetch(`${this.baseUrl}/desktop/screenshot`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path })
+      })
+      return (await res.json()) as { ok: boolean; path?: string; error?: string }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  }
+
+  /** M7 切片 22：当前前台窗口信息 */
+  async foregroundWindow(): Promise<{
+    ok: boolean; hwnd?: number; title?: string; pid?: number;
+    rect?: { left: number; top: number; right: number; bottom: number }; error?: string
+  }> {
+    try {
+      const res = await fetch(`${this.baseUrl}/desktop/foreground_window`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      })
+      return (await res.json()) as { ok: boolean; hwnd?: number; title?: string; pid?: number; rect?: any; error?: string }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  }
   /** 推送 sidecar 运行期配置（M3 切片 18：置前台后短延时 ms，0=关闭） */
   async setDesktopConfig(opts: {
     foregroundDelayMs?: number
