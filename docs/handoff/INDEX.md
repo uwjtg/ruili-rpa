@@ -97,3 +97,4 @@
 | [91-M7-24-Electron端到端冒烟.md](./91-M7-24-Electron端到端冒烟.md) | M7 切片 24 · electron-vite build + 起 electron.exe 15s 不崩；stderr 空；updater dev 提示预期；进程干净清理 | 2026-09-26 | ✅ 完成 |
 | [92-M7-25-IMAP收邮件.md](./92-M7-25-IMAP收邮件.md) | M7 切片 25 · 第五个新依赖 imapflow；imapConnect/FetchUnseen/Disconnect 3 条；fake ImapLike 注入单测；vitest 400→402；指令总数 154→157 | 2026-09-26 | ✅ 完成 |
 | [93-M7-26-指令扩充第九批.md](./93-M7-26-指令扩充第九批.md) | M7 切片 26 · 净增 4 条（listSortByField/listAvg/stringReplaceFirst/dateNow）；撞 ID 去重；vitest 402→405；指令总数 157→161 | 2026-09-26 | ✅ 完成 |
+| [94-M7-27-用户文档README.md](./94-M7-27-用户文档README.md) | M7 切片 27 · 新增根 README.md（功能/快速上手/目录/指令速查表 160+/开发约定/已知限制）；纯文档无代码改动 | 2026-09-27 | ✅ 完成 |
