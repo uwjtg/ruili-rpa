@@ -960,3 +960,76 @@ export function registerDataExtra4Commands(registry: RegistryLike): void {
     summary: (p) => `${str(p.from)} → ${str(p.to)}`
   })
 }
+// ---------- M7-26 第六批：收尾到 160+ ----------
+
+export function registerDataExtra5Commands(registry: RegistryLike): void {
+  registry.register({
+    id: 'listSortByField', name: '对象数组按字段排序', group: '数据处理', icon: 'sort-asc',
+    params: [
+      { key: 'listVar', label: '对象数组变量', type: 'text' },
+      { key: 'field', label: '字段名', type: 'text' },
+      { key: 'desc', label: '降序', type: 'boolean', default: false },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const arr = [...(ctx.getVar<Array<Record<string, unknown>>>(str(p.listVar)) ?? [])]
+      const field = str(p.field)
+      const dir = p.desc ? -1 : 1
+      arr.sort((a, b) => {
+        const av = a[field]; const bv = b[field]
+        if (av == null) return -1; if (bv == null) return 1
+        if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
+        return String(av).localeCompare(String(bv)) * dir
+      })
+      ctx.setVar(str(p.resultVar), arr)
+      return arr
+    },
+    summary: (p) => `sort by ${str(p.field)}`
+  })
+
+
+  registry.register({
+    id: 'listAvg', name: '数字数组平均', group: '数据处理', icon: 'bar-chart',
+    params: [
+      { key: 'listVar', label: '数字数组变量', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const arr = ctx.getVar<unknown[]>(str(p.listVar)) ?? []
+      const out = arr.length ? arr.reduce<number>((s, x) => s + Number(x || 0), 0) / arr.length : 0
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `avg(${str(p.listVar)})`
+  })
+
+
+
+  registry.register({
+    id: 'stringReplaceFirst', name: '替换第一次出现', group: '数据处理', icon: 'replace',
+    params: [
+      { key: 'text', label: '原文', type: 'text' },
+      { key: 'find', label: '查找', type: 'text' },
+      { key: 'replace', label: '替换为', type: 'text' },
+      { key: 'resultVar', label: '结果变量', type: 'text' }
+    ],
+    runner: async (ctx, p) => {
+      const out = ctx.interpolate(str(p.text)).replace(ctx.interpolate(str(p.find)), ctx.interpolate(str(p.replace)))
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `${str(p.find)} → ${str(p.replace)}`
+  })
+
+
+  registry.register({
+    id: 'dateNow', name: '当前时间 ISO', group: '数据处理', icon: 'clock',
+    params: [{ key: 'resultVar', label: '结果变量', type: 'text' }],
+    runner: async (ctx, p) => {
+      const out = new Date().toISOString()
+      ctx.setVar(str(p.resultVar), out)
+      return out
+    },
+    summary: (p) => `now → ${str(p.resultVar)}`
+  })
+}

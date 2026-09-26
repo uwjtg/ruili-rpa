@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CommandRegistry } from '../commands/registry'
-import { registerDataCommands, registerDataExtraCommands, registerDataExtra2Commands, registerDataExtra3Commands, registerDataExtra4Commands } from './data'
+import { registerDataCommands, registerDataExtraCommands, registerDataExtra2Commands, registerDataExtra3Commands, registerDataExtra4Commands, registerDataExtra5Commands } from './data'
 import type { RunContext } from '../core/context'
 
 function makeCtx(): { ctx: RunContext; vars: Map<string, unknown>; logs: string[] } {
@@ -310,5 +310,34 @@ describe('M7-20 第五批', () => {
     const { ctx, vars } = makeCtx()
     await reg.get('dateDiffDays')!.runner(ctx, { from: '2026-01-01', to: '2026-01-10', resultVar: 'n' }, step)
     expect(vars.get('n')).toBe(9)
+  })
+})
+describe('M7-26 第六批', () => {
+  it('注册 8 条', () => {
+    const reg = new CommandRegistry()
+    registerDataExtra5Commands(reg)
+    expect(reg.list()).toHaveLength(4)
+  })
+
+  it('listSortByField/listAvg', async () => {
+    const reg = new CommandRegistry()
+    registerDataExtra5Commands(reg)
+    const { ctx, vars } = makeCtx()
+    vars.set('objs', [{n:'b',v:2},{n:'a',v:1},{n:'c',v:3}])
+    await reg.get('listSortByField')!.runner(ctx, { listVar: 'objs', field: 'v', desc: false, resultVar: 's' }, step)
+    expect((vars.get('s') as any[])[0].n).toBe('a')
+    vars.set('nums', [1,2,3])
+    await reg.get('listAvg')!.runner(ctx, { listVar: 'nums', resultVar: 'avg' }, step)
+    expect(vars.get('avg')).toBe(2)
+  })
+
+  it('stringReplaceFirst/dateNow', async () => {
+    const reg = new CommandRegistry()
+    registerDataExtra5Commands(reg)
+    const { ctx, vars } = makeCtx()
+    await reg.get('stringReplaceFirst')!.runner(ctx, { text: 'a b a', find: 'a', replace: 'X', resultVar: 'b' }, step)
+    expect(vars.get('b')).toBe('X b a')
+    await reg.get('dateNow')!.runner(ctx, { resultVar: 'now' }, step)
+    expect(typeof vars.get('now')).toBe('string')
   })
 })
