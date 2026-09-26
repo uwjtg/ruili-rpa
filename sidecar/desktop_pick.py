@@ -1580,6 +1580,56 @@ class DesktopPicker:
         _user32.GetWindowThreadProcessId(int(hwnd), ctypes.byref(pid))
         return int(pid.value)
 
+    # ---------- M7 切片 22：坐标级鼠标 / 截图 / 前台窗口 ----------
+    @staticmethod
+    def move_mouse(x: int, y: int) -> None:
+        """移动鼠标到屏幕坐标。"""
+        ctypes.windll.user32.SetCursorPos(int(x), int(y))
+
+    @staticmethod
+    def click_coords(x: int, y: int, button: str = "left", double: bool = False) -> None:
+        """在屏幕坐标点击（button: left/right/middle；double=True 双击）。"""
+        user32 = ctypes.windll.user32
+        user32.SetCursorPos(int(x), int(y))
+        if button == "right":
+            down, up = 0x0008, 0x0010
+        elif button == "middle":
+            down, up = 0x0020, 0x0040
+        else:
+            down, up = 0x0002, 0x0004
+        user32.mouse_event(down, 0, 0, 0, 0)
+        user32.mouse_event(up, 0, 0, 0, 0)
+        if double:
+            user32.mouse_event(down, 0, 0, 0, 0)
+            user32.mouse_event(up, 0, 0, 0, 0)
+
+    @staticmethod
+    def screenshot(path: str) -> str:
+        """全屏截图保存为 PNG。返回实际路径。需要 PIL。"""
+        from PIL import ImageGrab  # type: ignore
+        img = ImageGrab.grab()
+        img.save(path, "PNG")
+        return path
+
+    @staticmethod
+    def foreground_window() -> dict:
+        """当前前台窗口信息：hwnd/title/pid/rect。"""
+        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        title = ""
+        if hwnd:
+            buf = ctypes.create_unicode_buffer(512)
+            ctypes.windll.user32.GetWindowTextW(hwnd, buf, 512)
+            title = buf.value
+        rect = ctypes.wintypes.RECT()
+        ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect))
+        pid = ctypes.wintypes.DWORD(0)
+        ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        return {
+            "hwnd": int(hwnd or 0),
+            "title": title,
+            "pid": int(pid.value),
+            "rect": {"left": rect.left, "top": rect.top, "right": rect.right, "bottom": rect.bottom},
+        }
     @staticmethod
     def _send_key(vk: int, up: bool) -> None:
         flags = KEYEVENTF_KEYUP if up else 0
