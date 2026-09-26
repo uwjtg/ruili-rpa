@@ -28,7 +28,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install sidecar Python deps
-        run: python -m pip install --disable-pip-version-check uiautomation comtypes
+        run: python -m pip install --disable-pip-version-check uiautomation comtypes pytest
 
       - name: Install npm dependencies
         run: npm ci
