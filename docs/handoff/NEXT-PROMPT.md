@@ -3,7 +3,7 @@
 > 在新对话开头复制粘贴下面整段即可无缝接力。
 
 ```
-继续锐流 RPA 开发（M4 浏览器线全部真站验证完；M5 调度已起步）。请先读：
+继续锐流 RPA 开发（M4 浏览器线全完成；M5 调度/触发器/记录线已做完）。请先读：
 1) docs\锐流RPA-V3-接力开发模式说明.md
 2) docs\锐流RPA-V3-开发计划书.md
 3) docs\handoff\INDEX.md
@@ -12,7 +12,7 @@
 6) docs\锐流RPA-开发交接文档.md（§5 编辑器交互清单、§7 边界）
 
 当前基线：
-- M3 切片 1-18 收尾；M4 切片 1-11 完成（抓取向导/CDP拾取/录制器V1-V3/翻页/XLSX/修饰键/真站冒烟/iframe）；M5 切片 1-5 完成（调度 + 互斥补跑 + RobotsView + 热键 + 文件监听）。
+- M3 切片 1-18 收尾；M4 切片 1-11 完成（抓取向导/CDP拾取/录制器V1-V3/翻页/XLSX/修饰键/真站冒烟/iframe）；M5 切片 1-9 完成（调度+互斥补跑+RobotsView+热键+文件监听+混合流程+triggerFile注入+查重）。
 - 验证全绿：pytest 84/84、vitest 26 文件 168 用例、typecheck 0、build renderer 890.69 kB、license 无新传染（croner@9.1.0 MIT）。
 - 真站冒烟全过（系统 Chrome channel:'chrome'）：
   · node .runtime/smoke_web_live.mjs → 7/7
@@ -28,7 +28,7 @@
   · npx vite-node .runtime/smoke_triggerfile.mts → PASS（文件路径注入）
   · npx vite-node .runtime/smoke_dedup_clear.mts → 6/6（查重+清空）
 - web 指令清单（12 条）：webOpenBrowser/webOpenUrl/webClick/webInput/webScroll/webPressKey/webExtractText/webWaitFor/webScrapeList/webCloseBrowser；其中 click/input/extract/wait/scrape 均加可选 frame 参数（跨 iframe，传 iframe CSS 选择器）。
-- 调度：tasks 表（trigger_type=cron|interval，croner）+ TaskScheduler（src/main/scheduler.ts，不依赖 Electron）+ IPC tasks:list/create/toggle/delete + TriggersView 真实列表/新建/启停。fire 直接 runManager.start(flow)。whenReady 启动、退出 stop。
+- 调度：tasks 表（trigger_type=cron|interval|hotkey|file；croner）+ TaskScheduler（src/main/scheduler.ts，不依赖 Electron）+ HotkeyManager（globalShortcut）+ FileWatchManager（fs.watch 防抖去重）+ IPC tasks:list/create/toggle/delete + TriggersView 真实列表/新建/启停。fire 直接 runManager.start(flow)；文件监听触发时把新文件路径注入变量 triggerFile。whenReady 启动、退出 stop。
 - sidecar 协议未变。流程 AST：FlowDoc{version,name,vars,steps,recordThresholds?}。
 - DB %APPDATA%\ruili-rpa\ruili.db（新增 tasks 表）。
 - 冒烟留存：.runtime/smoke_web_live.mjs、smoke_recorder_live.mts、smoke_recorder_headed.mts、smoke_iframe_live.mts(+iframe-parent.html)、smoke_tasks_db.mts、及历史桌面侧 .py 脚本。
@@ -61,5 +61,5 @@
 - 调度 interval 已 floor 到 1000ms（unref 不阻塞退出）；单测 interval 用 1000ms 等 2300ms 才能抓 2 次。
 - lint 有基线告警（EditorView.tsx:134、env.d.ts:13 等），非本轮引入。
 
-完成后按 §4 模板落盘 docs/handoff/41-XXX.md、更新 INDEX.md 与本文件，并生成下一对话开场白。
+完成后按 §4 模板落盘 docs/handoff/47-XXX.md、更新 INDEX.md 与本文件，并生成下一对话开场白。
 ```

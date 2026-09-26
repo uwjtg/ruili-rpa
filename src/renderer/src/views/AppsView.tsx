@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+﻿import { useCallback, useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { FlowSummary } from '../../../shared/flow-protocol'
@@ -14,6 +14,7 @@ export default function AppsView(): JSX.Element {
   const [items, setItems] = useState<FlowSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
 
   const refresh = useCallback(async () => {
     if (!ruili?.flow) return
@@ -40,6 +41,35 @@ export default function AppsView(): JSX.Element {
     else setError(res.error)
   }
 
+  /** M5-24：导入一个 .json 流程包 → 另存为新流程 */
+  async function importFlowPackage(): Promise<void> {
+    if (!ruili?.flow?.importFlow) return
+    setError('')
+    setNotice('')
+    const res = await ruili.flow.importFlow()
+    if (!res.ok) {
+      if (res.error !== '已取消') setError(res.error)
+      return
+    }
+    const saved = await ruili.flow.save(res.flow)
+    if (saved.ok) {
+      setNotice(`已导入「${res.flow.name}」`)
+      void refresh()
+    } else {
+      setError(saved.error ?? '导入保存失败')
+    }
+  }
+
+  /** M5-24：导出单个流程为 .json */
+  async function exportFlow(id: string): Promise<void> {
+    if (!ruili?.flow?.exportFlow) return
+    setError('')
+    setNotice('')
+    const res = await ruili.flow.exportFlow(id)
+    if (res.ok) setNotice(`已导出到：${res.path}`)
+    else if (res.error !== '已取消') setError(res.error)
+  }
+
   function fmtTime(ts: number): string {
     const d = new Date(ts)
     return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
@@ -54,28 +84,65 @@ export default function AppsView(): JSX.Element {
             共 {items.length} 个应用 · 数据来自本地 SQLite
           </div>
         </div>
-        <button
-          onClick={() => navigate('/editor')}
-          style={{
-            marginLeft: 'auto',
-            height: 32,
-            padding: '0 16px',
-            borderRadius: 6,
-            border: 'none',
-            background: '#E64340',
-            color: '#fff',
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}
-        >
-          + 新建应用
-        </button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => void importFlowPackage()}
+            style={{
+              height: 32,
+              padding: '0 16px',
+              borderRadius: 6,
+              border: '1px solid #D8DADD',
+              background: '#fff',
+              color: '#1F2329',
+              fontSize: 13,
+              cursor: 'pointer'
+            }}
+          >
+            导入流程
+          </button>
+          <button
+            onClick={() => navigate('/market')}
+            style={{
+              height: 32,
+              padding: '0 16px',
+              borderRadius: 6,
+              border: '1px solid #D8DADD',
+              background: '#fff',
+              color: '#1F2329',
+              fontSize: 13,
+              cursor: 'pointer'
+            }}
+          >
+            从模板新建
+          </button>
+          <button
+            onClick={() => navigate('/editor')}
+            style={{
+              height: 32,
+              padding: '0 16px',
+              borderRadius: 6,
+              border: 'none',
+              background: '#E64340',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            + 新建应用
+          </button>
+        </div>
       </div>
 
       {error ? (
         <div style={{ color: '#E64340', fontSize: 13, padding: 12, background: '#FDECEC', borderRadius: 6 }}>
           加载失败：{error}
+        </div>
+      ) : null}
+
+      {notice ? (
+        <div style={{ color: '#0E9F5D', fontSize: 13, padding: 12, background: '#E7F8F0', borderRadius: 6, marginBottom: 12 }}>
+          {notice}
         </div>
       ) : null}
 
@@ -175,6 +242,21 @@ export default function AppsView(): JSX.Element {
                   }}
                 >
                   运行
+                </button>
+                <button
+                  onClick={() => void exportFlow(app.id)}
+                  style={{
+                    height: 28,
+                    padding: '0 10px',
+                    borderRadius: 6,
+                    border: '1px solid #E5E6EB',
+                    background: '#fff',
+                    color: '#51565D',
+                    fontSize: 12,
+                    cursor: 'pointer'
+                  }}
+                >
+                  导出
                 </button>
                 <button
                   onClick={() => void removeFlow(app.id, app.name)}

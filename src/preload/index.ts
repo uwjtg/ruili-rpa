@@ -1,4 +1,4 @@
-﻿import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import type { FlowDoc } from '../shared/ast'
 import type { RunWireEvent } from '../shared/run-protocol'
 import type { CmdMeta } from '../shared/cmd-schema'
@@ -66,6 +66,8 @@ interface RunLogEntryRow {
  */
 const api = {
   platform: process.platform,
+  // M7-3: preload 上下文里 app.getVersion() 在打包后返回 0.0.0（主进程正常）；改为直接读 asar 根 package.json。
+  appVersion: (require('../../package.json') as { version: string }).version,
   versions: {
     electron: process.versions.electron ?? '',
     chrome: process.versions.chrome ?? '',
@@ -93,6 +95,12 @@ const api = {
       const listener = (_: unknown, e: RunWireEvent): void => cb(e)
       ipcRenderer.on('run:event', listener)
       return () => ipcRenderer.removeListener('run:event', listener)
+    },
+    /** M5-15：订阅 run 结束元数据（runId+status），失败时按 runId 调 AI 解释 */
+    onEndMeta: (cb: (m: { runId: string; status: string }) => void): (() => void) => {
+      const listener = (_: unknown, m: { runId: string; status: string }): void => cb(m)
+      ipcRenderer.on('run:end-meta', listener)
+      return () => ipcRenderer.removeListener('run:end-meta', listener)
     }
   },
   llm: {
@@ -103,7 +111,26 @@ const api = {
     generateFlow: (
       prompt: string
     ): Promise<{ ok: boolean; flow?: FlowDoc; error?: string }> =>
-      ipcRenderer.invoke('llm:generate-flow', prompt)
+      ipcRenderer.invoke('llm:generate-flow', prompt),
+    /** M5-11：读 LLM 配置（apiKey 不下发，只回 hasApiKey） */
+    getConfig: (): Promise<{
+      active: string
+      providers: Array<{ name: string; baseURL: string; model: string; hasApiKey: boolean }>
+    }> => ipcRenderer.invoke('llm:get-config'),
+    /** M5-11：保存 LLM 配置（apiKey 空串=保留旧值），DPAPI 加密落盘并热重载 */
+    saveConfig: (input: {
+      active: string
+      providers: Array<{ name: string; baseURL: string; model: string; apiKey?: string }>
+    }): Promise<{ ok: boolean; active?: string; error?: string }> =>
+      ipcRenderer.invoke('llm:save-config', input),
+    /** M5-11：用当前激活 Provider 发一条 ping 测连通（15s 超时） */
+    test: (): Promise<{ ok: boolean; model?: string; error?: string }> =>
+      ipcRenderer.invoke('llm:test'),
+    /** M5-12：让 LLM 解释一次失败运行（按 runId 读 DB 日志） */
+    explainError: (
+      runId: string
+    ): Promise<{ ok: boolean; explanation?: string; error?: string }> =>
+      ipcRenderer.invoke('llm:explain-error', runId)
   },
   registry: {
     /** 拉取全部指令的 UI 元数据（runner/summary 函数已被 IPC 丢弃） */
@@ -119,7 +146,16 @@ const api = {
     /** 按 id 加载完整 FlowDoc */
     load: (id: string): Promise<LoadReply> => ipcRenderer.invoke('flow:load', id),
     /** 删除流程（级联清 logs/apps） */
-    delete: (id: string): Promise<DeleteReply> => ipcRenderer.invoke('flow:delete', id)
+    delete: (id: string): Promise<DeleteReply> => ipcRenderer.invoke('flow:delete', id),
+    /** M5-24：把已保存流程导出为 .json 流程包（系统另存为对话框） */
+    exportFlow: (
+      id: string
+    ): Promise<{ ok: true; path: string } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('flow:export', id),
+    /** M5-24：选一个 .json 流程包读回 FlowDoc（不落库，由调用方 save 成新流程） */
+    importFlow: (): Promise<
+      { ok: true; flow: FlowDoc } | { ok: false; error: string }
+    > => ipcRenderer.invoke('flow:import')
   },
   pick: {
     /** 进入桌面拾取模式；阻塞直到用户点击元素 / Esc 取消 / 失败 */
@@ -229,6 +265,51 @@ const api = {
       | { ok: false; error: string }
     >,
     clear: () => ipcRenderer.invoke('runs:clear') as Promise<{ ok: true } | { ok: false; error: string }>
+  },
+  /** 自动更新（M5-26）：GitHub Releases；启动时自动检查，下载完成后弹窗提示重启 */
+  /** M6-3: report uncaught renderer errors to main process for crash.log */
+  crash: {
+    report: (message: string, stack?: string): void => ipcRenderer.send('crash:report', message, stack),
+    /** M6-6: 在系统文件管理器中打开 crash.log */
+    openLog: (): Promise<{ ok: boolean; path?: string; error?: string }> =>
+      ipcRenderer.invoke('crash:open-log')
+  },
+  /** M7-1: 主进程导入 .rui 后通知渲染端打开编辑器 */
+  app: {
+    onOpenFlow: (
+      cb: (m: { flowId: string; name?: string }) => void
+    ): (() => void) => {
+      const listener = (_: unknown, m: { flowId: string; name?: string }): void => cb(m)
+      ipcRenderer.on('app:open-flow', listener)
+      return () => ipcRenderer.removeListener('app:open-flow', listener)
+    }
+  },
+  updater: {
+    check: () => ipcRenderer.invoke('updater:check') as Promise<{ ok: boolean }>,
+    quitAndInstall: () =>
+      ipcRenderer.invoke('updater:quit-and-install') as Promise<{ ok: boolean }>,
+    onStatus: (
+      cb: (s: {
+        status: 'checking' | 'available' | 'downloading' | 'not-available' | 'downloaded' | 'error'
+        version?: string
+        percent?: number
+        message?: string
+        releaseNotes?: string
+      }) => void
+    ): (() => void) => {
+      const listener = (
+        _: unknown,
+        s: {
+          status: 'checking' | 'available' | 'downloading' | 'not-available' | 'downloaded' | 'error'
+          version?: string
+          percent?: number
+          message?: string
+          releaseNotes?: string
+        }
+      ): void => cb(s)
+      ipcRenderer.on('updater:status', listener)
+      return () => ipcRenderer.removeListener('updater:status', listener)
+    }
   }
 } as const
 

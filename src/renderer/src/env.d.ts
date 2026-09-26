@@ -1,4 +1,4 @@
-﻿/// <reference types="vite/client" />
+/// <reference types="vite/client" />
 
 import type { RunWireEvent } from '../../shared/run-protocol'
 import type { FlowDoc } from '../../shared/ast'
@@ -30,6 +30,7 @@ declare global {
   interface Window {
     ruili?: {
       platform: string
+      appVersion: string
       versions: {
         electron: string
         chrome: string
@@ -48,6 +49,7 @@ declare global {
         stop: () => void
         step: () => void
         onEvent: (cb: (e: RunWireEvent) => void) => () => void
+        onEndMeta: (cb: (m: { runId: string; status: string }) => void) => () => void
       }
       llm: {
         listProviders: () => Promise<{ active: string; providers: string[] }>
@@ -55,6 +57,16 @@ declare global {
         generateFlow: (
           prompt: string
         ) => Promise<{ ok: boolean; flow?: FlowDoc; error?: string }>
+        getConfig: () => Promise<{
+          active: string
+          providers: Array<{ name: string; baseURL: string; model: string; hasApiKey: boolean }>
+        }>
+        saveConfig: (input: {
+          active: string
+          providers: Array<{ name: string; baseURL: string; model: string; apiKey?: string }>
+        }) => Promise<{ ok: boolean; active?: string; error?: string }>
+        test: () => Promise<{ ok: boolean; model?: string; error?: string }>
+        explainError: (runId: string) => Promise<{ ok: boolean; explanation?: string; error?: string }>
       }
       registry: {
         list: () => Promise<Array<Omit<CmdMeta, 'summary'>>>
@@ -64,6 +76,8 @@ declare global {
         list: () => Promise<ListReply>
         load: (id: string) => Promise<LoadReply>
         delete: (id: string) => Promise<DeleteReply>
+        exportFlow: (id: string) => Promise<{ ok: true; path: string } | { ok: false; error: string }>
+        importFlow: () => Promise<{ ok: true; flow: FlowDoc } | { ok: false; error: string }>
       }
       pick: {
         start: () => Promise<PickReply>
@@ -133,6 +147,26 @@ declare global {
         history: (limit?: number) => Promise<{ ok: true; items: RunHistoryItem[] } | { ok: false; error: string }>
         entries: (runId: string) => Promise<{ ok: true; items: RunLogEntryRow[] } | { ok: false; error: string }>
         clear: () => Promise<{ ok: true } | { ok: false; error: string }>
+      }
+      crash: {
+        report: (message: string, stack?: string) => void
+        openLog: () => Promise<{ ok: boolean; path?: string; error?: string }>
+      }
+      app: {
+        onOpenFlow: (cb: (m: { flowId: string; name?: string }) => void) => () => void
+      }
+      updater: {
+        check: () => Promise<{ ok: boolean }>
+        quitAndInstall: () => Promise<{ ok: boolean }>
+        onStatus: (
+          cb: (s: {
+            status: 'checking' | 'available' | 'downloading' | 'not-available' | 'downloaded' | 'error'
+            version?: string
+            percent?: number
+            message?: string
+            releaseNotes?: string
+          }) => void
+        ) => () => void
       }
     }
   }

@@ -24,11 +24,14 @@
     "poc:exit": "vite-node scripts/poc-exit.ts",
     "poc:m1": "vite-node scripts/poc-m1-e2e.ts",
     "test:sidecar": "python -m pytest sidecar/tests -q",
-    "license:check": "license-checker --summary"
+    "license:check": "license-checker --summary",
+    "dist": "electron-vite build && electron-builder --win nsis",
+    "build:sidecar": "vite-node scripts/build-sidecar.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
     "croner": "^9.1.0",
+    "electron-updater": "^6.8.9",
     "exceljs": "^4.4.0",
     "playwright-core": "^1.63.0",
     "react": "^19.3.0",
@@ -45,6 +48,7 @@
     "@vitejs/plugin-react": "^5.2.0",
     "@vitest/coverage-v8": "^3.2.7",
     "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -55,5 +59,49 @@
     "typescript-eslint": "^8.70.1",
     "vite": "^7.3.6",
     "vitest": "^3.2.7"
+  },
+  "build": {
+    "appId": "com.ruili.rpa",
+    "productName": "锐流RPA",
+    "directories": {
+      "output": "dist-installer"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build/python",
+        "to": "python"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png",
+      "artifactName": "ruili-rpa-${version}-setup.${ext}",
+      "fileAssociations": [
+        { "ext": "rui", "name": "锐流RPA流程包" }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "锐流RPA"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ruili-rpa",
+        "repo": "ruili-rpa"
+      }
+    ],
+    "npmRebuild": false
   }
 }

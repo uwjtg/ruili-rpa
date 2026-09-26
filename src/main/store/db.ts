@@ -562,6 +562,58 @@ export function saveForegroundDelayMs(
   }
 }
 
+
+/* ---------- LLM 配置（M5-11）：settings 表存 JSON；apiKey 由主进程 safeStorage 加密后落盘 ---------- */
+
+const SETTINGS_KEY_LLM_CONFIG = 'llm.config'
+
+/** 一个 Provider 的落盘记录（apiKeyEnc 是 safeStorage 加密后的 base64；本模块不碰加密）。 */
+export interface LlmProviderRecord {
+  name: string
+  baseURL: string
+  model: string
+  /** 已加密 apiKey（base64）；空串表示未设置 */
+  apiKeyEnc: string
+}
+
+/** 整份 LLM 配置落盘记录。 */
+export interface LlmConfigRecord {
+  active: string
+  providers: LlmProviderRecord[]
+}
+
+/** 读 LLM 配置；无记录返回 null（主进程回退环境变量默认）。 */
+export function loadLlmConfig(): LlmConfigRecord | null {
+  try {
+    const raw = getSetting(SETTINGS_KEY_LLM_CONFIG)
+    if (raw === null) return null
+    const parsed = JSON.parse(raw) as Partial<LlmConfigRecord>
+    if (!parsed || !Array.isArray(parsed.providers) || parsed.providers.length === 0) return null
+    const providers: LlmProviderRecord[] = parsed.providers.map((p) => ({
+      name: String(p?.name ?? ''),
+      baseURL: String(p?.baseURL ?? ''),
+      model: String(p?.model ?? ''),
+      apiKeyEnc: String(p?.apiKeyEnc ?? '')
+    }))
+    const active = providers.some((p) => p.name === parsed.active)
+      ? String(parsed.active)
+      : providers[0].name
+    return { active, providers }
+  } catch {
+    return null
+  }
+}
+
+/** 整份保存 LLM 配置（覆盖写）。 */
+export function saveLlmConfig(cfg: LlmConfigRecord): { ok: true } | { ok: false; error: string } {
+  try {
+    setSetting(SETTINGS_KEY_LLM_CONFIG, JSON.stringify(cfg))
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 /* ---------- 计划任务（M5 调度切片） ---------- */
 
 /** 一条计划任务（跨进程传输形状） */

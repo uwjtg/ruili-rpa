@@ -10,8 +10,10 @@ import StepList from './editor/StepList'
 import ParamPanel from './editor/ParamPanel'
 import VarPanel from './editor/VarPanel'
 import AiPanel from './editor/AiPanel'
+import LlmConfigPanel from './editor/LlmConfigPanel'
 import ElementPanel from './editor/ElementPanel'
 import ThresholdPanel from './editor/ThresholdPanel'
+import AboutPanel from './editor/AboutPanel'
 import ScrapeWizard from './editor/ScrapeWizard'
 import { generateScrapeFlow } from '../../../shared/scrape/generate'
 import type { ScrapeWizardSpec } from '../../../shared/scrape/spec'
@@ -134,6 +136,18 @@ export default function EditorView(): JSX.Element {
   const [renameText, setRenameText] = useState('')
 
   const logRef = useRef<HTMLDivElement>(null)
+  // M5-15：本次运行元数据 + AI 解释失败
+  const [lastRunMeta, setLastRunMeta] = useState<{ runId: string; status: string } | null>(null)
+  const [explaining, setExplaining] = useState(false)
+  const [explainText, setExplainText] = useState('')
+  const [explainErr, setExplainErr] = useState('')
+  // M5-16：AI 魔法指令对话框
+  const [magicOpen, setMagicOpen] = useState(false)
+  const [magicPrompt, setMagicPrompt] = useState('')
+  const [magicBusy, setMagicBusy] = useState(false)
+  const [magicErr, setMagicErr] = useState('')
+  /** M5-17：replace=整体替换；append=追加到当前步骤末尾 */
+  const [magicMode, setMagicMode] = useState<'replace' | 'append'>('replace')
   const loadedFlowRef = useRef<string | null>(null)
   const tabsRef = useRef<EditorTab[]>(tabs)
   tabsRef.current = tabs
@@ -202,6 +216,9 @@ export default function EditorView(): JSX.Element {
           setRunning(true)
           setPaused(false)
           setLines([])
+          setLastRunMeta(null)
+          setExplainText('')
+          setExplainErr('')
           setStatus(`运行中：${e.flowName}`)
           push('sys', `▶ 流程开始：${e.flowName}`)
           break
@@ -245,6 +262,57 @@ export default function EditorView(): JSX.Element {
     })
     return off
   }, [ruili])
+
+  // M5-15：订阅 run 结束元数据，记录 runId+status 供失败时 AI 解释
+  useEffect(() => {
+    if (!ruili?.run?.onEndMeta) return
+    const off = ruili.run.onEndMeta((m) => setLastRunMeta(m))
+    return off
+  }, [ruili])
+
+  async function submitMagic(): Promise<void> {
+    if (!ruili?.llm?.generateFlow || !magicPrompt.trim()) return
+    setMagicBusy(true)
+    setMagicErr('')
+    const r = await ruili.llm.generateFlow(magicPrompt.trim())
+    setMagicBusy(false)
+    if (!r.ok || !r.flow) {
+      setMagicErr(r.error ?? '生成失败')
+      return
+    }
+    const newFlow = r.flow!
+    // M5-17：replace=整体替换；append=把新步骤拼到当前末尾（保留现有步骤和 vars）
+    setTabs((prev) =>
+      prev.map((t) => {
+        if (t.tabId !== activeTabIdRef.current) return t
+        if (magicMode === 'append') {
+          return {
+            ...t,
+            flow: {
+              ...t.flow,
+              name: newFlow.name || t.flow.name,
+              steps: [...t.flow.steps, ...newFlow.steps],
+              vars: [...t.flow.vars, ...newFlow.vars.filter((v) => !t.flow.vars.some((x) => x.name === v.name))]
+            }
+          }
+        }
+        return { ...t, flow: newFlow }
+      })
+    )
+    setMagicOpen(false)
+    setMagicPrompt('')
+  }
+
+  async function askExplainRun(): Promise<void> {
+    if (!ruili?.llm?.explainError || !lastRunMeta) return
+    setExplaining(true)
+    setExplainText('')
+    setExplainErr('')
+    const r = await ruili.llm.explainError(lastRunMeta.runId)
+    setExplaining(false)
+    if (r.ok) setExplainText(r.explanation ?? '')
+    else setExplainErr(r.error ?? '解释失败')
+  }
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight })
@@ -956,6 +1024,14 @@ export default function EditorView(): JSX.Element {
         >
           {webRecording ? '■ 停止网页录制' : '● 录网页'}
         </button>
+        <button
+          onClick={() => { setMagicErr(''); setMagicOpen(true) }}
+          disabled={running || recording}
+          title='AI 魔法指令：用自然语言描述要做什么，LLM 生成流程步骤'
+          style={{ ...btn, background: magicOpen ? '#7C5CFC' : '#fff', color: magicOpen ? '#fff' : '#7C5CFC', border: magicOpen ? 'none' : '1px solid #7C5CFC' }}
+        >
+          ✨ AI 魔法
+        </button>
         <span style={{ marginLeft: 'auto' }}>
           {/* §5 第8条：顶部常显未保存/已保存状态；录制态红点常显 */}
           {recording ? (
@@ -1049,7 +1125,11 @@ export default function EditorView(): JSX.Element {
             ) : rightTab === 'elements' ? (
               <ElementPanel onInsert={insertElementStep} />
             ) : rightTab === 'settings' ? (
-              <ThresholdPanel onNotify={(msg) => push('sys', msg)} flow={flow} onChangeFlow={(f) => commit(f)} />
+              <div style={{ overflow: 'auto', height: '100%' }}>
+                <ThresholdPanel onNotify={(msg) => push('sys', msg)} flow={flow} onChangeFlow={(f) => commit(f)} />
+                <LlmConfigPanel />
+                <AboutPanel />
+              </div>
             ) : (
               <AiPanel onAccept={acceptAiFlow} />
             )}
@@ -1083,6 +1163,82 @@ export default function EditorView(): JSX.Element {
           ))
         )}
       </div>
+
+      {/* M5-15：运行失败后 AI 解释条 */}
+      {lastRunMeta && lastRunMeta.status === 'error' ? (
+        <div style={{ background: '#F5F2FF', borderTop: '1px solid #D9CCFF', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {explaining ? (
+            <span style={{ fontSize: 12, color: '#7C5CFC' }}>AI 分析中…</span>
+          ) : explainText ? (
+            <div style={{ fontSize: 12, lineHeight: 1.5, color: '#1F2329' }}>
+              <b style={{ color: '#7C5CFC' }}>AI 解释：</b>{explainText}
+            </div>
+          ) : explainErr ? (
+            <span style={{ fontSize: 12, color: '#E64340' }}>⚠ {explainErr}</span>
+          ) : (
+            <>
+              <span style={{ fontSize: 12, color: '#51565D' }}>本次运行失败，需要 AI 分析原因吗？</span>
+              <button
+                onClick={() => void askExplainRun()}
+                style={{ height: 26, padding: '0 10px', border: '1px solid #D9CCFF', borderRadius: 6, background: '#fff', color: '#7C5CFC', fontSize: 12, cursor: 'pointer' }}
+              >
+                ✦ AI 解释此错误
+              </button>
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {/* M5-16：AI 魔法指令对话框 */}
+      {magicOpen ? (
+        <div
+          onClick={() => !magicBusy && setMagicOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 520, background: '#fff', borderRadius: 10, padding: 18, boxShadow: '0 8px 30px rgba(0,0,0,0.18)' }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#1F2329', marginBottom: 8 }}>
+              ✨ AI 魔法指令
+            </div>
+            <div style={{ fontSize: 12, color: '#8A8F99', marginBottom: 8, lineHeight: 1.5 }}>
+              用一句话描述要做什么，例如：「打开百度搜索『RPA』，把前 5 条结果标题和链接抓下来存到 Excel」。
+            </div>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 10, fontSize: 12 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                <input type="radio" name="magic-mode" checked={magicMode === 'replace'} onChange={() => setMagicMode('replace')} />
+                替换当前流程
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                <input type="radio" name="magic-mode" checked={magicMode === 'append'} onChange={() => setMagicMode('append')} />
+                追加到末尾
+              </label>
+            </div>
+            <textarea
+              autoFocus
+              value={magicPrompt}
+              onChange={(e) => setMagicPrompt(e.target.value)}
+              placeholder="描述你要自动化的任务…"
+              rows={4}
+              style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #D8DADD', borderRadius: 6, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical' }}
+            />
+            {magicErr ? (
+              <div style={{ fontSize: 12, color: '#E64340', marginTop: 6 }}>⚠ {magicErr}</div>
+            ) : null}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              <button onClick={() => !magicBusy && setMagicOpen(false)} style={{ ...btn }}>取消</button>
+              <button
+                onClick={() => void submitMagic()}
+                disabled={magicBusy || !magicPrompt.trim()}
+                style={{ ...btn, background: magicBusy ? '#B0B6BF' : '#7C5CFC', color: '#fff', border: 'none' }}
+              >
+                {magicBusy ? '生成中…' : '生成流程'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* M3 切片 10：运行前变量填写框 */}
       {varDialog !== null ? (

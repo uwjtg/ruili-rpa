@@ -1,4 +1,4 @@
-﻿# docs/handoff · 交接文档索引
+# docs/handoff · 交接文档索引
 
 > 接力开发模式事实源。每个阶段完成时追加一行并落盘对应交接文档。
 
@@ -50,3 +50,27 @@
 | [44-M5-5-文件监听触发器.md](./44-M5-5-文件监听触发器.md) | M5 切片 5 · fs.watch 文件监听触发器（watch_path 列 + FileWatchManager 防抖去重）；真冒烟 2/2 | 2026-09-25 | ✅ 完成 |
 | [45-M5-6-桌面网页混合流程演示.md](./45-M5-6-桌面网页混合流程演示.md) | M5 切片 6 · 一条 FlowDoc 混合跑 M3 桌面+M4 网页指令（真 Chromium + stub 桌面）；冒烟 4/4 | 2026-09-25 | ✅ 完成 |
 | [46-M5-7-9-triggerFile-RobotsView增强-查重.md](./46-M5-7-9-triggerFile-RobotsView增强-查重.md) | M5 切片 7-9 · triggerFile 注入 + RobotsView 筛选/清空 + 热键目录查重 | 2026-09-25 | ✅ 完成 |
+| [47-M5-10-调度实时日志推RobotsView.md](./47-M5-10-调度实时日志推RobotsView.md) | M5 切片 10 · 调度触发 flowId 归属修复 + RobotsView 订阅 run:event 实时显示运行中项/流式日志；冒烟 10/10 | 2026-09-25 | ✅ 完成 |
+| [48-M5-11-LLM配置入口.md](./48-M5-11-LLM配置入口.md) | M5 切片 11 · LLM 配置 UI（baseURL/model/apiKey DPAPI 加密 + 测试连接 + 热重载）；冒烟 8/8 | 2026-09-25 | ✅ 完成 |
+| [49-M5-12-AI报错解释.md](./49-M5-12-AI报错解释.md) | M5 切片 12 · RobotsView 错误项一键 AI 解释（explainError 纯函数 + llm:explain-error IPC）；冒烟 9/9 | 2026-09-25 | ✅ 完成 |
+| [50-M5-13-文件监听加固.md](./50-M5-13-文件监听加固.md) | M5 切片 13 · fs.watch recursive 递归 + waitStable 等文件写完 + 防抖按文件独立；冒烟 5/5 | 2026-09-25 | ✅ 完成 |
+| [51-M5-14-LLM预设下拉.md](./51-M5-14-LLM预设下拉.md) | M5 切片 14 · LLM 配置面板厂商预设下拉（智谱/DeepSeek/Kimi/通义/Ollama 一键填 baseURL+model） | 2026-09-25 | ✅ 完成 |
+| [52-M5-15-编辑器失败即时解释.md](./52-M5-15-编辑器失败即时解释.md) | M5 切片 15 · run:end-meta 事件 + EditorView 失败时一键 AI 解释（不切 RobotsView） | 2026-09-25 | ✅ 完成 |
+| [53-M5-16-AI魔法指令前端入口.md](./53-M5-16-AI魔法指令前端入口.md) | M5 切片 16 · 工具栏 AI 魔法按钮 + 对话框调 llm:generate-flow 替换当前流程 | 2026-09-25 | ✅ 完成 |
+| [54-M5-17-AI魔法追加模式.md](./54-M5-17-AI魔法追加模式.md) | M5 切片 17 · AI 魔法对话框加替换/追加单选，追加时步骤拼末尾+变量去重 | 2026-09-25 | ✅ 完成 |
+| [55-M5-18-NSIS安装包.md](./55-M5-18-NSIS安装包.md) | M5 切片 18 · electron-builder NSIS 打包，npm run dist 出 ruili-rpa-0.1.0-setup.exe（123.7 MB） | 2026-09-25 | ✅ 完成 |
+| [56-M5-19-应用图标.md](./56-M5-19-应用图标.md) | M5 切片 19 · build/icon.png 接入 win.icon + 开发窗口图标，exe/安装包内嵌品牌图标（124.0 MB） | 2026-09-25 | ✅ 完成 |
+| [57-M5-20-PythonSidecar打包进resources.md](./57-M5-20-PythonSidecar打包进resources.md) | M5 切片 20 · 裁剪版 Python+sidecar 打进 resources（extraResources），主进程 resourcesPath 定位，装机即用桌面指令（155.4 MB） | 2026-09-25 | ✅ 完成 |
+| [58-M5-21-固化sidecar裁剪脚本.md](./58-M5-21-固化sidecar裁剪脚本.md) | M5 切片 21 · scripts/build-sidecar.ts + npm run build:sidecar 固化 Python 裁剪复制流程（自验，重打包 151.3 MB） | 2026-09-25 | ✅ 完成 |
+| [59-M5-22-OCR进包与自动更新坑位.md](./59-M5-22-OCR进包与自动更新坑位.md) | M5 切片 22 · RapidOCR+OpenCV 打进 build/python（装机端 ocr/cv2=true）；electron-updater 留空坑位；安装包 230.7 MB | 2026-09-25 | ✅ 完成 |
+| [60-M5-23-官方模板30个.md](./60-M5-23-官方模板30个.md) | M5 切片 23 · 官方内置模板 33 个（shared/templates.ts）+ MarketView 模板市场（搜索/分类/使用→另存开编辑器）+ AppsView 入口；vitest 271、pytest 84 | 2026-09-25 | ✅ 完成 |
+| [61-M5-24-流程包导入导出.md](./61-M5-24-流程包导入导出.md) | M5 切片 24 · 流程包 .json 导出（另存为）/导入（打开→校验→另存新流程）；shared/flow-package.ts 纯函数 + 8 例单测；主进程 dialog 与 preload/env 类型补齐；vitest 279 | 2026-09-25 | ✅ 完成 |
+| [62-M5-25-官方模板扩到50.md](./62-M5-25-官方模板扩到50.md) | M5 切片 25 · 官方模板 33→50（新增网页/Excel/桌面/入门/OCR/端到端 17 个组合）；复用既有两测试自动校验；vitest 330、renderer 962.04 kB | 2026-09-25 | ✅ 完成 |
+| [63-M5-26-electron-updater接入.md](./63-M5-26-electron-updater接入.md) | M5 切片 26 · electron-updater 接入（GitHub Releases publish + initUpdater/checkForUpdates/quitAndInstall + 状态推 renderer + 下载完成 dialog 重启提示；dev 环境自动跳过）；typecheck 0、vitest 330、pytest 84 | 2026-09-25 | ✅ 完成 |
+| [64-M6-1-renderer更新UI.md](./64-M6-1-renderer更新UI.md) | M6 切片 1 · TopBar 版本胶囊改成可点击检查更新按钮（订阅 updater.onStatus 显示 checking/available/downloaded/error 状态；3s 瞬态恢复；renderer 963.58 kB） | 2026-09-25 | ✅ 完成 |
+| [65-M6-3-崩溃上报.md](./65-M6-3-崩溃上报.md) | M6 切片 3 · 未捕获异常落盘 crash.log（主进程 uncaughtException/unhandledRejection + renderer error/unhandledrejection 经 IPC 转发 + render-process-gone；本地不上传）；typecheck 0、vitest 330、pytest 84 | 2026-09-25 | ✅ 完成 |
+| [66-M6-2-首次运行引导.md](./66-M6-2-首次运行引导.md) | M6 切片 2 · 首次打开欢迎卡片（localStorage ruili-onboarded；浏览模板/开始使用）+ LLM 预设加硅基流动免费模型 Qwen2.5-7B-Instruct（已实测连通）；renderer 967.64 kB | 2026-09-26 | ✅ 完成 |
+| [67-M6-4-5-6-分享更新设置完善.md](./67-M6-4-5-6-分享更新设置完善.md) | M6 切片 4/5/6 · .rui 扩展名关联 + 版本号动态化(app.getVersion) + 下载进度百分比 + 设置页关于区块(查看崩溃日志/检查更新)；renderer 970.18 kB。M6 全部切片完成 | 2026-09-26 | ✅ 完成 |
+| [68-M7-1-rui导入与crash轮转.md](./68-M7-1-rui导入与crash轮转.md) | M7 切片 1 · .rui 双击真实导入(单实例锁+second-instance+读文件→落库→推 app:open-flow) + crash.log 1MB 启动轮转(.1/.2 备份) + 补 whenReady createWindow()；SMOKE 验证通过、重打安装包 230.9 MB；renderer 970.46 kB | 2026-09-26 | ✅ 完成 |
+| [69-M7-2-性能基线度量.md](./69-M7-2-性能基线度量.md) | M7 切片 2 · 性能基线度量（RUILI_PERF 门控埋点：冷启动 ~0.8s / RSS 194MB / renderer 947.7KB·gzip180KB；只度量不改行为；vitest 330/pytest 84/typecheck 0） | 2026-09-26 | ✅ 完成 |
+| [70-M7-3-发版前准备与版本徽章修复.md](./70-M7-3-发版前准备与版本徽章修复.md) | M7 切片 3 · 发版前准备：装机版冷启动实测 0.6-1.0s / RSS 194MB；修掉装机版版本徽章 v0.0.0 真 bug（preload 改读 package.json）；重打安装包 230.9MB 静默装机；vitest 330/pytest 84/typecheck 0 | 2026-09-26 | ✅ 完成 |

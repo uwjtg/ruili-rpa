@@ -14,7 +14,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createServer } from 'node:net'
 import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import type {
   ClickElementReply,
   LocateElementReply,
@@ -40,6 +40,24 @@ export interface OcrResult {
   lines: Array<{ text: string; score: number }>
 }
 
+/**
+ * 解析 sidecar 运行时。
+ * - 打包态（electron-builder extraResources）：用 resources/python 下自带的
+ *   python.exe 与 app/server.py，装机机器无需另装 Python；
+ * - 开发态：回退系统 PATH 的 python + 仓库 sidecar/server.py。
+ */
+function resolveSidecarRuntime(): { cmd: string; script: string } {
+  const res = process.resourcesPath
+  if (res) {
+    const exe = join(res, 'python', 'python.exe')
+    const script = join(res, 'python', 'app', 'server.py')
+    if (existsSync(exe) && existsSync(script)) {
+      return { cmd: exe, script }
+    }
+  }
+  return { cmd: 'python', script: resolve(process.cwd(), 'sidecar', 'server.py') }
+}
+
 /** 选一个 127.0.0.1 上的空闲端口 */
 function freePort(): Promise<number> {
   return new Promise((resolveP, reject) => {
@@ -59,9 +77,10 @@ export class SidecarClient {
   private pythonCmd = 'python'
   private scriptPath: string
 
-  constructor(scriptPath?: string) {
-    this.scriptPath =
-      scriptPath ?? resolve(process.cwd(), 'sidecar', 'server.py')
+  constructor(scriptPath?: string, pythonCmd?: string) {
+    const rt = resolveSidecarRuntime()
+    this.pythonCmd = pythonCmd ?? rt.cmd
+    this.scriptPath = scriptPath ?? rt.script
   }
 
   isRunning(): boolean {

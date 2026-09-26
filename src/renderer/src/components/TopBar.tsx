@@ -1,4 +1,5 @@
 import type { JSX } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import Icon from './Icon'
 
@@ -12,13 +13,67 @@ const NAV_ITEMS = [
   { to: '/academy', label: '教程', icon: 'edu' }
 ] as const
 
+type UpdState = {
+  status: 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error'
+  version?: string
+  percent?: number
+}
+
+const UPD_LABEL: Record<UpdState['status'], string> = {
+  idle: 'v0.1.0',
+  checking: '检查更新中…',
+  available: '有新版',
+  downloading: '下载中',
+  downloaded: '更新已就绪',
+  'not-available': '已是最新',
+  error: '更新检查失败'
+}
+
+const UPD_COLOR: Record<UpdState['status'], { bg: string; fg: string }> = {
+  idle: { bg: 'var(--gray)', fg: 'var(--text-3)' },
+  checking: { bg: 'var(--gray)', fg: 'var(--text-3)' },
+  available: { bg: 'var(--blue-soft)', fg: 'var(--blue)' },
+  downloading: { bg: 'var(--blue-soft)', fg: 'var(--blue)' },
+  downloaded: { bg: 'var(--bg-success, #E7F8F0)', fg: 'var(--green, #1DBF73)' },
+  'not-available': { bg: 'var(--bg-success, #E7F8F0)', fg: 'var(--green, #1DBF73)' },
+  error: { bg: 'var(--red-soft)', fg: 'var(--red)' }
+}
+
 /**
- * 顶部标题栏（全局）：红色圆形 logo + 产品名 + 版本胶囊 + 横向导航
+ * 顶部标题栏（全局）：红色圆形 logo + 产品名 + 版本胶囊（点击检查更新）+ 横向导航
  * + 右侧（邀请同事 / 帮助 / 通知 / 头像 / 窗口控制）。
  * 窗口控制走 preload 暴露的 window.ruili.win（IPC → 主进程）。
  */
 export default function TopBar(): JSX.Element {
   const win = window.ruili?.win
+  const updater = window.ruili?.updater
+  const [upd, setUpd] = useState<UpdState>({ status: 'idle' })
+
+  useEffect(() => {
+    if (!updater?.onStatus) return
+    const off = updater.onStatus((s) => {
+      setUpd({ status: s.status, version: s.version, percent: s.percent })
+      // 瞬时状态 3 秒后回到 idle
+      if (s.status === 'not-available' || s.status === 'error') {
+        setTimeout(() => setUpd({ status: 'idle' }), 3000)
+      }
+    })
+    return off
+  }, [updater])
+
+  const appVersion = window.ruili?.appVersion ?? '0.0.0'
+  const label =
+    upd.status === 'available' && upd.version
+      ? `${UPD_LABEL.available} v${upd.version}`
+      : upd.status === 'downloading'
+        ? `${UPD_LABEL.downloading} ${upd.percent ?? 0}%`
+        : upd.status === 'downloaded' && upd.version
+          ? `${UPD_LABEL.downloaded} v${upd.version}`
+          : upd.status === 'idle'
+            ? `v${appVersion}`
+            : UPD_LABEL[upd.status]
+
+  const color = UPD_COLOR[upd.status]
 
   return (
     <header className="titlebar">
@@ -26,7 +81,15 @@ export default function TopBar(): JSX.Element {
         锐
       </div>
       <span className="tb-name">锐流RPA</span>
-      <span className="tb-ver">V3 原型 · v0.1</span>
+      <button
+        type="button"
+        className="tb-ver"
+        title="点击检查更新"
+        onClick={() => updater?.check()}
+        style={{ background: color.bg, color: color.fg, border: 'none', cursor: 'pointer' }}
+      >
+        {label}
+      </button>
 
       <nav className="tb-nav" aria-label="主导航">
         {NAV_ITEMS.map((item) => (

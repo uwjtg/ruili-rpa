@@ -35,3 +35,9 @@ __pycache__/
 
 # uiautomation 调试残留
 @AutomationLog.txt
+
+# electron-builder 安装包输出
+dist-installer/
+
+# 打包时临时裁剪的内嵌 Python（不入库，由构建脚本生成）
+build/python/
