@@ -74,3 +74,4 @@
 | [68-M7-1-rui导入与crash轮转.md](./68-M7-1-rui导入与crash轮转.md) | M7 切片 1 · .rui 双击真实导入(单实例锁+second-instance+读文件→落库→推 app:open-flow) + crash.log 1MB 启动轮转(.1/.2 备份) + 补 whenReady createWindow()；SMOKE 验证通过、重打安装包 230.9 MB；renderer 970.46 kB | 2026-09-26 | ✅ 完成 |
 | [69-M7-2-性能基线度量.md](./69-M7-2-性能基线度量.md) | M7 切片 2 · 性能基线度量（RUILI_PERF 门控埋点：冷启动 ~0.8s / RSS 194MB / renderer 947.7KB·gzip180KB；只度量不改行为；vitest 330/pytest 84/typecheck 0） | 2026-09-26 | ✅ 完成 |
 | [70-M7-3-发版前准备与版本徽章修复.md](./70-M7-3-发版前准备与版本徽章修复.md) | M7 切片 3 · 发版前准备：装机版冷启动实测 0.6-1.0s / RSS 194MB；修掉装机版版本徽章 v0.0.0 真 bug（preload 改读 package.json）；重打安装包 230.9MB 静默装机；vitest 330/pytest 84/typecheck 0 | 2026-09-26 | ✅ 完成 |
+| [71-M7-4-GitHub建仓与首次Release发布.md](./71-M7-4-GitHub建仓与首次Release发布.md) | M7 切片 4 · GitHub 建仓 uwjtg/ruili-rpa + push main + v0.1.0 正式 Release（setup.exe 230.9MB + blockmap + latest.yml）；releases.atom 200，自动更新链路打通；token 未入库 | 2026-09-26 | ✅ 完成 |
