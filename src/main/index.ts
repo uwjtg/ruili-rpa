@@ -53,6 +53,7 @@ import { startWebRecord, stopWebRecord } from './web-record'
 import { ensureSidecar, disposeSidecar } from './sidecar'
 import { checkForUpdates, initUpdater, quitAndInstall } from './updater'
 import { initCrashHandler, reportRendererError, reportRenderProcessGone, getCrashLogPath } from './crash'
+import { initTray, attachCloseToTray, markQuitting, destroyTray, isAutoLaunch, setAutoLaunch, shouldStartHidden } from './tray'
 import { randomUUID } from 'node:crypto'
 
 // M7-2: perf instrumentation (gated by RUILI_PERF=1). Read-only timing + memory; no behavior change.
@@ -152,7 +153,8 @@ function createWindow(): BrowserWindow {
   mainWindow = win
   win.on('ready-to-show', () => {
     perfMark('ready-to-show')
-    win.show()
+    // M7-9: --hidden（开机自启）启动时不主动弹主窗口
+    if (!shouldStartHidden()) win.show()
   })
 
   // 冒烟模式：首屏渲染后截图 smoke.png，随后退出（验证用户真正看到的层）
@@ -701,6 +703,10 @@ ipcMain.handle('updater:quit-and-install', () => {
   return { ok: true as const }
 })
 
+/* ---------- M7-9: 开机自启 IPC ---------- */
+ipcMain.handle('autolaunch:get', () => ({ enabled: isAutoLaunch() }))
+ipcMain.handle('autolaunch:set', (_e, on: boolean) => { setAutoLaunch(on); return { ok: true, enabled: isAutoLaunch() } })
+
 /* ---------- M6-3：renderer 未捕获错误转发落盘 ---------- */
 ipcMain.on('crash:report', (_e, message: string, stack?: string) => {
   reportRendererError(message, stack)
@@ -718,11 +724,19 @@ app.whenReady().then(() => {
   perfMark('when-ready')
   // DB under userData
   openDb(join(app.getPath('userData'), 'ruili.db'))
-  // M7-1: 首次启动创建主窗口（此前仅 activate 触发，Windows 冷启动无窗）
-  createWindow()
   perfMark('window-created')
   // M5-11: load LLM config from DB
   reloadLlmClientFromDb()
+  // M7-9: 系统托盘 + 开机自启
+  attachCloseToTray(createWindow())
+  initTray({
+    showWindow: () => {
+      if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.show(); mainWindow.focus() }
+    },
+    checkForUpdates: () => checkForUpdates(),
+    quit: () => { markQuitting(); app.quit() }
+  })
+
   // M5-26: electron-updater (GitHub Releases; dev auto-skip)
   initUpdater(() => mainWindow)
   checkForUpdates()
@@ -756,5 +770,6 @@ app.on('window-all-closed', () => {
   fileWatcher.stop()
   pickController.dispose()
   disposeSidecar()
+  destroyTray()
   if (process.platform !== 'darwin') app.quit()
 })
