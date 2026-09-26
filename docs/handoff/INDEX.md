@@ -77,3 +77,4 @@
 | [71-M7-4-GitHub建仓与首次Release发布.md](./71-M7-4-GitHub建仓与首次Release发布.md) | M7 切片 4 · GitHub 建仓 uwjtg/ruili-rpa + push main + v0.1.0 正式 Release（setup.exe 230.9MB + blockmap + latest.yml）；releases.atom 200，自动更新链路打通；token 未入库 | 2026-09-26 | ✅ 完成 |
 | [72-M7-5-GitHub-Actions-CI.md](./72-M7-5-GitHub-Actions-CI.md) | M7 切片 5 · GitHub Actions CI（ci.yml push/PR 跑 typecheck+vitest+pytest；release.yml 推 tag v* 自动 build sidecar/构建/发 Release/draft 翻正式；用内置 GITHUB_TOKEN 不再本地带 token）；本地基线 330/84/0 | 2026-09-26 | ✅ 完成 |
 | [73-M7-6-v0.1.1-CI自动发版.md](./73-M7-6-v0.1.1-CI自动发版.md) | M7 切片 6 · 0.1.1 发版演练（npm version patch → 推 tag → Actions 6 分钟全自动出 258MB NSIS+latest.yml 发 Release；修 ci.yml 漏装 pytest + un-draft 防 electron-builder 双 draft；装机版真升级受旧包 owner 错+CDN 不通阻塞） | 2026-09-26 | ✅ 完成 |
+| [74-M7-7-真机rui双击验证.md](./74-M7-7-真机rui双击验证.md) | M7 切片 7 · 真机 .rui 双击导入验证（注册表关联确认；首次启动传 .rui 落库；已运行时再传 second-instance 落库；无崩溃；标准包+裸 FlowDoc 两种格式都通） | 2026-09-26 | ✅ 完成 |
