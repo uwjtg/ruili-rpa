@@ -1,6 +1,6 @@
 {
   "name": "ruili-rpa",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "锐流 RPA —— 对标影刀 RPA 的 Windows 桌面自动化客户端（阶段 1：骨架与壳）",
   "main": "out/main/index.js",
   "author": "ruili-rpa",
@@ -84,7 +84,10 @@
       "icon": "build/icon.png",
       "artifactName": "ruili-rpa-${version}-setup.${ext}",
       "fileAssociations": [
-        { "ext": "rui", "name": "锐流RPA流程包" }
+        {
+          "ext": "rui",
+          "name": "锐流RPA流程包"
+        }
       ]
     },
     "nsis": {
