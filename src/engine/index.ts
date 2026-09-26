@@ -6,6 +6,7 @@ export { CommandRegistry } from './commands/registry'
 export type { RegisteredCommand } from './commands/registry'
 export { registerDemoCommands } from './commands/demo'
 export { registerUtilCommands } from './commands/util'
+export { registerSystemCommands } from './commands/system'
 export { DEMO_FLOW } from './core/demo-flow'
 // 阶段 3 · 真实链路
 export { registerWebCommands } from './web/commands'
