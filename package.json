@@ -98,7 +98,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "ruili-rpa",
+        "owner": "uwjtg",
         "repo": "ruili-rpa"
       }
     ],
