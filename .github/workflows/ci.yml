@@ -1,0 +1,43 @@
+name: CI
+
+# 每次 push 到 main / 提 PR 时跑自动化测试基线，拦住回归。
+# 不打包（打包见 release.yml，由 tag 触发）。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install sidecar Python deps
+        run: python -m pip install --disable-pip-version-check uiautomation comtypes
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Vitest (engine/renderer)
+        run: npm test
+
+      - name: Pytest (sidecar)
+        run: npm run test:sidecar
