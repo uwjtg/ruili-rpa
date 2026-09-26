@@ -27,6 +27,7 @@ import { registerCsvCommands } from '../commands/csv'
 import { registerFileExtraCommands } from '../commands/util'
 import { registerDataExtraCommands, registerDataExtra2Commands, registerDataExtra3Commands } from '../commands/data'
 import { registerMailCommands } from '../commands/mail'
+import { registerDocxCommands } from '../commands/docx'
 import { getWebSession } from '../web/session'
 import { getExcelSession } from '../excel/workbook'
 
@@ -47,6 +48,7 @@ export function buildEngineRegistry(): CommandRegistry {
   registerDataExtra2Commands(reg)
   registerDataExtra3Commands(reg)
   registerMailCommands(reg)
+  registerDocxCommands(reg)
   return reg
 }
 

@@ -12,6 +12,7 @@ export { registerCsvCommands } from './commands/csv'
 export { registerFileExtraCommands } from './commands/util'
 export { registerDataExtraCommands, registerDataExtra2Commands, registerDataExtra3Commands } from './commands/data'
 export { registerMailCommands } from './commands/mail'
+export { registerDocxCommands } from './commands/docx'
 export { DEMO_FLOW } from './core/demo-flow'
 // 阶段 3 · 真实链路
 export { registerWebCommands } from './web/commands'
