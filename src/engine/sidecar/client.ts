@@ -430,6 +430,45 @@ export class SidecarClient {
     }
   }
 
+  /** POST /office/<route> 通用封装（M7-39 Office COM） */
+  private async officePost(
+    route: string,
+    body: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    try {
+      const res = await fetch(`${this.baseUrl}/office/${route}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+      return (await res.json()) as Record<string, unknown>
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  }
+
+  officeExcelOpen(path: string, visible = false) {
+    return this.officePost('excel_open', { path, visible })
+  }
+  officeExcelRead(sheet: string, range: string) {
+    return this.officePost('excel_read', { sheet, range })
+  }
+  officeExcelWrite(sheet: string, range: string, values: unknown[][]) {
+    return this.officePost('excel_write', { sheet, range, values })
+  }
+  officeExcelClose(save = true) {
+    return this.officePost('excel_close', { save })
+  }
+  officeWordOpen(path: string, visible = false) {
+    return this.officePost('word_open', { path, visible })
+  }
+  officeWordReplace(find: string, replace: string, matchCase = false) {
+    return this.officePost('word_replace', { find, replace, match_case: matchCase })
+  }
+  officeWordClose(save = true) {
+    return this.officePost('word_close', { save })
+  }
+
   stop(): void {
     if (this.proc) {
       this.proc.kill()

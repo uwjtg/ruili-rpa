@@ -31,11 +31,15 @@ function fakeClient() {
 }
 
 describe('sidecar 指令（stub 客户端）', () => {
-  it('注册 3 条 sidecar 指令', () => {
+  it('注册全部 sidecar 指令（3 基础 + 7 Office COM）', () => {
     const reg = new CommandRegistry()
     registerSidecarCommands(reg, { client: fakeClient().client })
     expect(reg.list().map((c) => c.id).sort()).toEqual(
-      ['sidecarOcr', 'sidecarStart', 'sidecarStop'].sort()
+      [
+        'sidecarOcr', 'sidecarStart', 'sidecarStop',
+        'officeExcelOpen', 'officeExcelReadRange', 'officeExcelWriteRange',
+        'officeExcelClose', 'officeWordOpen', 'officeWordFindReplace', 'officeWordClose'
+      ].sort()
     )
   })
 

@@ -33,6 +33,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict
 
 from desktop_pick import DesktopPicker, DesktopRecorder, ElementNotFoundError
+import office_com
 
 VERSION = "0.1.0"
 
@@ -57,7 +58,11 @@ except Exception as e:  # noqa: BLE001
 
 
 def engines_report() -> Dict[str, bool]:
-    return {"ocr": _OCR_ENGINE is not None, "cv2": _CV2 is not None}
+    return {
+        "ocr": _OCR_ENGINE is not None,
+        "cv2": _CV2 is not None,
+        "office_com": office_com.com_engines()["office_com"],
+    }
 
 
 # 桌面拾取单例（M3 切片 1）：HTTP handler 线程调 start() 阻塞；测试可替换
@@ -376,6 +381,59 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(400, {"ok": False, "error": "not_recording"})
                 return
             self._send_json(200, {"ok": True, "instructions": instructions})
+            return
+
+        # ---- M7 切片 39：Office COM（Excel/Word） ----
+        if self.path.startswith("/office/"):
+            if not office_com.com_engines()["office_com"]:
+                self._send_json(
+                    501,
+                    {"ok": False, "error": "office_com_unavailable",
+                     "detail": "pywin32 未安装（pip install pywin32）"},
+                )
+                return
+            route = self.path[len("/office/"):]
+            try:
+                if route == "excel_open":
+                    path = body.get("path", "")
+                    if not path:
+                        self._send_json(400, {"ok": False, "error": "path_required"})
+                        return
+                    out = office_com.excel_open(path, bool(body.get("visible", False)))
+                elif route == "excel_read":
+                    out = office_com.excel_read(
+                        str(body.get("sheet", "")), str(body.get("range", ""))
+                    )
+                elif route == "excel_write":
+                    values = body.get("values")
+                    if not isinstance(values, list) or not values:
+                        self._send_json(400, {"ok": False, "error": "values_required"})
+                        return
+                    out = office_com.excel_write(
+                        str(body.get("sheet", "")), str(body.get("range", "")), values
+                    )
+                elif route == "excel_close":
+                    out = office_com.excel_close(bool(body.get("save", True)))
+                elif route == "word_open":
+                    path = body.get("path", "")
+                    if not path:
+                        self._send_json(400, {"ok": False, "error": "path_required"})
+                        return
+                    out = office_com.word_open(path, bool(body.get("visible", False)))
+                elif route == "word_replace":
+                    out = office_com.word_replace(
+                        str(body.get("find", "")), str(body.get("replace", "")),
+                        bool(body.get("match_case", False)),
+                    )
+                elif route == "word_close":
+                    out = office_com.word_close(bool(body.get("save", True)))
+                else:
+                    self._send_json(404, {"ok": False, "error": "unknown_office_route"})
+                    return
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"office_{route}_failed: {e}"})
+                return
+            self._send_json(200, out)
             return
 
         self._send_json(404, {"ok": False, "error": "not_found"})

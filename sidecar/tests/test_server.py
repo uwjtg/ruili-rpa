@@ -85,3 +85,58 @@ def test_unknown_path_404():
         assert body["ok"] is False
     finally:
         httpd.shutdown()
+
+
+def test_office_route_dispatch(monkeypatch):
+    """Office endpoint 路由分发（fake 掉 office_com，不真起 Excel）。"""
+    import office_com
+
+    called = {}
+
+    def fake_open(path, visible=False):
+        called["excel_open"] = (path, visible)
+        return {"ok": True, "sheets": ["Sheet1"]}
+
+    def fake_read(sheet, rng):
+        called["excel_read"] = (sheet, rng)
+        return {"ok": True, "values": [[1, 2], [3, 4]]}
+
+    monkeypatch.setattr(office_com, "com_engines", lambda: {"office_com": True})
+    monkeypatch.setattr(office_com, "excel_open", fake_open)
+    monkeypatch.setattr(office_com, "excel_read", fake_read)
+    monkeypatch.setattr(office_com, "excel_write", lambda s, r, v: {"ok": True})
+    monkeypatch.setattr(office_com, "excel_close", lambda save=True: {"ok": True})
+
+    httpd, port = _start_server()
+    try:
+        status, body = _post(port, "/office/excel_open", {"path": "C:/x.xlsx"})
+        assert status == 200 and body["ok"] is True
+        assert called["excel_open"][0] == "C:/x.xlsx"
+
+        status, body = _post(port, "/office/excel_read", {"sheet": "Sheet1", "range": "A1:B2"})
+        assert status == 200 and body["values"] == [[1, 2], [3, 4]]
+
+        status, body = _post(port, "/office/excel_write",
+                              {"sheet": "Sheet1", "range": "A1", "values": [[1, 2]]})
+        assert status == 200
+
+        status, body = _post(port, "/office/excel_close", {"save": True})
+        assert status == 200
+
+        status, body = _post(port, "/office/excel_open", {})
+        assert status == 400
+    finally:
+        httpd.shutdown()
+
+
+def test_office_unavailable_501(monkeypatch):
+    """pywin32 缺失时 /office/* 返回 501 优雅降级。"""
+    import office_com
+    monkeypatch.setattr(office_com, "com_engines", lambda: {"office_com": False})
+    httpd, port = _start_server()
+    try:
+        status, body = _post(port, "/office/excel_open", {"path": "x.xlsx"})
+        assert status == 501
+        assert body["error"] == "office_com_unavailable"
+    finally:
+        httpd.shutdown()
