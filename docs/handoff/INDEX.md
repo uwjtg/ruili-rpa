@@ -99,3 +99,4 @@
 | [93-M7-26-指令扩充第九批.md](./93-M7-26-指令扩充第九批.md) | M7 切片 26 · 净增 4 条（listSortByField/listAvg/stringReplaceFirst/dateNow）；撞 ID 去重；vitest 402→405；指令总数 157→161 | 2026-09-26 | ✅ 完成 |
 | [94-M7-27-用户文档README.md](./94-M7-27-用户文档README.md) | M7 切片 27 · 新增根 README.md（功能/快速上手/目录/指令速查表 160+/开发约定/已知限制）；纯文档无代码改动 | 2026-09-27 | ✅ 完成 |
 | [95-M7-28-拆分CONTRIBUTING.md](./95-M7-28-拆分CONTRIBUTING.md) | M7 切片 28 · 新增 CONTRIBUTING.md（环境/命令/新增指令6步/sidecar约定/编码硬约束/DoD/接力流程）；README 开发约定改指针；纯文档 | 2026-09-27 | ✅ 完成 |
+| [96-M7-29-UI截图README配图.md](./96-M7-29-UI截图README配图.md) | M7 切片 29 · 复用 smoke capturePage 截工作台/编辑器/市场 3 图入 docs/screenshots/；README 加「界面预览」；纯文档+图片 | 2026-09-27 | ✅ 完成 |

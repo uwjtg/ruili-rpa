@@ -4,6 +4,14 @@
 
 ![version](https://img.shields.io/badge/version-0.1.1-blue) ![tests](https://img.shields.io/badge/vitest-405-brightgreen) ![pytest](https://img.shields.io/badge/pytest-88-brightgreen)
 
+## 界面预览
+
+<p align="center">
+  <img src="docs/screenshots/home.png" width="270" alt="工作台：统计与运行趋势"/>
+  <img src="docs/screenshots/editor.png" width="270" alt="流程编辑器：指令库 / 步骤区 / 参数面板"/>
+  <img src="docs/screenshots/market.png" width="270" alt="模板市场：50 个官方模板一键复用"/>
+</p>
+
 ## 功能一览
 
 - **浏览器自动化**：打开浏览器、点击、输入、等待、抓取列表、执行 JS、前进/后退/刷新
