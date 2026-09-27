@@ -39,13 +39,25 @@ export const REC_START_FN = `function startWebRecord() {
     ${CSS_PATH_FN.replace(/^function cssPathOf\(el\) \{/, '').replace(/\}\s*$/, '')}
   }
 
+  function featsOf(el) {
+    function strip(c) { var f = (c||'').trim().split(/\s+/)[0] || ''; return f.replace(/[-_][a-zA-Z0-9]{6,}$/, ''); }
+    return {
+      id: el.id || '',
+      name: el.getAttribute('name') || '',
+      ariaLabel: el.getAttribute('aria-label') || '',
+      dataTestid: el.getAttribute('data-testid') || '',
+      role: el.getAttribute('role') || '',
+      placeholder: el.getAttribute('placeholder') || '',
+      classStem: strip(el.getAttribute('class') || '')
+    };
+  }
   function onDown(e) {
     if (e.button !== 0) return; // 只录左键
     var el = e.target;
     if (!el || el.nodeType !== 1) return;
     var sel = cssPathOf(el);
     if (sel) {
-      window.__ruiliWebEvents.push({ type: 'click', selector: sel, ts: Date.now() });
+      window.__ruiliWebEvents.push({ type: 'click', selector: sel, features: featsOf(el), ts: Date.now() });
     }
   }
 
@@ -135,4 +147,5 @@ export interface WebRecordEvent {
   deltaY?: number
   key?: string
   ts?: number
+  features?: { id: string; name: string; ariaLabel: string; dataTestid: string; role: string; placeholder: string; classStem: string }
 }

@@ -725,7 +725,9 @@ export default function EditorView(): JSX.Element {
     for (const e of evs) {
       let step: StepNode
       if (e.type === 'click') {
-        step = { id: nextStepId(src), cmdId: 'webClick', params: { selector: e.selector } }
+        step = e.features
+          ? { id: nextStepId(src), cmdId: 'webClickSmart', params: { featuresJson: JSON.stringify(e.features), cssPath: e.selector ?? '' } }
+          : { id: nextStepId(src), cmdId: 'webClick', params: { selector: e.selector } }
       } else if (e.type === 'scroll') {
         step = { id: nextStepId(src), cmdId: 'webScroll', params: { deltaY: e.deltaY ?? 300 } }
       } else if (e.type === 'key') {

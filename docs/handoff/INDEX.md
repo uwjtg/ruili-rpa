@@ -107,3 +107,4 @@
 | [101-M7-34-选择器抓取基准.md](./101-M7-34-选择器抓取基准.md) | M7 切片 34：M3 验收闭环——linkedom 跑生产抓取脚本，10 类典型布局基准实测 10/10=100%（门禁≥80%）；无生产代码改动 | 2026-09-27 | ✅ 完成 |
 | [102-M7-35-真实站基准与打包实测.md](./102-M7-35-真实站基准与打包实测.md) | M7 切片 35：真实站基准 books/quotes.toscrape 2/2（20 书+10 名言）；npm run dist 出 NSIS 安装包 234.7MB；确认 CI/release workflow 早已就位 | 2026-09-27 | ✅ 完成 |
 | [103-M7-36-选择器回退链.md](./103-M7-36-选择器回退链.md) | M7 切片 36：§6.2 选择器回退链——buildFallbackSelectors(id→testid→aria→name→role→tag.class→text→cssPath)；pick 录制冗余抓 features；WebSession.locateFirst 逐个试；新指令 webClickSmart；vitest 413→423；指令 166→167 | 2026-09-27 | ✅ 完成 |
+| [104-M7-37-录制自动带回退特征.md](./104-M7-37-录制自动带回退特征.md) | M7 切片 37：录制点击自动抓 features 并生成 webClickSmart 步骤，回退链闭环（record-script/preload/env.d.ts/EditorView）；vitest 423；指令 167 不变 | 2026-09-27 | ✅ 完成 |

@@ -132,7 +132,7 @@ declare global {
         start: () => Promise<{ ok: boolean; error?: string }>
         stop: () => Promise<{
           ok: boolean; error?: string
-          events?: Array<{ type: 'click' | 'fill' | 'scroll' | 'key'; selector?: string; value?: string; deltaY?: number; key?: string }>
+          events?: Array<{ type: 'click' | 'fill' | 'scroll' | 'key'; selector?: string; value?: string; deltaY?: number; key?: string; features?: { id: string; name: string; ariaLabel: string; dataTestid: string; role: string; placeholder: string; classStem: string } }>
         }>
       }
       tasks: {
