@@ -84,12 +84,9 @@ ruili-rpa/
 | 浏览器 | webOpenBrowser / webOpenUrl / webClick / webInput / webScroll / webPressKey / webExtractText / webWaitFor / webScrapeList / webCloseBrowser / webGetTitle / webGetUrl / webEval / webGoBack / webGoForward / webRefresh / webCheckElement / webClearInput / webSelectOption |
 | 桌面 | pickElement / typeText / scroll / pressKey / desktopMoveMouse / desktopClickCoords / desktopScreenshot / desktopGetForeground |
 
-## 开发约定
+## 开发
 
-- 新增指令在 `src/engine/commands/`（或对应 web/desktop）写 `register*Commands(reg, deps?)`，在 `runManager.ts` 的 `buildEngineRegistry()` 注册。
-- 改 `.ts` 用 UTF-8 无 BOM；不要改 `RunWireEvent` 形状。
-- 每个切片按 `docs/handoff/NN-*.md` 7 段模板落盘，并更新 `docs/handoff/INDEX.md`。
-- 不引入 GPL/AGPL 依赖进主程序。
+本地开发、新增指令、测试与接力交接约定见 [CONTRIBUTING.md](./CONTRIBUTING.md)。一句话：改完跑 `npm run typecheck && npm test && npm run test:sidecar` 三绿，再按 `docs/handoff/` 模板落盘交接文档。
 
 ## 已知限制（V1）
 
