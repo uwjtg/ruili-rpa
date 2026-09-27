@@ -93,7 +93,7 @@ def test_office_route_dispatch(monkeypatch):
 
     called = {}
 
-    def fake_open(path, visible=False):
+    def fake_open(path, visible=False, engine='excel'):
         called["excel_open"] = (path, visible)
         return {"ok": True, "sheets": ["Sheet1"]}
 
@@ -106,6 +106,9 @@ def test_office_route_dispatch(monkeypatch):
     monkeypatch.setattr(office_com, "excel_read", fake_read)
     monkeypatch.setattr(office_com, "excel_write", lambda s, r, v: {"ok": True})
     monkeypatch.setattr(office_com, "excel_close", lambda save=True: {"ok": True})
+    monkeypatch.setattr(office_com, "excel_merge", lambda s, r: {"ok": True})
+    monkeypatch.setattr(office_com, "excel_export_pdf", lambda p: {"ok": True})
+    monkeypatch.setattr(office_com, "word_export_pdf", lambda p: {"ok": True})
 
     httpd, port = _start_server()
     try:

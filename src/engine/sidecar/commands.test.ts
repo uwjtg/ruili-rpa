@@ -38,7 +38,8 @@ describe('sidecar 指令（stub 客户端）', () => {
       [
         'sidecarOcr', 'sidecarStart', 'sidecarStop',
         'officeExcelOpen', 'officeExcelReadRange', 'officeExcelWriteRange',
-        'officeExcelClose', 'officeWordOpen', 'officeWordFindReplace', 'officeWordClose'
+        'officeExcelClose', 'officeExcelMerge', 'officeExcelExportPdf',
+        'officeWordOpen', 'officeWordFindReplace', 'officeWordExportPdf', 'officeWordClose'
       ].sort()
     )
   })

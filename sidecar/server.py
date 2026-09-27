@@ -399,7 +399,7 @@ class Handler(BaseHTTPRequestHandler):
                     if not path:
                         self._send_json(400, {"ok": False, "error": "path_required"})
                         return
-                    out = office_com.excel_open(path, bool(body.get("visible", False)))
+                    out = office_com.excel_open(path, bool(body.get("visible", False)), str(body.get("engine", "excel")))
                 elif route == "excel_read":
                     out = office_com.excel_read(
                         str(body.get("sheet", "")), str(body.get("range", ""))
@@ -412,6 +412,12 @@ class Handler(BaseHTTPRequestHandler):
                     out = office_com.excel_write(
                         str(body.get("sheet", "")), str(body.get("range", "")), values
                     )
+                elif route == "excel_merge":
+                    out = office_com.excel_merge(
+                        str(body.get("sheet", "")), str(body.get("range", ""))
+                    )
+                elif route == "excel_export_pdf":
+                    out = office_com.excel_export_pdf(str(body.get("out_path", "")))
                 elif route == "excel_close":
                     out = office_com.excel_close(bool(body.get("save", True)))
                 elif route == "word_open":
@@ -419,12 +425,14 @@ class Handler(BaseHTTPRequestHandler):
                     if not path:
                         self._send_json(400, {"ok": False, "error": "path_required"})
                         return
-                    out = office_com.word_open(path, bool(body.get("visible", False)))
+                    out = office_com.word_open(path, bool(body.get("visible", False)), str(body.get("engine", "word")))
                 elif route == "word_replace":
                     out = office_com.word_replace(
                         str(body.get("find", "")), str(body.get("replace", "")),
                         bool(body.get("match_case", False)),
                     )
+                elif route == "word_export_pdf":
+                    out = office_com.word_export_pdf(str(body.get("out_path", "")))
                 elif route == "word_close":
                     out = office_com.word_close(bool(body.get("save", True)))
                 else:

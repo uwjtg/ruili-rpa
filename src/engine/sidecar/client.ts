@@ -447,8 +447,8 @@ export class SidecarClient {
     }
   }
 
-  officeExcelOpen(path: string, visible = false) {
-    return this.officePost('excel_open', { path, visible })
+  officeExcelOpen(path: string, visible = false, engine = 'excel') {
+    return this.officePost('excel_open', { path, visible, engine })
   }
   officeExcelRead(sheet: string, range: string) {
     return this.officePost('excel_read', { sheet, range })
@@ -459,11 +459,20 @@ export class SidecarClient {
   officeExcelClose(save = true) {
     return this.officePost('excel_close', { save })
   }
-  officeWordOpen(path: string, visible = false) {
-    return this.officePost('word_open', { path, visible })
+  officeWordOpen(path: string, visible = false, engine = 'word') {
+    return this.officePost('word_open', { path, visible, engine })
   }
   officeWordReplace(find: string, replace: string, matchCase = false) {
     return this.officePost('word_replace', { find, replace, match_case: matchCase })
+  }
+  officeExcelMerge(sheet: string, range: string) {
+    return this.officePost('excel_merge', { sheet, range })
+  }
+  officeExcelExportPdf(outPath: string) {
+    return this.officePost('excel_export_pdf', { out_path: outPath })
+  }
+  officeWordExportPdf(outPath: string) {
+    return this.officePost('word_export_pdf', { out_path: outPath })
   }
   officeWordClose(save = true) {
     return this.officePost('word_close', { save })

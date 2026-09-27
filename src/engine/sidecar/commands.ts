@@ -21,12 +21,15 @@ export interface SidecarLike {
   ocr(imagePath: string): Promise<{ ok: boolean; text: string }>
   stop(): void
   isRunning(): boolean
-  officeExcelOpen?(path: string, visible?: boolean): Promise<Record<string, unknown>>
+  officeExcelOpen?(path: string, visible?: boolean, engine?: string): Promise<Record<string, unknown>>
   officeExcelRead?(sheet: string, range: string): Promise<Record<string, unknown>>
   officeExcelWrite?(sheet: string, range: string, values: unknown[][]): Promise<Record<string, unknown>>
   officeExcelClose?(save?: boolean): Promise<Record<string, unknown>>
-  officeWordOpen?(path: string, visible?: boolean): Promise<Record<string, unknown>>
+  officeWordOpen?(path: string, visible?: boolean, engine?: string): Promise<Record<string, unknown>>
   officeWordReplace?(find: string, replace: string, matchCase?: boolean): Promise<Record<string, unknown>>
+  officeExcelMerge?(sheet: string, range: string): Promise<Record<string, unknown>>
+  officeExcelExportPdf?(outPath: string): Promise<Record<string, unknown>>
+  officeWordExportPdf?(outPath: string): Promise<Record<string, unknown>>
   officeWordClose?(save?: boolean): Promise<Record<string, unknown>>
 }
 
@@ -112,7 +115,8 @@ export function registerSidecarCommands(
     icon: 'file-spreadsheet',
     params: [
       { key: 'path', label: 'xlsx 路径', type: 'text' },
-      { key: 'visible', label: '可见（true 显示 Excel 窗口）', type: 'text' }
+      { key: 'visible', label: '可见（true 显示 Excel 窗口）', type: 'text' },
+      { key: 'engine', label: '引擎（excel/wps，默认 excel）', type: 'text' }
     ],
     summary: (p) => `Excel open ${str(p.path)}`,
     runner: async (ctx, p) => {
@@ -232,6 +236,55 @@ export function registerSidecarCommands(
       const r = await client.officeWordClose(str(p.save) !== 'false')
       if (!r.ok) throw new Error('Word 关闭失败：' + (r.error ?? ''))
       return true
+    }
+  })
+
+  registry.register({
+    id: 'officeExcelMerge',
+    name: 'Excel 合并单元格',
+    group: 'Office',
+    icon: 'grid',
+    params: [
+      { key: 'sheet', label: '工作表名', type: 'text' },
+      { key: 'range', label: '区域', type: 'text', placeholder: 'A1:C1' }
+    ],
+    summary: (p) => `merge ${str(p.sheet)}!${str(p.range)}`,
+    runner: async (ctx, p) => {
+      if (!client.officeExcelMerge) throw new Error('sidecar 不支持 Office COM')
+      const r = await client.officeExcelMerge(
+        ctx.interpolate(str(p.sheet)), ctx.interpolate(str(p.range)))
+      if (!r.ok) throw new Error('合并失败：' + (r.error ?? ''))
+      return r
+    }
+  })
+
+  registry.register({
+    id: 'officeExcelExportPdf',
+    name: 'Excel 导出 PDF',
+    group: 'Office',
+    icon: 'file-text',
+    params: [{ key: 'outPath', label: 'PDF 输出路径', type: 'text' }],
+    summary: (p) => `excel -> ${str(p.outPath)}`,
+    runner: async (ctx, p) => {
+      if (!client.officeExcelExportPdf) throw new Error('sidecar 不支持 Office COM')
+      const r = await client.officeExcelExportPdf(ctx.interpolate(str(p.outPath)))
+      if (!r.ok) throw new Error('导出 PDF 失败：' + (r.error ?? ''))
+      return r
+    }
+  })
+
+  registry.register({
+    id: 'officeWordExportPdf',
+    name: 'Word 导出 PDF',
+    group: 'Office',
+    icon: 'file-text',
+    params: [{ key: 'outPath', label: 'PDF 输出路径', type: 'text' }],
+    summary: (p) => `word -> ${str(p.outPath)}`,
+    runner: async (ctx, p) => {
+      if (!client.officeWordExportPdf) throw new Error('sidecar 不支持 Office COM')
+      const r = await client.officeWordExportPdf(ctx.interpolate(str(p.outPath)))
+      if (!r.ok) throw new Error('导出 PDF 失败：' + (r.error ?? ''))
+      return r
     }
   })
 }

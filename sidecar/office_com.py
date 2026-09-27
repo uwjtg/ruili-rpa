@@ -28,8 +28,10 @@ except Exception as e:  # noqa: BLE001
 # ---- 模块级会话单例 ----
 _xl_app = None
 _xl_wb = None
+_xl_engine = 'excel'
 _word_app = None
 _word_doc = None
+_word_engine = 'word'
 
 
 def _require_com() -> None:
@@ -39,23 +41,28 @@ def _require_com() -> None:
 
 # ---------------- Excel ----------------
 
-def excel_open(path: str, visible: bool = False) -> Dict[str, Any]:
-    """打开 xlsx，复用已有 Excel 进程。"""
-    global _xl_app, _xl_wb
+def excel_open(path: str, visible: bool = False, engine: str = "excel") -> Dict[str, Any]:
+    """打开 xlsx；engine: excel=Excel.Application, wps=KET.Application。"""
+    global _xl_app, _xl_wb, _xl_engine
     _require_com()
     pythoncom.CoInitialize()
+    prog = {"excel": "Excel.Application", "wps": "KET.Application"}.get(engine, "Excel.Application")
     if _xl_app is None:
-        _xl_app = win32com.client.DispatchEx("Excel.Application")
+        _xl_app = win32com.client.DispatchEx(prog)
         _xl_app.Visible = bool(visible)
-        _xl_app.DisplayAlerts = False
-    # 已开过书则先关
+        try:
+            _xl_app.DisplayAlerts = False
+        except Exception:  # noqa: BLE001
+            pass
+        _xl_engine = engine
     if _xl_wb is not None:
         try:
             _xl_wb.Close(False)
         except Exception:  # noqa: BLE001
             pass
     _xl_wb = _xl_app.Workbooks.Open(path)
-    return {"ok": True, "path": path, "sheets": [s.Name for s in _xl_wb.Worksheets]}
+    return {"ok": True, "path": path, "engine": _xl_engine,
+            "sheets": [s.Name for s in _xl_wb.Worksheets]}
 
 
 def _xl_sheet(name: str):
@@ -92,6 +99,21 @@ def excel_write(sheet: str, range_: str, values: List[List[Any]]) -> Dict[str, A
     return {"ok": True, "written": len(values), "cols": len(values[0]) if values else 0}
 
 
+def excel_merge(sheet: str, range_: str) -> Dict[str, Any]:
+    """合并区域（A1:B2 合并成一个单元格）。"""
+    _require_com()
+    _xl_sheet(sheet).Range(range_).Merge()
+    return {"ok": True, "merged": range_}
+
+
+def excel_export_pdf(out_path: str) -> Dict[str, Any]:
+    """另存为 PDF（xlTypePDF = 0）。"""
+    _require_com()
+    if _xl_wb is None:
+        raise RuntimeError("Excel 未打开")
+    _xl_wb.ExportAsFixedFormat(0, out_path)
+    return {"ok": True, "pdf": out_path}
+
 def excel_close(save: bool = True) -> Dict[str, Any]:
     """关闭工作簿；save=False 丢弃改动。"""
     global _xl_wb
@@ -125,20 +147,24 @@ def excel_quit() -> Dict[str, Any]:
 
 # ---------------- Word ----------------
 
-def word_open(path: str, visible: bool = False) -> Dict[str, Any]:
-    global _word_app, _word_doc
+def word_open(path: str, visible: bool = False, engine: str = "word") -> Dict[str, Any]:
+    """打开 docx；engine: word=Word.Application, wps=KWPS.Application。"""
+    global _word_app, _word_doc, _word_engine
     _require_com()
     pythoncom.CoInitialize()
+    prog = {"word": "Word.Application", "wps": "KWPS.Application"}.get(engine, "Word.Application")
     if _word_app is None:
-        _word_app = win32com.client.DispatchEx("Word.Application")
+        _word_app = win32com.client.DispatchEx(prog)
         _word_app.Visible = bool(visible)
+        _word_engine = engine
     if _word_doc is not None:
         try:
             _word_doc.Close(False)
         except Exception:  # noqa: BLE001
             pass
     _word_doc = _word_app.Documents.Open(path, ReadOnly=False)
-    return {"ok": True, "path": path, "paragraphs": _word_doc.Paragraphs.Count}
+    return {"ok": True, "path": path, "engine": _word_engine,
+            "paragraphs": _word_doc.Paragraphs.Count}
 
 
 def word_replace(find: str, replace: str, match_case: bool = False) -> Dict[str, Any]:
@@ -158,6 +184,14 @@ def word_replace(find: str, replace: str, match_case: bool = False) -> Dict[str,
     return {"ok": True, "find": find, "replaced_to": replace,
             "words_before": count_before}
 
+
+def word_export_pdf(out_path: str) -> Dict[str, Any]:
+    """另存为 PDF（wdFormatPDF = 17）。"""
+    _require_com()
+    if _word_doc is None:
+        raise RuntimeError("Word 未打开")
+    _word_doc.SaveAs(out_path, FileFormat=17)
+    return {"ok": True, "pdf": out_path}
 
 def word_close(save: bool = True) -> Dict[str, Any]:
     global _word_doc

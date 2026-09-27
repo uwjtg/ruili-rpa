@@ -110,3 +110,4 @@
 | [104-M7-37-录制自动带回退特征.md](./104-M7-37-录制自动带回退特征.md) | M7 切片 37：录制点击自动抓 features 并生成 webClickSmart 步骤，回退链闭环（record-script/preload/env.d.ts/EditorView）；vitest 423；指令 167 不变 | 2026-09-27 | ✅ 完成 |
 | [105-M7-38-xpath与相对位置锚点.md](./105-M7-38-xpath与相对位置锚点.md) | M7 切片 38：回退链加 xpath 兜底；新指令 webInputSmart（输入框回退）、webClickRelative（行内相对位置锚点）；录制/点选带 xpath；vitest 423->426；指令 167->169 | 2026-09-27 | ✅ 完成 |
 | [106-M7-39-Office-COM.md](./106-M7-39-Office-COM.md) | M7 切片 39：pywin32 驱动本机 Office 2016——office_com.py 单例管 Excel/Word；/office/* endpoint；7 条新指令（officeExcelOpen/ReadRange/WriteRange/Close、officeWordOpen/FindReplace/Close）；pytest 88->90；指令 169->176；真机 Excel 读写冒烟通过 | 2026-09-28 | ✅ 完成 |
+| [107-M7-40-WPS与PDF导出.md](./107-M7-40-WPS与PDF导出.md) | M7 切片 40：WPS 兼容（KET/KWPS engine 参数）、Excel 合并单元格、Word/Excel 导出 PDF；真机 WPS KET 读写+PDF 冒烟通过；指令 176->179 | 2026-09-28 | ✅ 完成 |
