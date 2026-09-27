@@ -22,6 +22,7 @@
     "poc:sidecar": "vite-node scripts/poc-sidecar.ts",
     "poc:llm": "vite-node scripts/poc-llm.ts",
     "poc:exit": "vite-node scripts/poc-exit.ts",
+    "bench:selectors": "vite-node scripts/selector-real-bench.ts",
     "poc:m1": "vite-node scripts/poc-m1-e2e.ts",
     "test:sidecar": "python -m pytest sidecar/tests -q",
     "license:check": "license-checker --summary",
