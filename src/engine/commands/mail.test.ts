@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach } from 'vitest'
 import { CommandRegistry } from '../commands/registry'
-import { registerMailCommands, type MailerLike } from './mail'
+import { registerMailCommands, setMailAccountProvider, type MailerLike, type MailAccount } from './mail'
 import type { RunContext } from '../core/context'
 
 function makeCtx(): { ctx: RunContext; vars: Map<string, unknown>; logs: string[] } {
@@ -31,7 +31,7 @@ describe('mail 指令注册', () => {
   it('注册 2 条', () => {
     const reg = new CommandRegistry()
     registerMailCommands(reg, { mailer: fakeMailer() })
-    expect(reg.list().map((c) => c.id).sort()).toEqual(['sendMail', 'sendMailViaEnv'].sort())
+    expect(reg.list().map((c) => c.id).sort()).toEqual(['sendMail', 'sendMailViaEnv', 'sendMailSaved'].sort())
   })
 })
 
@@ -89,5 +89,36 @@ describe('sendMailViaEnv', () => {
       if (k.startsWith('RUI_MAIL_')) delete (process.env as any)[k]
     }
     Object.assign(process.env, OLD)
+  })
+})
+
+describe('sendMailSaved', () => {
+  it('用 provider 注入的已存账号发信（密码不进参数）', async () => {
+    const acc: MailAccount = {
+      host: 'smtp.saved.com', port: 465, secure: true,
+      user: 'saved@x.com', pass: 'SECRET', from: 'Saved <saved@x.com>'
+    }
+    setMailAccountProvider(() => acc)
+    const reg = new CommandRegistry()
+    const mailer = fakeMailer()
+    registerMailCommands(reg, { mailer })
+    const { ctx } = makeCtx()
+    await reg.get('sendMailSaved')!.runner(ctx, { to: 'to@x.com', subject: 'hi', text: 'body' }, step)
+    expect(mailer.sent).toHaveLength(1)
+    const opts = mailer.sent[0] as any
+    expect(opts.host).toBe('smtp.saved.com')
+    expect(opts.user).toBe('saved@x.com')
+    expect(opts.pass).toBe('SECRET')
+    expect(opts.from).toBe('Saved <saved@x.com>')
+    expect(opts.to).toBe('to@x.com')
+  })
+  it('未配置账号时抛错', async () => {
+    setMailAccountProvider(() => null)
+    const reg = new CommandRegistry()
+    registerMailCommands(reg, { mailer: fakeMailer() })
+    const { ctx } = makeCtx()
+    await expect(
+      reg.get('sendMailSaved')!.runner(ctx, { to: 'a@x.com', subject: 's', text: 'b' }, step)
+    ).rejects.toThrow(/未配置邮件账号/)
   })
 })

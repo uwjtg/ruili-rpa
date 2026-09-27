@@ -132,6 +132,18 @@ const api = {
     ): Promise<{ ok: boolean; explanation?: string; error?: string }> =>
       ipcRenderer.invoke('llm:explain-error', runId)
   },
+  mail: {
+    /** M7-30：读已保存邮件账号（密码不下发，只回 hasPassword） */
+    getAccount: (): Promise<{
+      hasAccount: boolean; host: string; port: number; secure: boolean
+      user: string; from: string; hasPassword: boolean
+    }> => ipcRenderer.invoke('mail:get-account'),
+    /** M7-30：保存邮件账号（pass 空串=保留旧密码），DPAPI 加密落盘 */
+    saveAccount: (input: {
+      host: string; port?: number; secure?: boolean; user: string; from?: string; pass?: string
+    }): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('mail:save-account', input)
+  },
   registry: {
     /** 拉取全部指令的 UI 元数据（runner/summary 函数已被 IPC 丢弃） */
     list: (): Promise<Array<Omit<CmdMeta, 'summary'>>> =>

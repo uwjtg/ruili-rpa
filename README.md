@@ -98,8 +98,6 @@ ruili-rpa/
 
 ## 已知限制（V1）
 
-- 邮件密码未走 safeStorage 加密入库
-- 教程视图内容为占位
 - 未配 Windows 代码签名
 - WPS/Office COM 轨未做
 - 装机版自动更新端到端未在真机验过
@@ -107,4 +105,4 @@ ruili-rpa/
 
 ## 许可证
 
-私有项目，未开源。第三方组件清单见 [docs/THIRD-PARTY-NOTICES.md](./docs/THIRD-PARTY-NOTICES.md)。
+[MIT](./LICENSE)。第三方组件清单见 [docs/THIRD-PARTY-NOTICES.md](./docs/THIRD-PARTY-NOTICES.md)。

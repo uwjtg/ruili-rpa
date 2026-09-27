@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 主进程 SQLite 存储（M2 切片 2 持久化）。
  *
  * 选型：better-sqlite3（MIT，计划书 §4.1「本地存储」锁定）。
@@ -614,6 +614,50 @@ export function saveLlmConfig(cfg: LlmConfigRecord): { ok: true } | { ok: false;
   }
 }
 
+/* ---------- 邮件账号（M7-30）：settings 表存 JSON；密码由主进程 safeStorage 加密后落盘 ---------- */
+
+const SETTINGS_KEY_MAIL_ACCOUNT = 'mail.account'
+
+/** 一个发信/收信账号的落盘记录（passEnc 是 safeStorage 加密后的 base64；本模块不碰加密）。 */
+export interface MailAccountRecord {
+  host: string
+  port: number
+  secure: boolean
+  user: string
+  /** 已加密密码/授权码（base64）；空串表示未设置 */
+  passEnc: string
+  from: string
+}
+
+/** 读邮件账号；无记录返回 null。 */
+export function loadMailAccount(): MailAccountRecord | null {
+  try {
+    const raw = getSetting(SETTINGS_KEY_MAIL_ACCOUNT)
+    if (raw === null) return null
+    const p = JSON.parse(raw) as Partial<MailAccountRecord>
+    if (!p || !p.host || !p.user) return null
+    return {
+      host: String(p.host),
+      port: Number(p.port ?? 465),
+      secure: p.secure !== false,
+      user: String(p.user),
+      passEnc: String(p.passEnc ?? ''),
+      from: String(p.from ?? p.user)
+    }
+  } catch {
+    return null
+  }
+}
+
+/** 保存邮件账号（覆盖写）。 */
+export function saveMailAccount(rec: MailAccountRecord): { ok: true } | { ok: false; error: string } {
+  try {
+    setSetting(SETTINGS_KEY_MAIL_ACCOUNT, JSON.stringify(rec))
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
 /* ---------- 计划任务（M5 调度切片） ---------- */
 
 /** 一条计划任务（跨进程传输形状） */

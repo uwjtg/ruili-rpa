@@ -59,6 +59,23 @@ const defaultMailer: MailerLike = {
   }
 }
 
+/** 运行时解析出的已配置邮件账号（密码已解密，由主进程注入）。 */
+export interface MailAccount {
+  host: string
+  port: number
+  secure: boolean
+  user: string
+  pass: string
+  from: string
+}
+
+let accountProvider: () => MailAccount | null = () => null
+
+/** 主进程注入：从 safeStorage 解密后的邮件账号解析器。 */
+export function setMailAccountProvider(fn: () => MailAccount | null): void {
+  accountProvider = fn
+}
+
 export interface MailCommandsDeps {
   mailer?: MailerLike
 }
@@ -68,6 +85,43 @@ export function registerMailCommands(
   deps: MailCommandsDeps = {}
 ): void {
   const mailer = deps.mailer ?? defaultMailer
+
+  registry.register({
+    id: 'sendMailSaved',
+    name: '发送邮件（用已保存账号）',
+    group: '邮件',
+    icon: 'mail',
+    params: [
+      { key: 'to', label: '收件人（逗号分隔）', type: 'text' },
+      { key: 'subject', label: '主题', type: 'text' },
+      { key: 'text', label: '正文（纯文本）', type: 'text' },
+      { key: 'attachments', label: '附件路径（逗号分隔，可选）', type: 'text' }
+    ],
+    summary: (p) => `邮件(已存账号) -> ${str(p.to)}`,
+    runner: async (ctx, p) => {
+      const acc = accountProvider()
+      if (!acc || !acc.host || !acc.user) {
+        throw new Error('未配置邮件账号：请到设置填写 SMTP 账号（密码加密保存）')
+      }
+      const attachments = str(p.attachments)
+        ? str(p.attachments).split(',').map((s) => s.trim()).filter(Boolean)
+        : []
+      const info = await mailer.send({
+        host: acc.host,
+        port: acc.port,
+        secure: acc.secure,
+        user: acc.user,
+        pass: acc.pass,
+        from: acc.from,
+        to: ctx.interpolate(str(p.to)),
+        subject: ctx.interpolate(str(p.subject)),
+        text: ctx.interpolate(str(p.text)),
+        attachments
+      })
+      ctx.log('success', `邮件已发送 ${info.messageId ?? ''}`)
+      return info
+    }
+  })
 
   registry.register({
     id: 'sendMail',

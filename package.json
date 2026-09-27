@@ -4,7 +4,7 @@
   "description": "锐流 RPA —— 对标影刀 RPA 的 Windows 桌面自动化客户端（阶段 1：骨架与壳）",
   "main": "out/main/index.js",
   "author": "ruili-rpa",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "electron-vite dev",

@@ -14,6 +14,7 @@ import LlmConfigPanel from './editor/LlmConfigPanel'
 import ElementPanel from './editor/ElementPanel'
 import ThresholdPanel from './editor/ThresholdPanel'
 import AboutPanel from './editor/AboutPanel'
+import MailAccountPanel from './editor/MailAccountPanel'
 import ScrapeWizard from './editor/ScrapeWizard'
 import { generateScrapeFlow } from '../../../shared/scrape/generate'
 import type { ScrapeWizardSpec } from '../../../shared/scrape/spec'
@@ -1128,6 +1129,7 @@ export default function EditorView(): JSX.Element {
               <div style={{ overflow: 'auto', height: '100%' }}>
                 <ThresholdPanel onNotify={(msg) => push('sys', msg)} flow={flow} onChangeFlow={(f) => commit(f)} />
                 <LlmConfigPanel />
+                <MailAccountPanel />
                 <AboutPanel />
               </div>
             ) : (

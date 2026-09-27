@@ -68,6 +68,15 @@ declare global {
         test: () => Promise<{ ok: boolean; model?: string; error?: string }>
         explainError: (runId: string) => Promise<{ ok: boolean; explanation?: string; error?: string }>
       }
+      mail: {
+        getAccount: () => Promise<{
+          hasAccount: boolean; host: string; port: number; secure: boolean
+          user: string; from: string; hasPassword: boolean
+        }>
+        saveAccount: (input: {
+          host: string; port?: number; secure?: boolean; user: string; from?: string; pass?: string
+        }) => Promise<{ ok: boolean; error?: string }>
+      }
       registry: {
         list: () => Promise<Array<Omit<CmdMeta, 'summary'>>>
       }

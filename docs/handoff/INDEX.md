@@ -100,3 +100,6 @@
 | [94-M7-27-用户文档README.md](./94-M7-27-用户文档README.md) | M7 切片 27 · 新增根 README.md（功能/快速上手/目录/指令速查表 160+/开发约定/已知限制）；纯文档无代码改动 | 2026-09-27 | ✅ 完成 |
 | [95-M7-28-拆分CONTRIBUTING.md](./95-M7-28-拆分CONTRIBUTING.md) | M7 切片 28 · 新增 CONTRIBUTING.md（环境/命令/新增指令6步/sidecar约定/编码硬约束/DoD/接力流程）；README 开发约定改指针；纯文档 | 2026-09-27 | ✅ 完成 |
 | [96-M7-29-UI截图README配图.md](./96-M7-29-UI截图README配图.md) | M7 切片 29 · 复用 smoke capturePage 截工作台/编辑器/市场 3 图入 docs/screenshots/；README 加「界面预览」；纯文档+图片 | 2026-09-27 | ✅ 完成 |
+| [97-M7-30-学院教程视图.md](./97-M7-30-学院教程视图.md) | M7 切片 30：AcademyView 从占位改为真实课程页（紫色 hero + 6 张初/中/高级课程卡，跳转 /market /editor /triggers）；纯前端无新指令 | 2026-09-27 | ✅ 完成 |
+| [98-M7-31-MIT开源许可证.md](./98-M7-31-MIT开源许可证.md) | M7 切片 31：新增根 LICENSE（MIT）；package.json license UNLICENSED→MIT；README 许可证段改 MIT 链接 | 2026-09-27 | ✅ 完成 |
+| [99-M7-32-邮件账号safeStorage.md](./99-M7-32-邮件账号safeStorage.md) | M7 切片 32：SMTP 账号 safeStorage 加密入库（mail.account），新指令 sendMailSaved；IPC get/save-account + MailAccountPanel 设置面板；vitest 405→407；指令 161→162 | 2026-09-27 | ✅ 完成 |

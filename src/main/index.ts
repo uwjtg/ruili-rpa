@@ -3,6 +3,7 @@ import { writeFile, readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'path'
 import { RunManager, buildEngineRegistry } from '../engine/run/runManager'
+import { setMailAccountProvider } from '../engine/commands/mail'
 import type { RunWireEvent } from '../shared/run-protocol'
 import type { FlowDoc } from '../shared/ast'
 import { buildFlowPackage, parseFlowPackage } from '../shared/flow-package'
@@ -38,7 +39,9 @@ import {
   listRunEntries,
   clearRunHistory,
   loadLlmConfig,
-  saveLlmConfig
+  saveLlmConfig,
+  loadMailAccount,
+  saveMailAccount
 } from './store/db'
 import { TaskScheduler } from './scheduler'
 import { HotkeyManager } from './hotkeys'
@@ -358,6 +361,60 @@ function reloadLlmClientFromDb(): void {
   llmClient = new LlmClient(providers)
   llmClient.setActive(cfg.active)
 }
+
+/** M7-30：把 DB 里加密的邮件账号接到引擎 sendMailSaved；惰性读取，改完 IPC 即生效。 */
+function wireMailAccountProvider(): void {
+  setMailAccountProvider(() => {
+    const a = loadMailAccount()
+    if (!a) return null
+    return {
+      host: a.host,
+      port: a.port,
+      secure: a.secure,
+      user: a.user,
+      pass: decryptKey(a.passEnc),
+      from: a.from
+    }
+  })
+}
+
+ipcMain.handle('mail:get-account', () => {
+  const a = loadMailAccount()
+  if (!a) {
+    return { hasAccount: false, host: '', port: 465, secure: true, user: '', from: '', hasPassword: false }
+  }
+  return {
+    hasAccount: true,
+    host: a.host,
+    port: a.port,
+    secure: a.secure,
+    user: a.user,
+    from: a.from,
+    hasPassword: !!a.passEnc
+  }
+})
+
+ipcMain.handle('mail:save-account', (_, input: {
+  host: string; port?: number; secure?: boolean; user: string; from?: string; pass?: string
+}) => {
+  try {
+    const existing = loadMailAccount()
+    let passEnc = existing?.passEnc ?? ''
+    if (input.pass && input.pass.trim() !== '') {
+      passEnc = encryptKey(input.pass.trim())
+    }
+    return saveMailAccount({
+      host: String(input.host ?? ''),
+      port: Number(input.port ?? 465),
+      secure: input.secure !== false,
+      user: String(input.user ?? ''),
+      from: String(input.from ?? input.user ?? ''),
+      passEnc
+    })
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+})
 
 ipcMain.handle('llm:list-providers', () => ({
   active: llmClient.active().name,
@@ -727,6 +784,7 @@ app.whenReady().then(() => {
   perfMark('window-created')
   // M5-11: load LLM config from DB
   reloadLlmClientFromDb()
+  wireMailAccountProvider()
   // M7-9: 系统托盘 + 开机自启
   attachCloseToTray(createWindow())
   initTray({
