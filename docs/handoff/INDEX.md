@@ -106,3 +106,4 @@
 | [100-M7-33-数据库指令组.md](./100-M7-33-数据库指令组.md) | M7 切片 33：补数据库能力域，新增 dbConnect/dbQuery/dbExecute/dbClose 4 条（SQLite 走 better-sqlite3、MySQL 懒加载 mysql2）；runManager disposer 加 disposeDb；vitest 407->413；指令 162->166 | 2026-09-27 | ✅ 完成 |
 | [101-M7-34-选择器抓取基准.md](./101-M7-34-选择器抓取基准.md) | M7 切片 34：M3 验收闭环——linkedom 跑生产抓取脚本，10 类典型布局基准实测 10/10=100%（门禁≥80%）；无生产代码改动 | 2026-09-27 | ✅ 完成 |
 | [102-M7-35-真实站基准与打包实测.md](./102-M7-35-真实站基准与打包实测.md) | M7 切片 35：真实站基准 books/quotes.toscrape 2/2（20 书+10 名言）；npm run dist 出 NSIS 安装包 234.7MB；确认 CI/release workflow 早已就位 | 2026-09-27 | ✅ 完成 |
+| [103-M7-36-选择器回退链.md](./103-M7-36-选择器回退链.md) | M7 切片 36：§6.2 选择器回退链——buildFallbackSelectors(id→testid→aria→name→role→tag.class→text→cssPath)；pick 录制冗余抓 features；WebSession.locateFirst 逐个试；新指令 webClickSmart；vitest 413→423；指令 166→167 | 2026-09-27 | ✅ 完成 |

@@ -15,6 +15,7 @@
 
 import type { RegisteredCommand } from '../commands/registry'
 import type { WebSession } from './session'
+import { buildFallbackSelectors, type ElementFeatures } from '../../shared/scrape/fallback'
 import { getWebSession } from './session'
 
 type RegistryLike = { register(c: RegisteredCommand): void }
@@ -170,6 +171,40 @@ export function registerWebExtraCommands(
         { sel: selector, v: value }
       )
       return true
+    }
+  })
+
+  // 选择器回退链（M7-36）：点选录制存的特征包，回放按 id->testid->aria->... 顺序定位
+  registry.register({
+    id: 'webClickSmart',
+    name: '智能点击（回退链）',
+    group: '网页',
+    icon: 'mouse-pointer',
+    params: [
+      {
+        key: 'featuresJson',
+        label: '元素特征 JSON（点选录制产物）',
+        type: 'text',
+        placeholder: '{"id":"loginBtn","ariaLabel":"登录",...}'
+      },
+      { key: 'cssPath', label: '兜底 CSS 路径', type: 'text', placeholder: 'div.box > button' }
+    ],
+    summary: (p) => `smart click ${str(p.cssPath)}`,
+    runner: async (ctx, p) => {
+      const raw = ctx.interpolate(str(p.featuresJson))
+      let feats: ElementFeatures = {}
+      if (raw.trim()) {
+        try { feats = JSON.parse(raw) as ElementFeatures } catch { throw new Error('featuresJson 不是合法 JSON') }
+      }
+      const cssPath = ctx.interpolate(str(p.cssPath))
+      if (cssPath) feats.cssPath = cssPath
+      const candidates = buildFallbackSelectors(feats)
+      if (candidates.length === 0) throw new Error('没有可用的元素特征，请至少填 cssPath')
+      const hit = await session.locateFirst(candidates)
+      if (!hit) throw new Error('回退链全部未命中：' + candidates.join(' | '))
+      ctx.log('info', `回退链命中：${hit}（共试 ${candidates.length} 个候选）`)
+      await session.click(hit)
+      return { ok: true, used: hit, tried: candidates.length }
     }
   })
 }

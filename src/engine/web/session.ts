@@ -57,6 +57,9 @@ export interface WebSession {
   startWebRecord(): Promise<void>
   /** 停止录制并返回事件数组 */
   stopWebRecord(): Promise<WebRecordEvent[]>
+  /** 选择器回退链：按候选顺序定位，返回第一个命中的选择器；都不命中返回 null */
+  locateFirst(candidates: string[], frameSelector?: string): Promise<string | null>
+
   /** 关闭浏览器 */
   close(): Promise<void>
   /** 是否已启动 */
@@ -175,6 +178,22 @@ export class RealWebSession implements WebSession {
 
   async getText(selector: string, frameSelector?: string): Promise<string> {
     return (await this.loc(selector, frameSelector).first().textContent()) ?? ''
+  }
+
+  async locateFirst(candidates: string[], frameSelector?: string): Promise<string | null> {
+    const page = this.requirePage()
+    for (const cand of candidates) {
+      try {
+        const loc = frameSelector
+          ? page.frameLocator(frameSelector).locator(cand)
+          : page.locator(cand)
+        await loc.first().waitFor({ timeout: 1500, state: 'attached' })
+        return cand
+      } catch {
+        // 该候选没命中，试下一个
+      }
+    }
+    return null
   }
 
   async getTitle(): Promise<string> {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { CommandRegistry } from '../commands/registry'
 import { registerWebExtraCommands } from './extra'
 import type { WebSession } from './session'
@@ -43,7 +43,8 @@ function fakeSession(): WebSession & { calls: string[] } {
     },
     startPagePick: async () => ({} as any),
     startWebRecord: async () => {},
-    stopWebRecord: async () => [] as any
+    stopWebRecord: async () => [] as any,
+    locateFirst: vi.fn(async (cands: string[]) => cands[0] ?? null)
   }
 }
 
@@ -51,7 +52,7 @@ describe('web extra 指令注册', () => {
   it('注册 9 条', () => {
     const reg = new CommandRegistry()
     registerWebExtraCommands(reg, { session: fakeSession() })
-    expect(reg.list()).toHaveLength(9)
+    expect(reg.list()).toHaveLength(10)
   })
 })
 
@@ -93,5 +94,33 @@ describe('web extra 行为', () => {
     const { ctx } = makeCtx()
     await reg.get('webClearInput')!.runner(ctx, { selector: '#q' }, step)
     expect(s.calls).toContain('fill:#q=')
+  })
+})
+
+describe('webClickSmart 回退链', () => {
+  it('按特征构造候选并点击第一个命中项', async () => {
+    const reg = new CommandRegistry()
+    const session = fakeSession()
+    registerWebExtraCommands(reg, { session })
+    const { ctx } = makeCtx()
+    await reg.get('webClickSmart')!.runner(ctx, {
+      featuresJson: '{"id":"loginBtn","ariaLabel":"登录"}',
+      cssPath: 'div.box > button'
+    }, step)
+    const lf = session.locateFirst as unknown as ReturnType<typeof vi.fn>
+    expect(lf).toHaveBeenCalled()
+    const cands = lf.mock.calls[0][0] as string[]
+    expect(cands[0]).toBe('#loginBtn')
+  })
+
+  it('全部未命中抛错', async () => {
+    const reg = new CommandRegistry()
+    const session = fakeSession()
+    ;(session.locateFirst as any).mockResolvedValue(null)
+    registerWebExtraCommands(reg, { session })
+    const { ctx } = makeCtx()
+    await expect(
+      reg.get('webClickSmart')!.runner(ctx, { featuresJson: '', cssPath: 'x' }, step)
+    ).rejects.toThrow(/回退链全部未命中/)
   })
 })

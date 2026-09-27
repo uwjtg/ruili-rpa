@@ -62,6 +62,7 @@ export const PICK_START_FN = `function startPagePick() {
   box.style.cssText = 'position:fixed;pointer-events:none;border:2px solid #7C5CFC;background:rgba(124,92,252,0.15);z-index:2147483647;display:none;';
   document.documentElement.appendChild(box);
 
+  function stripHash(c) { var f = (c||'').trim().split(/\s+/)[0] || ''; return f.replace(/[-_][a-zA-Z0-9]{6,}$/, ''); }
   function onMove(e) {
     var el = document.elementFromPoint(e.clientX, e.clientY);
     if (!el) return;
@@ -86,7 +87,16 @@ export const PICK_START_FN = `function startPagePick() {
       window.__ruiliPickResult = {
         selector: cssPathOf(el),
         tag: el.tagName.toLowerCase(),
-        text: (el.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 60)
+        text: (el.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 60),
+        features: {
+          id: el.id || '',
+          name: el.getAttribute('name') || '',
+          ariaLabel: el.getAttribute('aria-label') || '',
+          dataTestid: el.getAttribute('data-testid') || '',
+          role: el.getAttribute('role') || '',
+          placeholder: el.getAttribute('placeholder') || '',
+          classStem: stripHash(el.getAttribute('class') || '')
+        }
       };
     }
   }
@@ -112,9 +122,21 @@ export const PICK_READ_FN = `function readPagePick() {
   };
 }`
 
+/** 拾取时冗余抓到的元素特征（用于回放回退链） */
+export interface PickedFeatures {
+  id: string
+  name: string
+  ariaLabel: string
+  dataTestid: string
+  role: string
+  placeholder: string
+  classStem: string
+}
+
 /** 拾取结果类型 */
 export interface PagePickResult {
   selector: string
   tag: string
   text: string
+  features?: PickedFeatures
 }
