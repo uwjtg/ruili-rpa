@@ -24,6 +24,7 @@ describe('buildFallbackSelectors 回退链', () => {
       tag: 'button',
       classStem: 'btn',
       text: '登 录',
+      xpath: '//div[@id="box"]/button',
       cssPath: 'div.box > button.btn'
     })
     expect(list).toEqual([
@@ -34,8 +35,14 @@ describe('buildFallbackSelectors 回退链', () => {
       '[role="button"]',
       'button.btn',
       'text=登 录',
+      'xpath=//div[@id="box"]/button',
       'div.box > button.btn'
     ])
+  })
+
+  it('xpath 以 xpath= 前缀且排在 cssPath 之前', () => {
+    const list = buildFallbackSelectors({ xpath: '//body/button[1]', cssPath: 'button.foo' })
+    expect(list).toEqual(['xpath=//body/button[1]', 'button.foo'])
   })
 
   it('跳过空值与未提供的特征', () => {

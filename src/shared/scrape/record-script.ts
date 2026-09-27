@@ -39,6 +39,25 @@ export const REC_START_FN = `function startWebRecord() {
     ${CSS_PATH_FN.replace(/^function cssPathOf\(el\) \{/, '').replace(/\}\s*$/, '')}
   }
 
+  function xpathOf(el) {
+    var parts = [];
+    var cur = el;
+    while (cur && cur.nodeType === 1 && cur.tagName.toLowerCase() !== 'html') {
+      var tag = cur.tagName.toLowerCase();
+      var parent = cur.parentNode;
+      if (!parent) break;
+      var kids = parent.children;
+      var pos = 0, count = 0;
+      for (var i = 0; i < kids.length; i++) {
+        if (kids[i].tagName && kids[i].tagName.toLowerCase() === tag) {
+          count++; if (kids[i] === cur) pos = count;
+        }
+      }
+      parts.unshift(tag + '[' + pos + ']');
+      cur = parent;
+    }
+    return '/' + parts.join('/');
+  }
   function featsOf(el) {
     function strip(c) { var f = (c||'').trim().split(/\s+/)[0] || ''; return f.replace(/[-_][a-zA-Z0-9]{6,}$/, ''); }
     return {
@@ -48,7 +67,8 @@ export const REC_START_FN = `function startWebRecord() {
       dataTestid: el.getAttribute('data-testid') || '',
       role: el.getAttribute('role') || '',
       placeholder: el.getAttribute('placeholder') || '',
-      classStem: strip(el.getAttribute('class') || '')
+      classStem: strip(el.getAttribute('class') || ''),
+      xpath: xpathOf(el)
     };
   }
   function onDown(e) {
@@ -147,5 +167,5 @@ export interface WebRecordEvent {
   deltaY?: number
   key?: string
   ts?: number
-  features?: { id: string; name: string; ariaLabel: string; dataTestid: string; role: string; placeholder: string; classStem: string }
+  features?: { id: string; name: string; ariaLabel: string; dataTestid: string; role: string; placeholder: string; classStem: string; xpath: string }
 }

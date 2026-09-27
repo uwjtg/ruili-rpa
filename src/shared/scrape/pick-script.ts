@@ -62,6 +62,25 @@ export const PICK_START_FN = `function startPagePick() {
   box.style.cssText = 'position:fixed;pointer-events:none;border:2px solid #7C5CFC;background:rgba(124,92,252,0.15);z-index:2147483647;display:none;';
   document.documentElement.appendChild(box);
 
+  function xpathOf(el) {
+    var parts = [];
+    var cur = el;
+    while (cur && cur.nodeType === 1 && cur.tagName.toLowerCase() !== 'html') {
+      var tag = cur.tagName.toLowerCase();
+      var parent = cur.parentNode;
+      if (!parent) break;
+      var kids = parent.children;
+      var pos = 0, count = 0;
+      for (var i = 0; i < kids.length; i++) {
+        if (kids[i].tagName && kids[i].tagName.toLowerCase() === tag) {
+          count++; if (kids[i] === cur) pos = count;
+        }
+      }
+      parts.unshift(tag + '[' + pos + ']');
+      cur = parent;
+    }
+    return '/' + parts.join('/');
+  }
   function stripHash(c) { var f = (c||'').trim().split(/\s+/)[0] || ''; return f.replace(/[-_][a-zA-Z0-9]{6,}$/, ''); }
   function onMove(e) {
     var el = document.elementFromPoint(e.clientX, e.clientY);
@@ -95,7 +114,8 @@ export const PICK_START_FN = `function startPagePick() {
           dataTestid: el.getAttribute('data-testid') || '',
           role: el.getAttribute('role') || '',
           placeholder: el.getAttribute('placeholder') || '',
-          classStem: stripHash(el.getAttribute('class') || '')
+          classStem: stripHash(el.getAttribute('class') || ''),
+          xpath: xpathOf(el)
         }
       };
     }
@@ -131,6 +151,7 @@ export interface PickedFeatures {
   role: string
   placeholder: string
   classStem: string
+  xpath: string
 }
 
 /** 拾取结果类型 */

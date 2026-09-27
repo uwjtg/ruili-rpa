@@ -38,6 +38,7 @@ function fakeSession(): WebSession & { calls: string[] } {
     eval: async (fn: string, arg?: unknown) => {
       calls.push(`eval:${fn} arg=${JSON.stringify(arg)}`)
       if (fn.includes('location.href')) return 'https://example.com/'
+      if (fn.includes('scope.parentElement')) return { ok: true, text: '删除' }
       if (fn.includes('querySelector')) return arg === '#exists'
       return 'ok'
     },
@@ -52,7 +53,7 @@ describe('web extra 指令注册', () => {
   it('注册 9 条', () => {
     const reg = new CommandRegistry()
     registerWebExtraCommands(reg, { session: fakeSession() })
-    expect(reg.list()).toHaveLength(10)
+    expect(reg.list()).toHaveLength(12)
   })
 })
 
@@ -122,5 +123,29 @@ describe('webClickSmart 回退链', () => {
     await expect(
       reg.get('webClickSmart')!.runner(ctx, { featuresJson: '', cssPath: 'x' }, step)
     ).rejects.toThrow(/回退链全部未命中/)
+  })
+})
+
+describe('webInputSmart / webClickRelative', () => {
+  it('webInputSmart 按链定位后 fill', async () => {
+    const reg = new CommandRegistry()
+    const session = fakeSession()
+    registerWebExtraCommands(reg, { session })
+    const { ctx } = makeCtx()
+    const out = await reg.get('webInputSmart')!.runner(ctx, {
+      featuresJson: '{"id":"kw"}', cssPath: '#kw', value: '你好'
+    }, step)
+    expect((out as any).used).toBe('#kw')
+  })
+
+  it('webClickRelative 调 eval 找行内元素', async () => {
+    const reg = new CommandRegistry()
+    const session = fakeSession()
+    registerWebExtraCommands(reg, { session })
+    const { ctx } = makeCtx()
+    const out = await reg.get('webClickRelative')!.runner(ctx, {
+      anchorSelector: 'td.order-no', relativeText: '删除'
+    }, step)
+    expect((out as any).ok).toBe(true)
   })
 })

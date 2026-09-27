@@ -207,4 +207,66 @@ export function registerWebExtraCommands(
       return { ok: true, used: hit, tried: candidates.length }
     }
   })
+
+  registry.register({
+    id: 'webInputSmart',
+    name: '智能输入（回退链）',
+    group: '网页',
+    icon: 'edit-3',
+    params: [
+      { key: 'featuresJson', label: '元素特征 JSON', type: 'text' },
+      { key: 'cssPath', label: '兜底 CSS 路径', type: 'text' },
+      { key: 'value', label: '要输入的内容', type: 'text' }
+    ],
+    summary: (p) => `smart input ${str(p.cssPath)}`,
+    runner: async (ctx, p) => {
+      const raw = ctx.interpolate(str(p.featuresJson))
+      let feats = {} as any
+      if (raw.trim()) {
+        try { feats = JSON.parse(raw) } catch { throw new Error('featuresJson 不是合法 JSON') }
+      }
+      const cssPath = ctx.interpolate(str(p.cssPath))
+      if (cssPath) feats.cssPath = cssPath
+      const candidates = buildFallbackSelectors(feats)
+      if (candidates.length === 0) throw new Error('没有可用的元素特征')
+      const hit = await session.locateFirst(candidates)
+      if (!hit) throw new Error('回退链全部未命中：' + candidates.join(' | '))
+      await session.fill(hit, ctx.interpolate(str(p.value)))
+      return { ok: true, used: hit }
+    }
+  })
+
+  // 相对位置锚点：在 anchor 所在行/容器内，点含某文本的可点元素（常见"这一行的删除/编辑按钮"）
+  registry.register({
+    id: 'webClickRelative',
+    name: '相对位置点击（行内锚点）',
+    group: '网页',
+    icon: 'crosshair',
+    params: [
+      { key: 'anchorSelector', label: '锚点选择器（如某行单元格）', type: 'text', placeholder: 'td.order-no' },
+      { key: 'relativeText', label: '同行要点击的元素文本', type: 'text', placeholder: '删除' }
+    ],
+    summary: (p) => `row click "${str(p.relativeText)}" near ${str(p.anchorSelector)}`,
+    runner: async (ctx, p) => {
+      const anchor = ctx.interpolate(str(p.anchorSelector))
+      const rel = ctx.interpolate(str(p.relativeText))
+      const out = await session.eval(
+        `(args) => {
+          const a = document.querySelector(args.anchor);
+          if (!a) return { ok: false, reason: 'anchor 未命中' };
+          let scope = a;
+          for (let i = 0; i < 3 && scope.parentElement; i++) scope = scope.parentElement;
+          const cands = Array.from(scope.querySelectorAll('button,a,[role=button],.btn,[onclick]'));
+          const hit = cands.find((el) => (el.textContent || '').indexOf(args.rel) >= 0);
+          if (!hit) return { ok: false, reason: '行内未找到含文本的可点元素' };
+          hit.scrollIntoView({ block: 'center' });
+          hit.click();
+          return { ok: true, text: (hit.textContent || '').trim().slice(0, 30) };
+        }`,
+        { anchor, rel }
+      )
+      if (!out || !(out as any).ok) throw new Error('相对位置点击失败：' + ((out as any)?.reason ?? '未知'))
+      return out
+    }
+  })
 }

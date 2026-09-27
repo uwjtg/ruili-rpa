@@ -24,6 +24,8 @@ export interface ElementFeatures {
   classStem?: string
   /** 既有全 CSS 路径（最后兜底） */
   cssPath?: string
+  /** 元素到根的 XPath（比 CSS 路径更抗 class/结构微调） */
+  xpath?: string
 }
 
 function cssEscape(s: string): string {
@@ -56,6 +58,7 @@ export function buildFallbackSelectors(f: ElementFeatures): string[] {
   if (f.role) push(`[role="${cssEscape(f.role)}"]`)
   if (f.tag && f.classStem) push(`${f.tag}.${f.classStem}`)
   if (f.text && f.text.length <= 60) push(`text=${cssEscape(f.text)}`)
+  if (f.xpath) push(`xpath=${f.xpath}`)
   if (f.cssPath) push(f.cssPath)
 
   return out
