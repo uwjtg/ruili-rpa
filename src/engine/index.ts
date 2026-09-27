@@ -18,6 +18,8 @@ export { registerXlsxCommands } from './commands/xlsx'
 export { registerDataExtra4Commands } from './commands/data'
 export { registerWebExtraCommands } from './web/extra'
 export { registerImapCommands } from './commands/imap'
+export { registerDbCommands, closeDb, setDbDriverProvider } from './commands/db'
+export type { DbLike, DbConnectConfig } from './commands/db'
 export { registerDataExtra5Commands } from './commands/data'
 export { DEMO_FLOW } from './core/demo-flow'
 // 阶段 3 · 真实链路

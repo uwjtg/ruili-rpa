@@ -103,3 +103,5 @@
 | [97-M7-30-学院教程视图.md](./97-M7-30-学院教程视图.md) | M7 切片 30：AcademyView 从占位改为真实课程页（紫色 hero + 6 张初/中/高级课程卡，跳转 /market /editor /triggers）；纯前端无新指令 | 2026-09-27 | ✅ 完成 |
 | [98-M7-31-MIT开源许可证.md](./98-M7-31-MIT开源许可证.md) | M7 切片 31：新增根 LICENSE（MIT）；package.json license UNLICENSED→MIT；README 许可证段改 MIT 链接 | 2026-09-27 | ✅ 完成 |
 | [99-M7-32-邮件账号safeStorage.md](./99-M7-32-邮件账号safeStorage.md) | M7 切片 32：SMTP 账号 safeStorage 加密入库（mail.account），新指令 sendMailSaved；IPC get/save-account + MailAccountPanel 设置面板；vitest 405→407；指令 161→162 | 2026-09-27 | ✅ 完成 |
+| [100-M7-33-数据库指令组.md](./100-M7-33-数据库指令组.md) | M7 切片 33：补数据库能力域，新增 dbConnect/dbQuery/dbExecute/dbClose 4 条（SQLite 走 better-sqlite3、MySQL 懒加载 mysql2）；runManager disposer 加 disposeDb；vitest 407->413；指令 162->166 | 2026-09-27 | ✅ 完成 |
+| [101-M7-34-选择器抓取基准.md](./101-M7-34-选择器抓取基准.md) | M7 切片 34：M3 验收闭环——linkedom 跑生产抓取脚本，10 类典型布局基准实测 10/10=100%（门禁≥80%）；无生产代码改动 | 2026-09-27 | ✅ 完成 |

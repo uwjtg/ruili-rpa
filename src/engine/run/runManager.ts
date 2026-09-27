@@ -33,6 +33,7 @@ import { registerXlsxCommands } from '../commands/xlsx'
 import { registerDataExtra4Commands } from '../commands/data'
 import { registerWebExtraCommands } from '../web/extra'
 import { registerImapCommands } from '../commands/imap'
+import { registerDbCommands, closeDb } from '../commands/db'
 import { registerDataExtra5Commands } from '../commands/data'
 import { getWebSession } from '../web/session'
 import { getExcelSession } from '../excel/workbook'
@@ -60,6 +61,7 @@ export function buildEngineRegistry(): CommandRegistry {
   registerDataExtra4Commands(reg)
   registerWebExtraCommands(reg)
   registerImapCommands(reg)
+  registerDbCommands(reg)
   registerDataExtra5Commands(reg)
   return reg
 }
@@ -70,6 +72,7 @@ export interface RunDisposer {
   disposeWeb(): Promise<boolean>
   /** 释放打开着的 Excel 工作簿；返回是否实际关闭了 */
   disposeExcel(): Promise<boolean>
+  disposeDb(): Promise<boolean>
 }
 
 /** 默认实现：直接驱动模块级 web/excel 单例 */
@@ -85,6 +88,9 @@ class DefaultRunDisposer implements RunDisposer {
     if (!session.isOpen()) return false
     session.close()
     return true
+  }
+  async disposeDb(): Promise<boolean> {
+    return closeDb()
   }
 }
 
@@ -214,6 +220,18 @@ export class RunManager {
         type: 'log',
         level: 'warn',
         message: `释放 Excel 失败：${e instanceof Error ? e.message : String(e)}`
+      })
+    }
+    try {
+      const closedDb = await this.disposer.disposeDb()
+      if (closedDb) {
+        this.emit({ type: 'log', level: 'info', message: '运行结束：已关闭数据库连接' })
+      }
+    } catch (e) {
+      this.emit({
+        type: 'log',
+        level: 'warn',
+        message: `关闭数据库失败：${e instanceof Error ? e.message : String(e)}`
       })
     }
   }

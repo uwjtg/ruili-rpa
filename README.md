@@ -102,6 +102,7 @@ ruili-rpa/
 - WPS/Office COM 轨未做
 - 装机版自动更新端到端未在真机验过
 - IMAP 真实邮箱兼容性（QQ/163/Gmail 授权码）未验
+- 数据库暂支持 SQLite / MySQL；PostgreSQL / SQL Server 未接
 
 ## 许可证
 

@@ -52,7 +52,8 @@ describe('RunManager · 事件流转线', () => {
     const events: RunWireEvent[] = []
     const disposer = {
       disposeWeb: vi.fn(async () => true),
-      disposeExcel: vi.fn(async () => true)
+      disposeExcel: vi.fn(async () => true),
+      disposeDb: vi.fn(async () => false)
     }
     const mgr = new RunManager(
       (e) => events.push(e),
@@ -84,7 +85,8 @@ describe('RunManager · 事件流转线', () => {
     const events: RunWireEvent[] = []
     const disposer = {
       disposeWeb: vi.fn(async () => false),
-      disposeExcel: vi.fn(async () => false)
+      disposeExcel: vi.fn(async () => false),
+      disposeDb: vi.fn(async () => false)
     }
     const mgr = new RunManager((e) => events.push(e), undefined, disposer)
     mgr.start({
