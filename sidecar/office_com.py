@@ -106,6 +106,46 @@ def excel_merge(sheet: str, range_: str) -> Dict[str, Any]:
     return {"ok": True, "merged": range_}
 
 
+def excel_recalc() -> Dict[str, Any]:
+    """O4：强制重算所有打开工作簿的公式（CalculateFullRebuild）。"""
+    _require_com()
+    if _xl_app is None:
+        raise RuntimeError("Excel 未打开")
+    try:
+        _xl_app.Calculate()
+    except Exception:  # noqa: BLE001
+        pass
+    return {"ok": True, "recalculated": True}
+
+
+# Excel 图表类型枚举（XlChartType 常用值）
+_CHART_TYPES = {
+    "column": 51,      # xlColumnClustered
+    "bar": 57,         # xlBarClustered
+    "line": 4,         # xlLine
+    "pie": 5,          # xlPie
+    "area": 1,         # xlArea
+}
+
+
+def excel_add_chart(sheet: str, chart_type: str, source: str,
+                    left: float = 10.0, top: float = 120.0,
+                    width: float = 360.0, height: float = 240.0,
+                    title: str = "") -> Dict[str, Any]:
+    """O2：在指定工作表按数据区域插入图表。chart_type: column/bar/line/pie/area。"""
+    _require_com()
+    ws = _xl_sheet(sheet)
+    ct = _CHART_TYPES.get(chart_type, 51)
+    co = ws.ChartObjects.Add(left, top, width, height)
+    chart = co.Chart
+    chart.ChartType = ct
+    chart.SetSourceData(ws.Range(source))
+    if title:
+        chart.HasTitle = True
+        chart.ChartTitle.Text = title
+    return {"ok": True, "chart": chart_type, "source": source, "sheet": sheet}
+
+
 def excel_export_pdf(out_path: str) -> Dict[str, Any]:
     """另存为 PDF（xlTypePDF = 0）。"""
     _require_com()

@@ -416,6 +416,19 @@ class Handler(BaseHTTPRequestHandler):
                     out = office_com.excel_merge(
                         str(body.get("sheet", "")), str(body.get("range", ""))
                     )
+                elif route == "excel_recalc":
+                    out = office_com.excel_recalc()
+                elif route == "excel_add_chart":
+                    out = office_com.excel_add_chart(
+                        str(body.get("sheet", "")),
+                        str(body.get("chart_type", "column")),
+                        str(body.get("source", "")),
+                        float(body.get("left", 10.0)),
+                        float(body.get("top", 120.0)),
+                        float(body.get("width", 360.0)),
+                        float(body.get("height", 240.0)),
+                        str(body.get("title", "")),
+                    )
                 elif route == "excel_export_pdf":
                     out = office_com.excel_export_pdf(str(body.get("out_path", "")))
                 elif route == "excel_close":

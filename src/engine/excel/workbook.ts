@@ -21,6 +21,10 @@ export interface ExcelSession {
   readCell(sheet: string, row: number, col: number): Promise<unknown>
   /** 另存为（不存在则新建） */
   saveAs(path: string): Promise<void>
+  /** O1：对区域应用样式（A1:C3 风格的区域；bold/size/color/fill/align/border） */
+  styleRange(sheet: string, range: string, style: Record<string, unknown>): void
+  /** O1：设置列宽（col 从 1 开始） */
+  setColumnWidth(sheet: string, col: number, width: number): void
   isOpen(): boolean
   close(): void
 }
@@ -85,6 +89,52 @@ export class RealExcelSession implements ExcelSession {
   async saveAs(path: string): Promise<void> {
     if (!this.wb) throw new Error('工作簿未打开，无法保存')
     await this.wb.xlsx.writeFile(path)
+  }
+
+  /** 把 A1 / B3 这样的坐标拆成 {row,col}（col 为数字） */
+  private static refToRowCol(ref: string): { row: number; col: number } {
+    const m = ref.trim().match(/^([A-Z]+)(\d+)$/)
+    if (!m) throw new Error(`无法解析单元格坐标：${ref}`)
+    let col = 0
+    for (const ch of m[1]) col = col * 26 + (ch.charCodeAt(0) - 64)
+    return { row: Number(m[2]), col }
+  }
+
+  styleRange(sheet: string, range: string, style: Record<string, unknown>): void {
+    const ws = this.ensureSheet(sheet)
+    // 支持单格 A1 或区间 A1:C3
+    const [a, b] = range.split(':')
+    const start = RealExcelSession.refToRowCol(a)
+    const end = b ? RealExcelSession.refToRowCol(b) : start
+    const bold = Boolean(style.bold)
+    const size = style.size ? Number(style.size) : undefined
+    const color = typeof style.color === 'string' ? style.color : undefined
+    const fill = typeof style.fill === 'string' ? style.fill : undefined
+    const align = typeof style.align === 'string' ? style.align : undefined
+    const border = Boolean(style.border)
+    for (let r = start.row; r <= end.row; r++) {
+      for (let c = start.col; c <= end.col; c++) {
+        const cell = ws.getRow(r).getCell(c)
+        const font: Record<string, unknown> = {}
+        if (bold) font.bold = true
+        if (size) font.size = size
+        if (color) font.color = { argb: color }
+        if (Object.keys(font).length) cell.font = { ...(cell.font ?? {}), ...font } as ExcelJS.PartialStyle['font']
+        if (fill) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } } as ExcelJS.PartialStyle['fill']
+        if (align) cell.alignment = { ...(cell.alignment ?? {}), horizontal: align } as ExcelJS.PartialStyle['alignment']
+        if (border) {
+          const side = { style: 'thin', color: { argb: 'FFBFBFBF' } }
+          cell.border = {
+            top: side, left: side, bottom: side, right: side
+          } as ExcelJS.PartialStyle['border']
+        }
+      }
+    }
+  }
+
+  setColumnWidth(sheet: string, col: number, width: number): void {
+    const ws = this.ensureSheet(sheet)
+    ws.getColumn(col).width = width
   }
 
   close(): void {

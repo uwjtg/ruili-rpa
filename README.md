@@ -2,7 +2,7 @@
 
 > 对标影刀的 Electron 桌面自动化客户端。Windows 桌面 RPA：浏览器/桌面操作、数据抓取、邮件、Office 文档、调度机器人，开箱即用。
 
-![version](https://img.shields.io/badge/version-0.1.1-blue) ![tests](https://img.shields.io/badge/vitest-405-brightgreen) ![pytest](https://img.shields.io/badge/pytest-88-brightgreen)
+![version](https://img.shields.io/badge/version-0.2.0-blue) ![tests](https://img.shields.io/badge/vitest-428-brightgreen) ![pytest](https://img.shields.io/badge/pytest-90-brightgreen)
 
 ## 界面预览
 
@@ -22,7 +22,7 @@
 - **流程**：变量、分支、循环、日志、延时
 - **录制**：桌面元素拾取 + 网页录制（Python sidecar）
 
-指令总数 **160+**，覆盖 V1 范围。
+指令总数 **173**（18 个分类，与运行时 `buildEngineRegistry` 实际注册一致）。
 
 ## 环境要求
 

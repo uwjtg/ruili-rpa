@@ -44,12 +44,13 @@ export function initUpdater(getWindow: GetWindow): void {
 
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
-  // 静默 logger：不向 stdout 灌 electron-updater 的详细日志
+  // 静默 logger：info/warn/debug 不向 stdout 灌日志；error 保留，
+  // 便于离线/无网络时在 crash.log 旁定位更新失败原因（P2 加固）。
   autoUpdater.logger = {
     info: () => {},
     warn: () => {},
-    error: () => {},
-    debug: () => {}
+    debug: () => {},
+    error: (...args: unknown[]) => console.error('[updater]', ...args)
   }
 
   autoUpdater.on('checking-for-update', () => {

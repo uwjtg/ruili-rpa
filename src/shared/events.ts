@@ -22,4 +22,6 @@ export interface RunEvents {
   onPaused?: (step: StepNode) => void
   onResumed?: (step: StepNode) => void
   onFlowEnd?: (result: RunResult) => void
+  /** R2：某个顶层步骤完成后，记录断点（步骤 id / 完成索引 / 全局变量快照） */
+  onCheckpoint?: (stepId: string, completedIndex: number, vars: Record<string, unknown>) => void
 }

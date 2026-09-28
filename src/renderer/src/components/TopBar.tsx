@@ -1,5 +1,5 @@
 import type { JSX } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import Icon from './Icon'
 
@@ -48,6 +48,14 @@ export default function TopBar(): JSX.Element {
   const win = window.ruili?.win
   const updater = window.ruili?.updater
   const [upd, setUpd] = useState<UpdState>({ status: 'idle' })
+  // P2：占位按钮未实装，点击给轻提示（2s 自动消失）
+  const [notice, setNotice] = useState<string | null>(null)
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showNotice = (msg: string): void => {
+    if (noticeTimer.current) clearTimeout(noticeTimer.current)
+    setNotice(msg)
+    noticeTimer.current = setTimeout(() => setNotice(null), 2000)
+  }
 
   useEffect(() => {
     if (!updater?.onStatus) return
@@ -105,19 +113,35 @@ export default function TopBar(): JSX.Element {
       </nav>
 
       <div className="tb-right">
-        <button type="button" className="pill-red">
+        <button
+          type="button"
+          className="pill-red"
+          onClick={() => showNotice('协作邀请功能即将上线')}
+        >
           <Icon name="plus" size={13} strokeWidth={2.2} />
           邀请同事
         </button>
-        <button type="button" className="tb-btn" aria-label="帮助中心" title="帮助中心">
+        <button
+          type="button"
+          className="tb-btn"
+          aria-label="帮助中心"
+          title="帮助中心"
+          onClick={() => showNotice('帮助中心即将上线，可查看教程页')}
+        >
           <Icon name="help" size={17} />
         </button>
-        <button type="button" className="tb-btn" aria-label="通知" title="通知">
+        <button
+          type="button"
+          className="tb-btn"
+          aria-label="通知"
+          title="通知"
+          onClick={() => showNotice('暂无新通知')}
+        >
           <Icon name="bell" size={17} />
           <span className="reddot" aria-hidden="true" />
         </button>
-        <span className="avatar" title="演示用户">
-          演
+        <span className="avatar" title="本机用户（本地单机版）">
+          本
         </span>
         <span className="tb-sep" aria-hidden="true" />
         <button
@@ -145,6 +169,27 @@ export default function TopBar(): JSX.Element {
           <Icon name="win-close" size={15} strokeWidth={1.9} />
         </button>
       </div>
+
+      {notice ? (
+        <div
+          style={{
+            position: 'fixed',
+            top: 48,
+            right: 24,
+            zIndex: 9999,
+            background: 'rgba(31,35,41,.92)',
+            color: '#fff',
+            fontSize: 12,
+            padding: '8px 14px',
+            borderRadius: 6,
+            boxShadow: '0 4px 16px rgba(0,0,0,.18)',
+            pointerEvents: 'none'
+          }}
+          role="status"
+        >
+          {notice}
+        </div>
+      ) : null}
     </header>
   )
 }

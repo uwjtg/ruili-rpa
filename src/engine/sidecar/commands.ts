@@ -28,6 +28,11 @@ export interface SidecarLike {
   officeWordOpen?(path: string, visible?: boolean, engine?: string): Promise<Record<string, unknown>>
   officeWordReplace?(find: string, replace: string, matchCase?: boolean): Promise<Record<string, unknown>>
   officeExcelMerge?(sheet: string, range: string): Promise<Record<string, unknown>>
+  officeExcelRecalc?(): Promise<Record<string, unknown>>
+  officeExcelAddChart?(opts: {
+    sheet: string; chartType: string; source: string;
+    left?: number; top?: number; width?: number; height?: number; title?: string
+  }): Promise<Record<string, unknown>>
   officeExcelExportPdf?(outPath: string): Promise<Record<string, unknown>>
   officeWordExportPdf?(outPath: string): Promise<Record<string, unknown>>
   officeWordClose?(save?: boolean): Promise<Record<string, unknown>>
@@ -254,6 +259,53 @@ export function registerSidecarCommands(
       const r = await client.officeExcelMerge(
         ctx.interpolate(str(p.sheet)), ctx.interpolate(str(p.range)))
       if (!r.ok) throw new Error('合并失败：' + (r.error ?? ''))
+      return r
+    }
+  })
+
+  registry.register({
+    id: 'officeExcelRecalc',
+    name: 'Excel 公式重算',
+    group: 'Office',
+    icon: 'refresh',
+    params: [],
+    summary: () => '强制重算公式',
+    runner: async (ctx) => {
+      if (!client.officeExcelRecalc) throw new Error('sidecar 不支持 Office COM')
+      const r = await client.officeExcelRecalc()
+      if (!r.ok) throw new Error('公式重算失败：' + (r.error ?? ''))
+      ctx.log('success', '公式已重算')
+      return r
+    }
+  })
+
+  registry.register({
+    id: 'officeExcelAddChart',
+    name: 'Excel 插入图表',
+    group: 'Office',
+    icon: 'chart',
+    params: [
+      { key: 'sheet', label: '工作表名', type: 'text' },
+      { key: 'chartType', label: '图表类型', type: 'select', options: [
+        { value: 'column', label: '柱状图' },
+        { value: 'bar', label: '条形图' },
+        { value: 'line', label: '折线图' },
+        { value: 'pie', label: '饼图' }
+      ] },
+      { key: 'source', label: '数据区域', type: 'text', placeholder: 'A1:B4' },
+      { key: 'title', label: '图表标题', type: 'text' }
+    ],
+    summary: (p) => `${str(p.chartType)}图 ${str(p.source)}`,
+    runner: async (ctx, p) => {
+      if (!client.officeExcelAddChart) throw new Error('sidecar 不支持 Office COM')
+      const r = await client.officeExcelAddChart({
+        sheet: ctx.interpolate(str(p.sheet)),
+        chartType: str(p.chartType),
+        source: ctx.interpolate(str(p.source)),
+        title: ctx.interpolate(str(p.title))
+      })
+      if (!r.ok) throw new Error('插入图表失败：' + (r.error ?? ''))
+      ctx.log('success', `已插入${str(p.chartType)}图（${str(p.source)}）`)
       return r
     }
   })

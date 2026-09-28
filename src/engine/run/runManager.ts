@@ -37,6 +37,7 @@ import { registerDbCommands, closeDb } from '../commands/db'
 import { registerDataExtra5Commands } from '../commands/data'
 import { getWebSession } from '../web/session'
 import { getExcelSession } from '../excel/workbook'
+import { buildFailureNotifyRequest } from './failureNotify'
 
 /** 组装一份带全部已实现指令的注册表 */
 export function buildEngineRegistry(): CommandRegistry {
@@ -106,6 +107,8 @@ export interface StartOptions {
   timeoutMs?: number
   /** 注入初始变量（如触发器传 triggerFile） */
   initialVars?: Record<string, unknown>
+  /** R2 断点续跑：从已完成索引的下一步开始，并恢复全局变量 */
+  resume?: { completedIndex: number; vars: Record<string, unknown> }
 }
 
 export class RunManager {
@@ -134,6 +137,8 @@ export class RunManager {
       registry: this.registry,
       stepOnce: this.stepOncePending,
       initialVars: opts.initialVars,
+      resumeFromIndex: opts.resume ? opts.resume.completedIndex + 1 : 0,
+      resumeVars: opts.resume?.vars,
       events: {
         onFlowStart: (f) => this.emit({ type: 'flow-start', flowName: f.name }),
         onStepStart: (s, d) =>
@@ -143,7 +148,30 @@ export class RunManager {
         onLog: (level, message) => this.emit({ type: 'log', level, message }),
         onPaused: (s) => this.emit({ type: 'paused', stepId: s.id }),
         onResumed: (s) => this.emit({ type: 'resumed', stepId: s.id }),
-        onFlowEnd: (r: RunResult) => this.emit({ type: 'flow-end', result: r })
+        onCheckpoint: (stepId, completedIndex, vars) =>
+          this.emit({ type: 'checkpoint', stepId, completedIndex, vars }),
+        onFlowEnd: (r: RunResult) => {
+          this.emit({ type: 'flow-end', result: r })
+          // R3：流程失败且配置了失败通知 → 自动发 webhook（fire-and-forget）
+          if (r.status === 'error' && flow.onFailureNotify?.webhook) {
+            const req = buildFailureNotifyRequest(flow.onFailureNotify, r)
+            void fetch(req.url, {
+              method: req.method,
+              headers: req.headers,
+              body: req.body
+            })
+              .then(() =>
+                this.emit({ type: 'log', level: 'info', message: '已发送失败通知' })
+              )
+              .catch((e) =>
+                this.emit({
+                  type: 'log',
+                  level: 'warn',
+                  message: `失败通知发送失败：${e instanceof Error ? e.message : String(e)}`
+                })
+              )
+          }
+        }
       }
     })
 

@@ -16,6 +16,7 @@ export type RunWireEvent =
   | { type: 'paused'; stepId: string }
   | { type: 'resumed'; stepId: string }
   | { type: 'flow-end'; result: RunResult }
+  | { type: 'checkpoint'; stepId: string; completedIndex: number; vars: Record<string, unknown> }
 
 /** 渲染端 → 主进程的运行控制请求 */
 export type RunControl =

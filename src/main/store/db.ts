@@ -135,6 +135,16 @@ function migrate(d: DB): void {
       updated_at   INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_tasks_flow ON tasks(flow_id);
+    CREATE TABLE IF NOT EXISTS run_checkpoints (
+      run_id            TEXT PRIMARY KEY,
+      flow_id           TEXT,
+      flow_doc          TEXT NOT NULL,
+      completed_step_id TEXT NOT NULL,
+      completed_index   INTEGER NOT NULL,
+      vars              TEXT NOT NULL,
+      updated_at        INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_checkpoints_flow ON run_checkpoints(flow_id);
   `)
   // M5-4 热键触发器：旧库补列（CREATE TABLE IF NOT EXISTS 不会改已有表结构）
   const taskCols = (d.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>).map((x) => x.name)
@@ -841,5 +851,108 @@ export function markTaskTick(id: string, nextRunAt: number | null): void {
   } catch {
     /* 调度记录失败不影响本次 */
   }
+}
+
+/* ---------- R2 断点续跑：每步完成落快照，失败后可从断点继续 ---------- */
+
+/** 一条可续跑的断点记录。 */
+export interface RunCheckpoint {
+  runId: string
+  flowId: string | null
+  flow: FlowDoc
+  completedStepId: string
+  completedIndex: number
+  vars: Record<string, unknown>
+  updatedAt: number
+}
+
+/** upsert 一次断点（每完成一个顶层步骤调用）。 */
+export function upsertRunCheckpoint(
+  runId: string,
+  flowId: string | null,
+  flow: FlowDoc,
+  completedStepId: string,
+  completedIndex: number,
+  vars: Record<string, unknown>
+): void {
+  requireDb()
+    .prepare(
+      `INSERT INTO run_checkpoints (run_id, flow_id, flow_doc, completed_step_id, completed_index, vars, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(run_id) DO UPDATE SET
+         completed_step_id = excluded.completed_step_id,
+         completed_index   = excluded.completed_index,
+         vars              = excluded.vars,
+         updated_at        = excluded.updated_at`
+    )
+    .run(
+      runId,
+      flowId,
+      JSON.stringify(flow),
+      completedStepId,
+      completedIndex,
+      JSON.stringify(vars),
+      Date.now()
+    )
+}
+
+/** 取出某次运行的断点；无则 null。 */
+export function getRunCheckpoint(runId: string): RunCheckpoint | null {
+  const row = requireDb()
+    .prepare(
+      'SELECT run_id, flow_id, flow_doc, completed_step_id, completed_index, vars, updated_at FROM run_checkpoints WHERE run_id = ?'
+    )
+    .get(runId) as
+    | {
+        run_id: string
+        flow_id: string | null
+        flow_doc: string
+        completed_step_id: string
+        completed_index: number
+        vars: string
+        updated_at: number
+      }
+    | undefined
+  if (!row) return null
+  return {
+    runId: row.run_id,
+    flowId: row.flow_id,
+    flow: JSON.parse(row.flow_doc) as FlowDoc,
+    completedStepId: row.completed_step_id,
+    completedIndex: row.completed_index,
+    vars: JSON.parse(row.vars) as Record<string, unknown>,
+    updatedAt: row.updated_at
+  }
+}
+
+/** 列出所有可续跑的断点（按更新时间倒序）。 */
+export function listResumableRuns(): RunCheckpoint[] {
+  const rows = requireDb()
+    .prepare(
+      'SELECT run_id, flow_id, flow_doc, completed_step_id, completed_index, vars, updated_at FROM run_checkpoints ORDER BY updated_at DESC'
+    )
+    .all() as Array<{
+    run_id: string
+    flow_id: string | null
+    flow_doc: string
+    completed_step_id: string
+    completed_index: number
+    vars: string
+    updated_at: number
+  }>
+  return rows.map((r) => ({
+    runId: r.run_id,
+    flowId: r.flow_id,
+    flow: JSON.parse(r.flow_doc) as FlowDoc,
+    completedStepId: r.completed_step_id,
+    completedIndex: r.completed_index,
+    vars: JSON.parse(r.vars) as Record<string, unknown>,
+    updatedAt: r.updated_at
+  }))
+}
+
+/** 流程成功/取消后删除断点（不再需要续跑）。 */
+export function deleteRunCheckpoint(runId: string): void {
+  requireDb().prepare('DELETE FROM run_checkpoints WHERE run_id = ?').run(runId)
 }
 

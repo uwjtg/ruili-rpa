@@ -37,6 +37,10 @@ export interface InterpreterOptions {
   stepOnce?: boolean
   /** 运行前注入的初始变量（触发器/外部传参，如文件监听的 triggerFile） */
   initialVars?: Record<string, unknown>
+  /** R2：续跑时从第几个顶层步骤开始（0 基）；小于该索引的顶层步骤跳过 */
+  resumeFromIndex?: number
+  /** R2：续跑时恢复的全局变量快照 */
+  resumeVars?: Record<string, unknown>
 }
 
 export class Interpreter {
@@ -53,12 +57,16 @@ export class Interpreter {
   /** 单步门闩：true 时下一步执行前暂停一次并自动复位 */
   private stepOnce: boolean
   private readonly initialVars?: Record<string, unknown>
+  private readonly resumeFromIndex: number
+  private readonly resumeVars?: Record<string, unknown>
 
   constructor(opts: InterpreterOptions) {
     this.registry = opts.registry
     this.events = opts.events ?? {}
     this.stepOnce = opts.stepOnce ?? false
     this.initialVars = opts.initialVars
+    this.resumeFromIndex = opts.resumeFromIndex ?? 0
+    this.resumeVars = opts.resumeVars
   }
 
   /** 请求单步：若正等断点则放行一步；否则下次执行前暂停 */
@@ -90,6 +98,8 @@ export class Interpreter {
     this.stepsExecuted = 0
     const rootVars = new Map(flow.vars.map((v) => [v.name, v.value]))
     if (this.initialVars) for (const [k, v] of Object.entries(this.initialVars)) rootVars.set(k, v)
+    // R2 续跑：恢复上次断点的全局变量（覆盖流程默认值）
+    if (this.resumeVars) for (const [k, v] of Object.entries(this.resumeVars)) rootVars.set(k, v)
     this.scopes = [{ vars: rootVars }]
     this.events.onFlowStart?.(flow)
 
@@ -118,10 +128,30 @@ export class Interpreter {
   }
 
   private async execSteps(steps: StepNode[], depth: number): Promise<void> {
+    let index = 0
     for (const step of steps) {
       this.throwIfCancelled()
+      // R2 续跑：顶层步骤按索引跳过已完成的（不重复执行外部副作用）
+      if (depth === 0 && index < this.resumeFromIndex) {
+        this.events.onLog?.('info', `跳过已完成步骤 ${step.id}（断点续跑）`)
+        index++
+        continue
+      }
       await this.executeStep(step, depth)
+      // R2：每个顶层步骤完成后落断点
+      if (depth === 0) {
+        this.events.onCheckpoint?.(step.id, index, this.snapshotGlobalVars())
+      }
+      index++
     }
+  }
+
+  /** R2：全局变量快照（纯 JSON，便于落库） */
+  private snapshotGlobalVars(): Record<string, unknown> {
+    const out: Record<string, unknown> = {}
+    const root = this.scopes[0]
+    if (root) for (const [k, v] of root.vars) out[k] = v
+    return out
   }
 
   private async executeStep(step: StepNode, depth: number): Promise<void> {
@@ -155,7 +185,7 @@ export class Interpreter {
     const ctx = this.buildContext()
     let result: unknown
     try {
-      result = await cmd.runner(ctx, step.params, step)
+      result = await this.runWithRetryAndTimeout(step, () => cmd.runner(ctx, step.params, step))
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       this.events.onLog?.(
@@ -165,6 +195,62 @@ export class Interpreter {
       throw e
     }
     this.events.onStepEnd?.(step, result)
+  }
+
+  /** R1 步骤失败重试 + R4 单步超时看门狗 */
+  private async runWithRetryAndTimeout(
+    step: StepNode,
+    run: () => Promise<unknown>
+  ): Promise<unknown> {
+    const maxRetries = Number(step.retry ?? 0)
+    const retryDelay = Number(step.retryDelayMs ?? 1000)
+    const timeoutMs = Number(step.timeoutMs ?? 60000)
+    let attempt = 0
+    for (;;) {
+      attempt++
+      try {
+        return await this.runWithTimeout(run, timeoutMs, step)
+      } catch (e) {
+        if (e instanceof CancelledError) throw e
+        const msg = e instanceof Error ? e.message : String(e)
+        if (attempt <= maxRetries) {
+          this.events.onLog?.(
+            'warn',
+            `步骤 ${step.id}（${step.cmdId}）第 ${attempt} 次失败：${msg}；${retryDelay}ms 后重试（共 ${maxRetries} 次）`
+          )
+          await this.sleep(retryDelay)
+          this.throwIfCancelled()
+        } else {
+          throw e
+        }
+      }
+    }
+  }
+
+  private async runWithTimeout(
+    run: () => Promise<unknown>,
+    ms: number,
+    step: StepNode
+  ): Promise<unknown> {
+    if (!ms || ms <= 0) return run()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      return await Promise.race([
+        run(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`步骤 ${step.id} 超时（>${ms}ms）`)),
+            ms
+          )
+        })
+      ])
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((r) => setTimeout(r, ms))
   }
 
   private buildContext(): RunContext {

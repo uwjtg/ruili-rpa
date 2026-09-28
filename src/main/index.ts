@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron'
-import { writeFile, readFile } from 'node:fs/promises'
+import { writeFile, readFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'path'
 import { RunManager, buildEngineRegistry } from '../engine/run/runManager'
@@ -38,6 +38,10 @@ import {
   listRunHistory,
   listRunEntries,
   clearRunHistory,
+  upsertRunCheckpoint,
+  deleteRunCheckpoint,
+  getRunCheckpoint,
+  listResumableRuns,
   loadLlmConfig,
   saveLlmConfig,
   loadMailAccount,
@@ -129,6 +133,17 @@ if (!gotSingleInstanceLock) {
 /** 鍐掔儫妯″紡锛氱獥鍙ｆ樉绀哄悗鎴彇棣栧睆锛坰moke.png锛夊苟鑷姩閫€鍑猴紝渚涙棤浜哄€煎畧楠岃瘉鍩虹嚎绐楀彛锛圧UILI_SMOKE=1锛?*/
 const isSmoke = process.env.RUILI_SMOKE === '1'
 
+// P1 兜底：冒烟模式下任何意外（路由切换失败、渲染进程崩溃、截图异常）
+// 都不能让进程挂死不退出。30s 硬超时强制退出。
+if (isSmoke) {
+  const watchdog = setTimeout(() => {
+    console.error('SMOKE_WATCHDOG_TIMEOUT: force quit after 30s')
+    markQuitting()
+    app.quit()
+  }, 30000)
+  if (typeof watchdog.unref === 'function') watchdog.unref()
+}
+
 function createWindow(): BrowserWindow {
   // dev: build/icon.png; packaged: embedded
   const devIcon =
@@ -166,12 +181,20 @@ function createWindow(): BrowserWindow {
     if (!isSmoke) return
     // 鍙€夛細鎴寚瀹氳矾鐢憋紙HashRouter锛夛紝濡?RUILI_SMOKE_ROUTE=/editor
     const route = process.env.RUILI_SMOKE_ROUTE
-    if (route) {
-      await win.webContents.executeJavaScript(`location.hash = ${JSON.stringify(route)}`)
-      await new Promise((resolve) => setTimeout(resolve, 1200))
-    }
-    await new Promise((resolve) => setTimeout(resolve, 800))
+    // P1 修复：整个冒烟流程包进 try/catch/finally，任何一步异常（路由切换失败、
+    // 截图失败）都必须走到 finally 退出，杜绝进程挂死。
     try {
+      if (route) {
+        try {
+          await win.webContents.executeJavaScript(
+            `location.hash = ${JSON.stringify(route)}`
+          )
+        } catch (routeErr) {
+          console.error('SMOKE_ROUTE_FAILED', routeErr)
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1200))
+      }
+      await new Promise((resolve) => setTimeout(resolve, 800))
       const image = await win.webContents.capturePage()
       const out = route
         ? join(
@@ -180,12 +203,18 @@ function createWindow(): BrowserWindow {
             `smoke-${route.replace(/[\\/?&=:#]/g, '_')}.png`
           )
         : join(process.cwd(), 'smoke.png')
+      // .runtime 目录可能不存在，先确保建好（此前 ENOENT 导致截图失败）
+      await mkdir(join(out, '..'), { recursive: true })
       await writeFile(out, image.toPNG())
       console.log(`SMOKE_SHOT_SAVED ${out}`)
     } catch (err) {
       console.error('SMOKE_SHOT_FAILED', err)
     } finally {
-      setTimeout(() => app.quit(), 500)
+      // markQuitting：否则托盘 close 拦截会让 app.quit() 关不掉窗口
+      setTimeout(() => {
+        markQuitting()
+        app.quit()
+      }, 500)
     }
   })
 
@@ -243,13 +272,33 @@ let mainWindow: BrowserWindow | null = null
 
 /** 鏈杩愯褰掑睘鐨勬祦绋?id锛坮enderer 璋?run:start 鏃堕€忎紶锛涘唴缃祦绋嬩负 null锛?*/
 let currentFlowId: string | null = null
+let pendingRunFlow: FlowDoc | null = null
 /** 杩愯鏈熸棩蹇楃紦鍐诧紝flow-end 鏃舵壒閲忚惤 logs 琛?*/
-let runLog: { flowId: string | null; runId: string; entries: RunLogEntry[] } | null = null
+let runLog: {
+  flowId: string | null
+  runId: string
+  flow: FlowDoc
+  entries: RunLogEntry[]
+} | null = null
 
 function broadcast(event: RunWireEvent): void {
   // 收集运行日志并在 flow-end 落 SQLite（M2 切片 3）
   if (event.type === 'flow-start') {
-    runLog = { flowId: currentFlowId, runId: randomUUID(), entries: [] }
+    runLog = {
+      flowId: currentFlowId,
+      runId: randomUUID(),
+      flow: pendingRunFlow!,
+      entries: []
+    }
+  } else if (event.type === 'checkpoint' && runLog) {
+    upsertRunCheckpoint(
+      runLog.runId,
+      runLog.flowId,
+      runLog.flow,
+      event.stepId,
+      event.completedIndex,
+      event.vars
+    )
   } else if (event.type === 'log' && runLog) {
     runLog.entries.push({ level: event.level, message: event.message, ts: Date.now() })
   } else if (event.type === 'flow-end' && runLog) {
@@ -260,6 +309,8 @@ function broadcast(event: RunWireEvent): void {
       event.result.status,
       event.result.durationMs
     )
+    // R2：成功/取消清断点；失败保留供续跑
+    if (event.result.status !== 'error') deleteRunCheckpoint(runLog.runId)
     // M5-15锛氭妸 runId+status 鍗曠嫭鎺ㄤ竴浠斤紝缂栬緫鍣ㄥけ璐ユ椂鎸?runId 璋?AI 瑙ｉ噴
     mainWindow?.webContents.send('run:end-meta', {
       runId: runLog.runId,
@@ -275,7 +326,35 @@ const runManager = new RunManager(broadcast)
 ipcMain.handle('run:start', (_e, flow: FlowDoc, flowId?: string) => {
   try {
     currentFlowId = flowId ?? null
+    pendingRunFlow = flow
     runManager.start(flow)
+    return { ok: true as const }
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : String(err) }
+  }
+})
+
+// R2：列出可续跑的失败运行
+ipcMain.handle('runs:resumable', () => {
+  return listResumableRuns().map((c) => ({
+    runId: c.runId,
+    flowId: c.flowId,
+    flowName: c.flow.name,
+    completedStepId: c.completedStepId,
+    updatedAt: c.updatedAt
+  }))
+})
+
+// R2：从指定失败运行的断点继续
+ipcMain.handle('run:resume-checkpoint', (_e, runId: string) => {
+  try {
+    const cp = getRunCheckpoint(runId)
+    if (!cp) return { ok: false as const, error: '找不到可续跑的断点（可能已完成）' }
+    currentFlowId = cp.flowId
+    pendingRunFlow = cp.flow
+    runManager.start(cp.flow, {
+      resume: { completedIndex: cp.completedIndex, vars: cp.vars }
+    })
     return { ok: true as const }
   } catch (err) {
     return { ok: false as const, error: err instanceof Error ? err.message : String(err) }
@@ -438,11 +517,14 @@ ipcMain.handle('llm:generate-flow', async (_e, prompt: string) => {
 /* ---------- LLM 閰嶇疆锛圡5-11锛夛細UI 鍙敼 baseURL/model/apiKey锛沘piKey DPAPI 鍔犲瘑钀界洏锛屼笉涓嬪彂鏄庢枃 ---------- */
 ipcMain.handle('llm:get-config', () => {
   const cfg = loadLlmConfig()
+  // P3：把 safeStorage 是否可用透传给渲染端，不可用时 UI 提示 apiKey 明文兜底
+  const encryptionAvailable = safeStorage.isEncryptionAvailable()
   if (!cfg) {
     // 鏃?DB 閰嶇疆锛氱敤鍐呭瓨閲岀殑鐜鍙橀噺榛樿
     const defaults = envDefaultProviders()
     return {
       active: llmClient.active().name,
+      encryptionAvailable,
       providers: defaults.map((p) => ({
         name: p.name,
         baseURL: p.baseURL,
@@ -453,6 +535,7 @@ ipcMain.handle('llm:get-config', () => {
   }
   return {
     active: cfg.active,
+    encryptionAvailable,
     providers: cfg.providers.map((p) => ({
       name: p.name,
       baseURL: p.baseURL,

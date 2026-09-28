@@ -355,3 +355,135 @@ describe('Interpreter · 5 步演示流程', () => {
     expect(rec.stepOrder).toContain('s5')
   })
 })
+
+describe('Interpreter · R1 步骤重试 / R4 单步超时', () => {
+  function regWithFailing(failTimesBeforeOk: number): {
+    reg: CommandRegistry
+    calls: number
+  } {
+    const reg = makeRegistry()
+    const state = { calls: 0 }
+    reg.register({
+      id: 'flaky',
+      name: '偶发失败',
+      group: '测试',
+      params: [],
+      async runner() {
+        state.calls++
+        if (state.calls <= failTimesBeforeOk) throw new Error(`炸了第${state.calls}次`)
+        return 'ok'
+      }
+    } as any)
+    return { reg, calls: state.calls }
+  }
+
+  it('R1：失败后按 retry 次数重试，最终成功', async () => {
+    const { reg } = regWithFailing(2)
+    const rec = makeRecorder()
+    const flow: FlowDoc = {
+      version: 1,
+      name: 't',
+      vars: [],
+      steps: [
+        { id: 'a', cmdId: 'flaky', params: {}, retry: 2, retryDelayMs: 1 }
+      ]
+    }
+    const result = await new Interpreter({ registry: reg, events: rec.events }).run(flow)
+    expect(result.status).toBe('completed')
+    expect(rec.logs.some((l) => l.level === 'warn' && l.message.includes('重试'))).toBe(true)
+  })
+
+  it('R1：重试次数用尽仍失败 → status=error', async () => {
+    const { reg } = regWithFailing(99)
+    const flow: FlowDoc = {
+      version: 1,
+      name: 't',
+      vars: [],
+      steps: [{ id: 'a', cmdId: 'flaky', params: {}, retry: 1, retryDelayMs: 1 }]
+    }
+    const result = await new Interpreter({ registry: reg }).run(flow)
+    expect(result.status).toBe('error')
+    expect(result.error).toMatch(/炸了/)
+  })
+
+  it('R4：单步超过 timeoutMs 即判失败', async () => {
+    const reg = makeRegistry()
+    reg.register({
+      id: 'hang',
+      name: '永不返回',
+      group: '测试',
+      params: [],
+      runner: () => new Promise<void>(() => {})
+    } as any)
+    const flow: FlowDoc = {
+      version: 1,
+      name: 't',
+      vars: [],
+      steps: [{ id: 'a', cmdId: 'hang', params: {}, timeoutMs: 20 }]
+    }
+    const result = await new Interpreter({ registry: reg }).run(flow)
+    expect(result.status).toBe('error')
+    expect(result.error).toMatch(/超时/)
+  })
+
+  it('R4：timeoutMs=0 表示不限制（快速返回不受影响）', async () => {
+    const rec = makeRecorder()
+    const flow: FlowDoc = {
+      version: 1,
+      name: 't',
+      vars: [],
+      steps: [{ id: 'a', cmdId: 'logMessage', params: { message: 'x' }, timeoutMs: 0 }]
+    }
+    const result = await new Interpreter({ registry: makeRegistry(), events: rec.events }).run(flow)
+    expect(result.status).toBe('completed')
+  })
+})
+
+describe('Interpreter · R2 断点续跑', () => {
+  it('每个顶层步骤完成后触发 onCheckpoint（带完成索引与变量快照）', async () => {
+    const rec = makeRecorder()
+    const checkpoints: Array<{ stepId: string; index: number; vars: Record<string, unknown> }> = []
+    const flow: FlowDoc = {
+      version: 1,
+      name: 't',
+      vars: [{ name: 'n', type: 'number', value: 1 }],
+      steps: [
+        { id: 'a', cmdId: 'setVar', params: { name: 'n', value: '2' } },
+        { id: 'b', cmdId: 'setVar', params: { name: 'n', value: '3' } }
+      ]
+    }
+    await new Interpreter({
+      registry: makeRegistry(),
+      events: { ...rec.events, onCheckpoint: (s, i, v) => checkpoints.push({ stepId: s, index: i, vars: v }) }
+    }).run(flow)
+    expect(checkpoints.map((c) => c.stepId)).toEqual(['a', 'b'])
+    expect(checkpoints[0].index).toBe(0)
+    expect(checkpoints[0].vars.n).toBe(2)
+    expect(checkpoints[1].vars.n).toBe(3)
+  })
+
+  it('resumeFromIndex 跳过已完成步骤，并恢复 resumeVars', async () => {
+    const rec = makeRecorder()
+    const flow: FlowDoc = {
+      version: 1,
+      name: 't',
+      vars: [],
+      steps: [
+        { id: 'a', cmdId: 'logMessage', params: { message: 'done-1' } },
+        { id: 'b', cmdId: 'logMessage', params: { message: 'done-2' } },
+        { id: 'c', cmdId: 'logMessage', params: { message: 'ran-${n}' } }
+      ]
+    }
+    const result = await new Interpreter({
+      registry: makeRegistry(),
+      events: rec.events,
+      resumeFromIndex: 2,
+      resumeVars: { n: '续跑' }
+    }).run(flow)
+    expect(result.status).toBe('completed')
+    // a/b 被跳过，只跑 c
+    expect(rec.stepOrder).toEqual(['c'])
+    expect(rec.logs.map((l) => l.message)).not.toContain('done-1')
+    expect(rec.logs.map((l) => l.message)).toContain('ran-续跑')
+  })
+})

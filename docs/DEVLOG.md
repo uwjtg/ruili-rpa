@@ -23,7 +23,7 @@
 | 106 | `46ce197..d31170c` | **Office COM**：pywin32 驱动 Office 2016；sidecar/office_com.py 单例管 Excel/Word；7 条新指令（officeExcel*/officeWord*）；真机 Excel 读写冒烟通过 | pytest 88→90，指令 169→176 |
 | 107 | `d31170c..5775da2` | **WPS 兼容 + PDF**：KET/KWPS engine 切换；officeExcelMerge；officeExcelExportPdf/officeWordExportPdf；真机 WPS KET 读写+PDF 28KB 冒烟通过 | pytest 90，指令 176→179 |
 
-最终：tag **v0.2.0**，指令 **179**，typecheck 0 / vitest 426 / pytest 90。
+最终：tag **v0.2.0**，运行时实际注册指令 **173**（18 分类；此前按切片累加计为 179，含若干后来合并/更名，以 `buildEngineRegistry()` 实跑为准），typecheck 0 / vitest 426（P1/P2 修复后 428）/ pytest 90。
 
 ## 过程中踩过的坑（写给后来者）
 

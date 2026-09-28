@@ -46,6 +46,7 @@ declare global {
         startDemo: () => Promise<{ ok: boolean; error?: string }>
         startM1E2E: () => Promise<{ ok: boolean; error?: string }>
         resume: () => void
+        resumeCheckpoint: (runId: string) => Promise<{ ok: boolean; error?: string }>
         stop: () => void
         step: () => void
         onEvent: (cb: (e: RunWireEvent) => void) => () => void
@@ -59,6 +60,7 @@ declare global {
         ) => Promise<{ ok: boolean; flow?: FlowDoc; error?: string }>
         getConfig: () => Promise<{
           active: string
+          encryptionAvailable: boolean
           providers: Array<{ name: string; baseURL: string; model: string; hasApiKey: boolean }>
         }>
         saveConfig: (input: {
@@ -156,6 +158,15 @@ declare global {
         history: (limit?: number) => Promise<{ ok: true; items: RunHistoryItem[] } | { ok: false; error: string }>
         entries: (runId: string) => Promise<{ ok: true; items: RunLogEntryRow[] } | { ok: false; error: string }>
         clear: () => Promise<{ ok: true } | { ok: false; error: string }>
+        resumable: () => Promise<
+          Array<{
+            runId: string
+            flowId: string | null
+            flowName: string
+            completedStepId: string
+            updatedAt: number
+          }>
+        >
       }
       crash: {
         report: (message: string, stack?: string) => void

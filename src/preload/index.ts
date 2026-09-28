@@ -87,6 +87,9 @@ const api = {
     startM1E2E: (): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('run:start-m1'),
     resume: (): void => ipcRenderer.send('run:resume'),
+    /** R2：从指定失败运行的断点继续 */
+    resumeCheckpoint: (runId: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('run:resume-checkpoint', runId),
     stop: (): void => ipcRenderer.send('run:stop'),
     /** 单步：跑一步后暂停（step-over） */
     step: (): void => ipcRenderer.send('run:step'),
@@ -115,6 +118,7 @@ const api = {
     /** M5-11：读 LLM 配置（apiKey 不下发，只回 hasApiKey） */
     getConfig: (): Promise<{
       active: string
+      encryptionAvailable: boolean
       providers: Array<{ name: string; baseURL: string; model: string; hasApiKey: boolean }>
     }> => ipcRenderer.invoke('llm:get-config'),
     /** M5-11：保存 LLM 配置（apiKey 空串=保留旧值），DPAPI 加密落盘并热重载 */
@@ -276,7 +280,18 @@ const api = {
       | { ok: true; items: RunLogEntryRow[] }
       | { ok: false; error: string }
     >,
-    clear: () => ipcRenderer.invoke('runs:clear') as Promise<{ ok: true } | { ok: false; error: string }>
+    clear: () => ipcRenderer.invoke('runs:clear') as Promise<{ ok: true } | { ok: false; error: string }>,
+    /** R2：列出可续跑的失败运行断点 */
+    resumable: () =>
+      ipcRenderer.invoke('runs:resumable') as Promise<
+        Array<{
+          runId: string
+          flowId: string | null
+          flowName: string
+          completedStepId: string
+          updatedAt: number
+        }>
+      >
   },
   /** 自动更新（M5-26）：GitHub Releases；启动时自动检查，下载完成后弹窗提示重启 */
   /** M6-3: report uncaught renderer errors to main process for crash.log */

@@ -35,14 +35,30 @@ export interface StepNode {
   disabled?: boolean
   /** 断点：执行该步前暂停，等待 resume */
   breakpoint?: boolean
+  /** 失败重试次数（0/缺省=不重试） */
+  retry?: number
+  /** 重试间隔毫秒（缺省 1000） */
+  retryDelayMs?: number
+  /** 单步超时毫秒（缺省 60000；0=不限制）。超时即判该步失败 */
+  timeoutMs?: number
 }
 
-/** 一份流程文档（可序列化为 JSON） */
+/** R3：流程失败自动通知配置 */
+export interface FlowFailureNotify {
+  channel?: 'feishu' | 'dingtalk' | 'webhook'
+  webhook: string
+}
 export interface FlowDoc {
   version: number
   name: string
+  /** E3：流程一句话说明（模板市场/卡片展示） */
+  description?: string
+  /** E3：作者/维护者 */
+  author?: string
   vars: FlowVar[]
   steps: StepNode[]
+  /** R3：流程异常结束时自动发的失败通知（无人值守） */
+  onFailureNotify?: FlowFailureNotify
   /**
    * 本流程专属的录制聚合阈值覆盖（M3 切片 17）。
    * 只收有值的键；缺省键沿用全局 DB 设置。开启录制时随 flow.recordThresholds

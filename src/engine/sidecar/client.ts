@@ -468,6 +468,22 @@ export class SidecarClient {
   officeExcelMerge(sheet: string, range: string) {
     return this.officePost('excel_merge', { sheet, range })
   }
+  officeExcelRecalc() {
+    return this.officePost('excel_recalc', {})
+  }
+  officeExcelAddChart(opts: {
+    sheet: string; chartType: string; source: string;
+    left?: number; top?: number; width?: number; height?: number; title?: string
+  }) {
+    return this.officePost('excel_add_chart', {
+      sheet: opts.sheet,
+      chart_type: opts.chartType,
+      source: opts.source,
+      left: opts.left ?? 10, top: opts.top ?? 120,
+      width: opts.width ?? 360, height: opts.height ?? 240,
+      title: opts.title ?? ''
+    })
+  }
   officeExcelExportPdf(outPath: string) {
     return this.officePost('excel_export_pdf', { out_path: outPath })
   }

@@ -1031,6 +1031,69 @@ const oncePoll: TemplateInfo = {
   ])
 }
 
+/* ============ 第三批：O 线能力（Excel 样式 / Word 占位符） ============ */
+
+const excelStyledReport: TemplateInfo = {
+  id: 'excel-styled-report',
+  name: '带样式的月度报表',
+  category: 'Excel表格',
+  description: '表头加粗居中加底色、列宽拉宽、合计行加边框——一份能直接交付的小报表',
+  icon: 'table',
+  flow: flow('带样式的月度报表', [
+    { name: 'outPath', type: 'string', value: 'D:\\monthly.xlsx' }
+  ], [
+    step('s1', 'excelCreate'),
+    step('s2', 'excelWriteRow', { sheet: 'Sheet1', row: 1, values: '["部门","本月业绩","目标"]' }),
+    step('s3', 'excelWriteRow', { sheet: 'Sheet1', row: 2, values: '["研发",120,100]' }),
+    step('s4', 'excelWriteRow', { sheet: 'Sheet1', row: 3, values: '["运营",80,100]' }),
+    step('s5', 'excelWriteRow', { sheet: 'Sheet1', row: 4, values: '["合计",200,200]' }),
+    step('s6', 'excelStyleRange', { sheet: 'Sheet1', range: 'A1:C1', bold: true, fill: 'FFE8F0FF', align: 'center' }),
+    step('s7', 'excelStyleRange', { sheet: 'Sheet1', range: 'A4:C4', bold: true, border: true }),
+    step('s8', 'excelSetColumnWidth', { sheet: 'Sheet1', col: 1, width: 16 }),
+    step('s9', 'excelSetColumnWidth', { sheet: 'Sheet1', col: 2, width: 14 }),
+    step('s10', 'excelSave', { path: '${outPath}' }),
+    step('s11', 'logMessage', { message: '报表已生成：${outPath}', level: 'success' })
+  ])
+}
+
+const wordPlaceholderFill: TemplateInfo = {
+  id: 'office-word-placeholder',
+  name: 'Word 占位符批量填充',
+  category: 'Office文档',
+  description: '打开合同/通知模板，把 {{客户}}/{{金额}} 这类占位符逐个替换成真实值',
+  icon: 'doc',
+  flow: flow('Word 占位符填充', [
+    { name: 'docPath', type: 'string', value: 'D:\\template.docx', required: true, description: '带 {{占位符}} 的 Word 模板' },
+    { name: 'customer', type: 'string', value: '锐流科技', required: true, description: '替换 {{客户}} 的值' },
+    { name: 'amount', type: 'string', value: '12800', required: true, description: '替换 {{金额}} 的值' }
+  ], [
+    step('s1', 'officeWordOpen', { path: '${docPath}', visible: 'false' }),
+    step('s2', 'officeWordFindReplace', { find: '{{客户}}', replace: '${customer}' }),
+    step('s3', 'officeWordFindReplace', { find: '{{金额}}', replace: '${amount}' }),
+    step('s4', 'officeWordClose', { save: 'true' }),
+    step('s5', 'logMessage', { message: '占位符已填充并保存：${docPath}', level: 'success' })
+  ])
+}
+
+const officeChartReport: TemplateInfo = {
+  id: 'office-excel-chart',
+  name: 'Excel 生成图表并重算',
+  category: 'Office文档',
+  description: '打开真实 Excel → 按数据区域插柱状图 → 强制重算公式 → 另存（需本机装 Office/WPS）',
+  icon: 'chart',
+  flow: flow('Excel 图表与重算', [
+    { name: 'xlsxPath', type: 'string', value: 'D:\\sales.xlsx', required: true, description: '含数据的 xlsx' },
+    { name: 'outPath', type: 'string', value: 'D:\\sales-chart.pdf', description: '导出 PDF' }
+  ], [
+    step('s1', 'officeExcelOpen', { path: '${xlsxPath}', visible: 'false' }),
+    step('s2', 'officeExcelAddChart', { sheet: 'Sheet1', chartType: 'column', source: 'A1:B4', title: '月度业绩' }),
+    step('s3', 'officeExcelRecalc'),
+    step('s4', 'officeExcelExportPdf', { outPath: '${outPath}' }),
+    step('s5', 'officeExcelClose', { save: 'true' }),
+    step('s6', 'logMessage', { message: '图表已生成：${outPath}', level: 'success' })
+  ])
+}
+
 /* ============ 汇总导出 ============ */
 
 /** 全量官方模板（顺序即市场默认排列） */
@@ -1084,7 +1147,10 @@ export const OFFICIAL_TEMPLATES: TemplateInfo[] = [
   delayRhythm,
   ocrLog,
   excelAppendWeb,
-  oncePoll
+  oncePoll,
+  excelStyledReport,
+  wordPlaceholderFill,
+  officeChartReport
 ]
 
 /** 市场分类 chips（去重保持出现顺序） */

@@ -49,6 +49,10 @@ export default function RobotsView(): JSX.Element {
   const [flowFilter, setFlowFilter] = useState<string>('all')
   const [live, setLive] = useState<LiveRun | null>(null)
   const liveRef = useRef<LiveRun | null>(null)
+  // R2：可续跑的失败运行
+  const [resumable, setResumable] = useState<Array<{
+    runId: string; flowId: string | null; flowName: string; completedStepId: string; updatedAt: number
+  }>>([])
   // M5-12：AI 解释错误
   const [explainRunId, setExplainRunId] = useState<string | null>(null)
   const [explaining, setExplaining] = useState(false)
@@ -62,6 +66,7 @@ export default function RobotsView(): JSX.Element {
     const res = await ruili.runs.history(100)
     if (res.ok) setItems(res.items)
     else setError(res.error)
+    if (ruili.runs.resumable) setResumable(await ruili.runs.resumable())
     setLoading(false)
   }, [ruili])
 
@@ -123,6 +128,12 @@ export default function RobotsView(): JSX.Element {
     const res = await ruili.runs.clear()
     if (res.ok) void refresh()
     else setError(res.error)
+  }
+
+  async function resumeRun(runId: string): Promise<void> {
+    if (!ruili?.run?.resumeCheckpoint) return
+    const r = await ruili.run.resumeCheckpoint(runId)
+    if (!r.ok) window.alert(r.error ?? '续跑失败')
   }
 
   const flowOptions = Array.from(new Map(items.map((r) => [r.flowId ?? '', r.flowName ?? '未保存'])).entries())
@@ -191,6 +202,27 @@ export default function RobotsView(): JSX.Element {
       {error ? (
         <div style={{ color: '#E64340', fontSize: 13, padding: 12, background: '#FDECEC', borderRadius: 6, marginBottom: 12 }}>
           加载失败：{error}
+        </div>
+      ) : null}
+
+      {resumable.length > 0 ? (
+        <div style={{ background: '#FFF7E6', border: '1px solid #FFD591', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#AD6800', marginBottom: 6 }}>
+            有 {resumable.length} 次失败运行可从断点继续
+          </div>
+          {resumable.map((c) => (
+            <div key={c.runId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+              <span style={{ fontSize: 12, color: '#1F2329', flex: 1 }}>
+                {c.flowName} · 已完成到步骤 {c.completedStepId}
+              </span>
+              <button
+                onClick={() => void resumeRun(c.runId)}
+                style={{ height: 26, padding: '0 12px', border: 'none', borderRadius: 6, background: '#FA8C16', color: '#fff', fontSize: 12, cursor: 'pointer' }}
+              >
+                从断点继续
+              </button>
+            </div>
+          ))}
         </div>
       ) : null}
 

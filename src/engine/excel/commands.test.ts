@@ -26,13 +26,15 @@ function fakeSession() {
     writeRow: vi.fn(),
     readCell: vi.fn(async () => '读取值'),
     saveAs: vi.fn(async () => {}),
+    styleRange: vi.fn(),
+    setColumnWidth: vi.fn(),
     isOpen: () => true,
     close: vi.fn()
   }
 }
 
 describe('excel 指令（stub 会话）', () => {
-  it('注册 6 条 Excel 指令', () => {
+  it('注册 8 条 Excel 指令', () => {
     const reg = new CommandRegistry()
     registerExcelCommands(reg, { session: fakeSession() })
     expect(
@@ -43,10 +45,40 @@ describe('excel 指令（stub 会话）', () => {
         'excelOpen',
         'excelReadCell',
         'excelSave',
+        'excelSetColumnWidth',
+        'excelStyleRange',
         'excelWriteCell',
         'excelWriteRow'
       ].sort()
     )
+  })
+
+  it('excelStyleRange 把样式透传给会话', async () => {
+    const session = fakeSession()
+    const reg = new CommandRegistry()
+    registerExcelCommands(reg, { session })
+    const { ctx } = makeCtx()
+    await reg.get('excelStyleRange')!.runner(
+      ctx,
+      { sheet: 'Sheet1', range: 'A1:C1', bold: true, fill: 'FFE8F0FF', border: true },
+      { id: 'sX', cmdId: 'excelStyleRange', params: {} }
+    )
+    expect(session.styleRange).toHaveBeenCalledWith('Sheet1', 'A1:C1', expect.objectContaining({
+      bold: true, fill: 'FFE8F0FF', border: true
+    }))
+  })
+
+  it('excelSetColumnWidth 透传列号与宽度', async () => {
+    const session = fakeSession()
+    const reg = new CommandRegistry()
+    registerExcelCommands(reg, { session })
+    const { ctx } = makeCtx()
+    await reg.get('excelSetColumnWidth')!.runner(
+      ctx,
+      { sheet: 'Sheet1', col: 1, width: 16 },
+      { id: 'sY', cmdId: 'excelSetColumnWidth', params: {} }
+    )
+    expect(session.setColumnWidth).toHaveBeenCalledWith('Sheet1', 1, 16)
   })
 
   it('excelWriteCell 把数字串转成 number 并写入', async () => {

@@ -163,4 +163,58 @@ export function registerExcelCommands(
       return path
     }
   })
+
+  registry.register({
+    id: 'excelStyleRange',
+    name: '设置区域样式',
+    group: 'Excel',
+    icon: 'paint',
+    params: [
+      { key: 'sheet', label: '工作表', type: 'text', default: 'Sheet1' },
+      { key: 'range', label: '区域', type: 'text', placeholder: 'A1:C1' },
+      { key: 'bold', label: '加粗', type: 'boolean', default: false },
+      { key: 'size', label: '字号', type: 'number', placeholder: '12' },
+      { key: 'color', label: '字体色 ARGB', type: 'text', placeholder: 'FFFFFFFF' },
+      { key: 'fill', label: '填充色 ARGB', type: 'text', placeholder: 'FFE8F0FF' },
+      { key: 'align', label: '对齐', type: 'select', options: [
+        { value: 'left', label: '左' },
+        { value: 'center', label: '居中' },
+        { value: 'right', label: '右' }
+      ] },
+      { key: 'border', label: '加边框', type: 'boolean', default: false }
+    ],
+    summary: (p) => `样式 ${str(p.sheet)}!${str(p.range)}`,
+    runner: async (ctx, p) => {
+      const sheet = ctx.interpolate(str(p.sheet, 'Sheet1'))
+      const range = ctx.interpolate(str(p.range))
+      session.styleRange(sheet, range, {
+        bold: Boolean(p.bold),
+        size: p.size,
+        color: str(p.color) || undefined,
+        fill: str(p.fill) || undefined,
+        align: str(p.align) || undefined,
+        border: Boolean(p.border)
+      })
+      ctx.log('success', `已设置样式 ${sheet}!${range}`)
+      return true
+    }
+  })
+
+  registry.register({
+    id: 'excelSetColumnWidth',
+    name: '设置列宽',
+    group: 'Excel',
+    icon: 'columns',
+    params: [
+      { key: 'sheet', label: '工作表', type: 'text', default: 'Sheet1' },
+      { key: 'col', label: '列号（从1）', type: 'number' },
+      { key: 'width', label: '宽度', type: 'number' }
+    ],
+    summary: (p) => `列宽 ${str(p.sheet)}!列${str(p.col)} = ${str(p.width)}`,
+    runner: async (_ctx, p) => {
+      const sheet = str(p.sheet, 'Sheet1')
+      session.setColumnWidth(sheet, Number(p.col), Number(p.width))
+      return true
+    }
+  })
 }

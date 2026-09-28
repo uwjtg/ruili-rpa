@@ -20,6 +20,7 @@ interface ProviderDraft {
 
 interface ConfigResp {
   active: string
+  encryptionAvailable: boolean
   providers: Array<{ name: string; baseURL: string; model: string; hasApiKey: boolean }>
 }
 
@@ -47,6 +48,7 @@ export default function LlmConfigPanel(): JSX.Element {
   const ruili = window.ruili
   const [providers, setProviders] = useState<ProviderDraft[] | null>(null)
   const [active, setActive] = useState('')
+  const [encOk, setEncOk] = useState(true)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const [testMsg, setTestMsg] = useState('')
@@ -55,6 +57,7 @@ export default function LlmConfigPanel(): JSX.Element {
     if (!ruili?.llm?.getConfig) return
     void ruili.llm.getConfig().then((c: ConfigResp) => {
       setActive(c.active)
+      setEncOk(c.encryptionAvailable !== false)
       setProviders(
         c.providers.map((p) => ({ ...p, apiKey: '' }))
       )
@@ -106,8 +109,13 @@ export default function LlmConfigPanel(): JSX.Element {
         AI 魔法指令（LLM）
       </div>
       <div style={{ fontSize: 11, color: '#8A8F99', marginBottom: 12 }}>
-        配置生成流程用的大模型。apiKey 仅本机加密存储，不上传。留空 apiKey 表示不修改已存值。
+        配置生成流程用的大模型。apiKey 经系统凭据（DPAPI）加密存于本机，不上传。留空 apiKey 表示不修改已存值。
       </div>
+      {!encOk ? (
+        <div style={{ fontSize: 11, color: '#B25E09', background: '#FDF6EC', border: '1px solid #F5DAB1', borderRadius: 6, padding: '6px 10px', marginBottom: 12 }}>
+          ⚠ 当前系统凭据加密不可用，API Key 将以明文保存在本地数据库；多人共用电脑时请注意风险。
+        </div>
+      ) : null}
 
       {!providers ? (
         <div style={{ fontSize: 12, color: '#8A8F99' }}>正在读取配置…</div>
