@@ -126,7 +126,7 @@ function main(): void {
 
   // sidecar 脚本放到 python/app/（server.py 与 desktop_pick.py 同目录，from desktop_pick import 才成立）
   mkdirSync(join(DEST, 'app'), { recursive: true })
-  for (const f of ['server.py', 'desktop_pick.py']) {
+  for (const f of ['server.py', 'desktop_pick.py', 'office_com.py']) {
     cpSync(join(SIDECAR_DIR, f), join(DEST, 'app', f))
   }
 
